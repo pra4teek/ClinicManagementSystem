@@ -1,0 +1,13 @@
+ python -m venv cmsvenv
+ cd..(virtual env activate)
+ 
+ pip install django djangorestframework MySQLclient
+ DB name:ClinicManagementSystem
+ password :To change
+ django-admin startproject clinicmanagementsystem
+ cd (projectname)
+ python manage. py startapp apibackendapp
+ app name:apibackendapp
+ database create with the same name
+ python manage.py makemigrations
+ python manage.py migrate
