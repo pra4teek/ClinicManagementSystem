@@ -36,7 +36,7 @@ class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = MasterMedicine.objects.all().order_by("MedicineName")
     serializer_class = MasterMedicineSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ["MedicineName", "GenericName"]
 
@@ -44,7 +44,7 @@ class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 class PharmacyStockViewSet(viewsets.ModelViewSet):
     queryset = PharmacyStock.objects.select_related("Medicine").all()
     serializer_class = PharmacyStockSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
@@ -55,7 +55,7 @@ class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     serializer_class = PrescriptionQueueSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # "Finalized" prescriptions = not already fully dispensed. The
@@ -74,22 +74,19 @@ class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
 
         input_serializer = DispenseRequestSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
-        # TEMP - manual testing only, revert before commit
-        staff = Staff.objects.first()
-
-        # staff = getattr(request.user, "staff_profile", None)
-        # if staff is None:
-        #     return Response(
-        #         {
-        #             "detail": (
-        #                 "Authenticated user has no linked Staff record; "
-        #                 "cannot record who dispensed this. This will resolve "
-        #                 "once request.user reliably resolves to a Staff-linked "
-        #                 "account — see the auth blocker noted in chat."
-        #             )
-        #         },
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
+        staff = getattr(request.user, "staff_profile", None)
+        if staff is None:
+            return Response(
+                {
+                    "detail": (
+                        "Authenticated user has no linked Staff record; "
+                        "cannot record who dispensed this. This will resolve "
+                        "once request.user reliably resolves to a Staff-linked "
+                        "account — see the auth blocker noted in chat."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             bill = dispense_prescription(
@@ -118,7 +115,7 @@ class PharmacyBillViewSet(viewsets.ReadOnlyModelViewSet):
         .order_by("-BillDate")
     )
     serializer_class = PharmacyBillSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class PharmacyBillItemViewSet(viewsets.ReadOnlyModelViewSet):
@@ -126,11 +123,11 @@ class PharmacyBillItemViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = PharmacyBillItem.objects.select_related("Bill", "Medicine").all()
     serializer_class = PharmacyBillItemSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class PharmacyRevenueReportView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         from_date_str = request.query_params.get("from_date")
@@ -171,7 +168,7 @@ class PharmacyRevenueReportView(APIView):
 
 
 class PharmacyReorderReportView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         low_stock = (
