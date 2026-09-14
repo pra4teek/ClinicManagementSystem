@@ -2,9 +2,12 @@
 cmsvenv/
 
 # Python cache
-_pycache_/
+__pycache__/
 *.py[cod]
-*$py.class
+
+# Environment variables
+.env
+.env.*
 
 # Django
 *.log
@@ -12,15 +15,9 @@ db.sqlite3
 media/
 staticfiles/
 
-# Environment variables / secrets
-.env
-.env.*
-!.env.example
-
-# IDE
+# VS Code
 .vscode/
-.idea/
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
