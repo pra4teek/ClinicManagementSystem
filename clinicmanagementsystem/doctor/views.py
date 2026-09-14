@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
-from .models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
+from apibackendapp.models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
 from .serializers import DoctorSerializer,ConsultationSerializer,PrescriptionSerializer,PrescriptionCreateSerializer,PrescriptionItemSerializer,LabPrescriptionSerializer
 
 

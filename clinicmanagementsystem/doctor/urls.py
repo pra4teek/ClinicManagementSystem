@@ -1,5 +1,5 @@
 from rest_framework.routers import DefaultRouter
-from doctor import views
+from . import views
 from django.urls import path
 
 router = DefaultRouter()

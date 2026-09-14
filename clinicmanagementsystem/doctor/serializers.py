@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
-from .models import User, Department, MasterMedicine, Dosage, LabTest
+from apibackendapp.models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
+from apibackendapp.models import User, Department, MasterMedicine, Dosage, LabTest
 import re
 
 def symptoms_validation(value):
@@ -66,7 +66,7 @@ class PrescriptionItemSerializer(serializers.ModelSerializer):
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):
-    item_details=PrescriptionItemSerializer(source='prescriptionitem_set', many=True, read_only=True)
+    item_details=PrescriptionItemSerializer(source='items', many=True, read_only=True)
 
     class Meta:
         model=Prescription
@@ -85,8 +85,8 @@ class ConsultationSerializer(serializers.ModelSerializer):
     Symptoms=serializers.CharField(max_length=100, validators=[symptoms_validation])
     Diagnosis=serializers.CharField(max_length=100, validators=[diagnosis_validation])
 
-    prescription_details = PrescriptionSerializer(source='prescription_set', many=True, read_only=True)
-    lab_prescription_details = LabPrescriptionSerializer(source='labprescription_set', many=True, read_only=True)
+    prescription_details = PrescriptionSerializer(source='prescriptions', many=True, read_only=True)
+    lab_prescription_details = LabPrescriptionSerializer(source='lab_orders', many=True, read_only=True)
 
     class Meta:
         model=Consultation
