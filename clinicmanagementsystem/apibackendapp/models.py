@@ -172,7 +172,7 @@ class Prescription(models.Model):
                 ('Partially Dispensed','Partially Dispensed')
             ]
     PrescriptionId=models.AutoField(primary_key=True)
-    ConsultationId=models.ForeignKey(Consultation,on_delete=models.CASCADE)
+    ConsultationId=models.ForeignKey(Consultation,on_delete=models.CASCADE,related_name='prescriptions')
     PatientId=models.ForeignKey(Patient,on_delete=models.CASCADE)
     DoctorId=models.ForeignKey(Doctor,on_delete=models.CASCADE)
     PrescriptionDateTime=models.DateTimeField()
@@ -183,7 +183,7 @@ class Prescription(models.Model):
     
 class PrescriptionItem(models.Model):
     PrescriptionItemId=models.AutoField(primary_key=True)
-    PrescriptionId=models.ForeignKey(Prescription,on_delete=models.CASCADE)
+    PrescriptionId=models.ForeignKey(Prescription,on_delete=models.CASCADE,related_name='items')
     MedicineId=models.ForeignKey(MasterMedicine,on_delete=models.CASCADE)
     DosageId=models.ForeignKey(Dosage,on_delete=models.CASCADE)
     Duration=models.CharField(max_length=30)
@@ -204,7 +204,7 @@ class LabPrescription(models.Model):
     LabTestId=models.ForeignKey(LabTest,on_delete=models.SET_NULL,null=True,related_name='lab_prescriptions')
     PatientId=models.ForeignKey(Patient,on_delete=models.SET_NULL,null=True,related_name='lab_prescriptions')
     DoctorId=models.ForeignKey(Doctor,on_delete=models.SET_NULL,null=True,related_name='lab_prescription')
-    ConsultationId=models.ForeignKey(Consultation,on_delete=models.SET_NULL,null=True)
+    ConsultationId=models.ForeignKey(Consultation,on_delete=models.SET_NULL,null=True,related_name='lab_orders')
     Status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='In Progress')
     SampleType=models.CharField(max_length=100)
     LabTestDate=models.DateTimeField(default=timezone.now)
