@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+# pyrefly: ignore [missing-import]
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -40,6 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'apibackendapp',
+    'doctor',
+    'pharmacist',
+    'receptionist',
 ]
 
 MIDDLEWARE = [
