@@ -10,4 +10,9 @@ router.register(r'prescription-items', views.PrescriptionItemViewSet)
 router.register(r'lab-prescriptions', views.LabPrescriptionViewSet)
 
 urlpatterns = []
+
+
+
+
+
 urlpatterns += router.urls
