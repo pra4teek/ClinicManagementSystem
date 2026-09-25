@@ -42,12 +42,30 @@ class Staff(models.Model):
     
 class AuditLog(models.Model):
     AuditId = models.AutoField(primary_key=True)
-    StaffId = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, related_name='audit_logs')
+
+    StaffId = models.ForeignKey(
+        Staff,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_logs'
+    )
+
+    UserId = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='admin_audit_logs'
+    )
+
     ActionType = models.CharField(max_length=100)
     TableAffected = models.CharField(max_length=100)
-    RecordId = models.IntegerField(null=True)              
-    Details = models.TextField(blank=True, null=True)       
-    action_time = models.DateTimeField(auto_now_add=True) 
+    RecordId = models.IntegerField(null=True)
+    Details = models.TextField(blank=True, null=True)
+    action_time = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.ActionType} on {self.TableAffected}" 
 
     def __str__(self):
         return f"{self.ActionType} on {self.TableAffected}"
@@ -58,6 +76,7 @@ class LabTest(models.Model):
     TestName=models.CharField(max_length=100)
     NormalName=models.CharField(max_length=100)
     TestCost=models.DecimalField(max_digits=10,decimal_places=2)
+    isActive=models.BooleanField(default=True)
 
     def __str__(self):
         return self.TestName
@@ -161,6 +180,7 @@ class MasterMedicine(models.Model):
     Category = models.CharField(max_length=100, blank=True)
     CostValue = models.DecimalField(max_digits=10, decimal_places=2)
     MRP = models.DecimalField(max_digits=10, decimal_places=2)
+    isActive = models.BooleanField(default=True)
 
     def __str__(self):
         return self.MedicineName
