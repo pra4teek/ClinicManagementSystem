@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#f8fafc">
+	<title>Laboratory | CarePoint Clinic</title>
+	<link rel="stylesheet" href="../shared/style.css">
+	<style>
+		.topbar {
+			min-height: 68px;
+			padding: 12px clamp(18px, 5vw, 68px);
+			color: #fff;
+			background: var(--primary);
+		}
+		.brand-title { color: #fff; font-size: 1.05rem; font-weight: 700; }
+		.brand-note { color: #e0f2fe; font-size: .75rem; }
+		main { max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+		.page-heading {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 1rem;
+			margin-bottom: 1.5rem;
+		}
+		.eyebrow { margin: 0 0 .25rem; color: var(--secondary); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
+		.intro { margin: .35rem 0 0; color: var(--text-muted); }
+		.metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.metric-value { margin-top: .25rem; }
+		.workspace {
+			display: grid;
+			grid-template-columns: minmax(0, 1.65fr) minmax(290px, .85fr);
+			align-items: start;
+			gap: 1.25rem;
+		}
+		.column { display: grid; min-width: 0; gap: 1.25rem; }
+		.panel {
+			overflow: hidden;
+			margin-bottom: 1.25rem;
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			background: var(--bg-card);
+			box-shadow: var(--shadow-sm);
+		}
+		.panel-heading {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: .9rem;
+			padding: 1rem 1.25rem;
+			border-bottom: 1px solid var(--border);
+		}
+		.panel-heading h2 { margin: 0; font-size: 1.05rem; }
+		.panel-note { margin: .2rem 0 0; color: var(--text-muted); font-size: .8rem; }
+		.queue-tools { display: flex; align-items: center; gap: .5rem; }
+		.search-input { width: min(190px, 35vw); }
+		.table-wrap { overflow-x: auto; }
+		.lab-table { width: 100%; border-collapse: collapse; text-align: left; }
+		.lab-table th {
+			padding: .7rem .85rem;
+			background: var(--bg-main);
+			color: var(--text-muted);
+			font-size: .7rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			white-space: nowrap;
+		}
+		.lab-table td { padding: .75rem .85rem; border-top: 1px solid var(--border); font-size: .8rem; vertical-align: middle; }
+		.lab-table tbody tr:hover { background: var(--bg-hover); }
+		.strong { font-weight: 650; }
+		.subtext { display: block; margin-top: .15rem; color: var(--text-muted); font-size: .7rem; }
+		.status { display: inline-block; border-radius: var(--radius-full); padding: .2rem .55rem; background: var(--bg-hover); font-size: .7rem; font-weight: 700; white-space: nowrap; }
+		.status-progress { background: var(--warning-light); color: #92400e; }
+		.status-completed { background: var(--success-light); color: #065f46; }
+		.status-cancelled { background: var(--danger-light); color: #991b1b; }
+		.row-action { border: 0; padding: .25rem 0; background: transparent; color: var(--primary); font-weight: 700; white-space: nowrap; }
+		.empty-state { padding: 1.5rem; color: var(--text-muted); text-align: center; }
+		.form-body { display: grid; gap: .75rem; padding: 1rem 1.25rem 1.25rem; }
+		.field { display: grid; gap: .3rem; }
+		.form-hint { margin: -.2rem 0 0; color: var(--text-muted); font-size: .72rem; }
+		textarea.form-control { min-height: 5.5rem; resize: vertical; }
+		.form-message { min-height: 1.25rem; margin: 0; color: var(--danger); font-size: .8rem; }
+		footer { padding: 0 1rem 1.5rem; color: var(--text-muted); font-size: .75rem; text-align: center; }
+		@media (max-width: 850px) {
+			.workspace { grid-template-columns: 1fr; }
+			.column:last-child { grid-row: 1; }
+		}
+		@media (max-width: 560px) {
+			main { padding: 1.5rem .75rem 2.5rem; }
+			.page-heading { align-items: flex-start; }
+			.metrics { gap: .5rem; }
+			.metric { min-width: 0; padding: .8rem .65rem; }
+			.metric .stat-label { font-size: .7rem; }
+			.metric-value { font-size: 1.25rem; }
+			.panel-heading { padding: .8rem; }
+			.queue-tools { align-items: stretch; flex-direction: column; }
+			.search-input { width: 130px; }
+			.lab-table th, .lab-table td { padding: .6rem; }
+			.form-body { padding: .8rem; }
+		}
+	</style>
+</head>
+<body>
+	<header class="navbar topbar">
+		<div class="nav-container">
+			<div>
+				<div class="brand-title">CarePoint Clinic</div>
+				<div class="brand-note">Laboratory services</div>
+			</div>
+			<div class="brand-note">Lab technician workspace</div>
+		</div>
+	</header>
+
+	<main>
+		<section class="page-heading" aria-labelledby="page-title">
+			<div>
+				<p class="eyebrow">Laboratory</p>
+				<h1 class="page-title" id="page-title">Test orders &amp; reports</h1>
+				<p class="intro">Review incoming tests, record findings, and update order status.</p>
+			</div>
+			<button class="btn btn-outline" id="refresh-button" type="button">Refresh data</button>
+		</section>
+
+		<section class="metrics stats-grid" aria-label="Lab order summary">
+			<div class="metric stat-card"><div><div class="stat-label">Open orders</div><div class="metric-value stat-value" id="open-count">--</div></div></div>
+			<div class="metric stat-card"><div><div class="stat-label">In progress</div><div class="metric-value stat-value" id="progress-count">--</div></div></div>
+			<div class="metric stat-card"><div><div class="stat-label">Reports recorded</div><div class="metric-value stat-value" id="report-count">--</div></div></div>
+		</section>
+
+		<div class="workspace">
+			<div class="column">
+				<section class="panel" aria-labelledby="queue-title">
+					<div class="panel-heading">
+						<div>
+							<h2 id="queue-title">Lab order queue</h2>
+							<p class="panel-note">Choose an order to record a result or update its status.</p>
+						</div>
+						<div class="queue-tools">
+							<input class="search-input form-control" id="order-search" type="search" placeholder="Search orders" aria-label="Search lab orders">
+						</div>
+					</div>
+					<div class="table-wrap">
+						<table class="lab-table">
+							<thead><tr><th>Order</th><th>Patient / test</th><th>Sample</th><th>Status</th><th>Action</th></tr></thead>
+							<tbody id="orders-body"><tr><td colspan="5" class="empty-state">Loading lab orders...</td></tr></tbody>
+						</table>
+					</div>
+				</section>
+
+				<section class="panel" aria-labelledby="reports-title">
+					<div class="panel-heading">
+						<div>
+							<h2 id="reports-title">Recent reports</h2>
+							<p class="panel-note">Latest findings recorded for lab orders.</p>
+						</div>
+					</div>
+					<div class="table-wrap">
+						<table class="lab-table">
+							<thead><tr><th>Lab order</th><th>Patient</th><th>Reading</th><th>Date</th></tr></thead>
+							<tbody id="reports-body"><tr><td colspan="4" class="empty-state">Loading reports...</td></tr></tbody>
+						</table>
+					</div>
+				</section>
+			</div>
+
+			<div class="column">
+				<section class="panel" aria-labelledby="result-title">
+					<div class="panel-heading">
+						<div>
+							<h2 id="result-title">Record a result</h2>
+							<p class="panel-note">Add the measured value and technician remarks.</p>
+						</div>
+					</div>
+					<form id="report-form" class="form-body">
+						<div class="field form-group">
+							<label class="form-label" for="order-select">Lab order</label>
+							<select class="form-control" id="order-select" name="LabPrescriptionId" required><option value="">Select an order</option></select>
+						</div>
+						<div class="field form-group">
+							<label class="form-label" for="technician-id">Technician staff ID</label>
+							<input class="form-control" id="technician-id" name="LabTechnician" type="number" min="1" placeholder="Optional">
+							<p class="form-hint">Leave blank if your staff ID is not available.</p>
+						</div>
+						<div class="field form-group">
+							<label class="form-label" for="actual-reading">Actual reading</label>
+							<textarea class="form-control" id="actual-reading" name="ActualReading" required placeholder="Enter the result and units"></textarea>
+						</div>
+						<div class="field form-group">
+							<label class="form-label" for="remarks">Remarks</label>
+							<textarea class="form-control" id="remarks" name="remarks" required placeholder="Add relevant lab notes"></textarea>
+						</div>
+						<p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+						<button class="btn btn-primary" id="submit-report" type="submit">Save report</button>
+					</form>
+				</section>
+
+				<section class="panel" aria-labelledby="status-title">
+					<div class="panel-heading">
+						<div>
+							<h2 id="status-title">Update order status</h2>
+							<p class="panel-note">Save the latest progress for a lab order.</p>
+						</div>
+					</div>
+					<form id="status-form" class="form-body">
+						<div class="field form-group">
+							<label class="form-label" for="status-order">Lab order</label>
+							<select class="form-control" id="status-order" required><option value="">Select an order</option></select>
+						</div>
+						<div class="field form-group">
+							<label class="form-label" for="new-status">New status</label>
+							<select class="form-control" id="new-status" required>
+								<option>Pending</option>
+								<option>In-Progress</option>
+								<option>Completed</option>
+								<option>Cancelled</option>
+							</select>
+						</div>
+						<p class="form-message" id="status-message" role="status" aria-live="polite"></p>
+						<button class="btn btn-outline" id="save-status" type="submit">Save status</button>
+					</form>
+				</section>
+			</div>
+		</div>
+	</main>
+	<footer>CarePoint Clinic · Laboratory</footer>
+	<script src="lab.js" defer></script>
+</body>
+</html>
