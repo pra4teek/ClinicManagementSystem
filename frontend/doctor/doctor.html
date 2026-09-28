@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctor Consultation - CarePoint Clinic</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .doctor-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .doctor-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .queue-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem;
+      margin-bottom: 0.65rem;
+      background: white;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .queue-card:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .queue-card.active {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      border-left: 4px solid var(--primary);
+    }
+
+    .token-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: var(--text-main);
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .patient-banner {
+      background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+      border: 1px solid #bae6fd;
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .rx-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr auto;
+      gap: 0.5rem;
+      align-items: end;
+      margin-bottom: 0.75rem;
+    }
+
+    @media (max-width: 768px) {
+      .rx-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Print Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--radius-lg);
+      max-width: 650px;
+      width: 100%;
+      box-shadow: var(--shadow-lg);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .rx-paper {
+      padding: 2rem;
+      color: #1e293b;
+    }
+
+    @media print {
+      body * { visibility: hidden; }
+      .rx-paper, .rx-paper * { visibility: visible; }
+      .rx-paper { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-brand">
+        <div class="brand-icon">⚕️</div>
+        <span>CarePoint <small style="font-weight: 400; font-size: 0.85rem; color: var(--text-muted);">Doctor Portal</small></span>
+      </a>
+
+      <div class="nav-actions">
+        <button class="btn btn-outline btn-sm" onclick="resetAllDemoData()">
+          🔄 Reset Demo Data
+        </button>
+        <div class="user-badge">
+          <div class="user-avatar" id="docAvatar">DR</div>
+          <div class="user-details">
+            <span class="user-name" id="docName">Dr. Jane Smith</span>
+            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Doctor</span>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="logoutUser()">
+          Logout
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    
+    <!-- Header & Stats -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Patient Consultations</h1>
+        <p class="page-subtitle">Examine patients, record findings, prescribe medications, and order lab tests</p>
+      </div>
+      <div id="dateDisplay" style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue">📅</div>
+        <div>
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Appointments Today</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">⏳</div>
+        <div>
+          <div class="stat-value" id="statWaiting">0</div>
+          <div class="stat-label">Waiting in Queue</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div>
+          <div class="stat-value" id="statCompleted">0</div>
+          <div class="stat-label">Completed Today</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon indigo">💊</div>
+        <div>
+          <div class="stat-value" id="statRx">0</div>
+          <div class="stat-label">Prescriptions Issued</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Doctor Workspace -->
+    <div class="doctor-layout">
+      
+      <!-- Queue Column -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">👥 Patient Queue</h2>
+          <span class="badge badge-scheduled" id="queueBadge">0 Waiting</span>
+        </div>
+        
+        <div style="display: flex; gap: 0.4rem; padding: 0.75rem 0.75rem 0 0.75rem;">
+          <button class="btn btn-sm btn-primary" id="btnFilterAll" onclick="setFilter('all')">All</button>
+          <button class="btn btn-sm btn-outline" id="btnFilterWait" onclick="setFilter('Scheduled')">Waiting</button>
+          <button class="btn btn-sm btn-outline" id="btnFilterDone" onclick="setFilter('Completed')">Completed</button>
+        </div>
+
+        <div class="card-body" style="padding: 0.75rem;">
+          <div id="queueList"></div>
+        </div>
+      </div>
+
+      <!-- Consultation Column -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🩺 Clinical Examination</h2>
+          <button type="button" id="btnPrintRx" class="btn btn-outline btn-sm" style="display: none;" onclick="openPrintModal()">
+            🖨️ Print Prescription
+          </button>
+        </div>
+        <div class="card-body">
+          
+          <div id="noSelection" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.6;">👈</div>
+            <h3>No Patient Selected</h3>
+            <p>Please select an appointment from the queue to start consultation.</p>
+          </div>
+
+          <div id="consultationPanel" style="display: none;">
+            
+            <!-- Patient Banner -->
+            <div class="patient-banner">
+              <div>
+                <h3 id="panelPatName" style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">Patient Name</h3>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
+                  <span id="panelPatMeta">Age: 45 | Male | O+</span> • Phone: <span id="panelPatPhone">9876543210</span>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span class="token-badge" id="panelToken">Token #1</span>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Time: <strong id="panelTime">10:00 AM</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.85rem;">
+              <strong>Chief Complaint:</strong> <span id="panelComplaint">Headache and fever</span>
+            </div>
+
+            <form id="consultationForm">
+              
+              <!-- 1. Vitals -->
+              <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">
+                1. Patient Vital Signs
+              </h4>
+              <div class="form-row" style="margin-bottom: 1.25rem;">
+                <div class="form-group">
+                  <label class="form-label">BP (mmHg)</label>
+                  <input type="text" id="vitalBP" class="form-control" placeholder="120/80">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Pulse (bpm)</label>
+                  <input type="text" id="vitalPulse" class="form-control" placeholder="72">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Temp (°F)</label>
+                  <input type="text" id="vitalTemp" class="form-control" placeholder="98.6">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Weight (kg)</label>
+                  <input type="text" id="vitalWeight" class="form-control" placeholder="68">
+                </div>
+              </div>
+
+              <!-- 2. Diagnosis -->
+              <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">
+                2. Clinical Findings & Diagnosis
+              </h4>
+              <div class="form-group">
+                <label class="form-label">Symptoms & Observations *</label>
+                <textarea id="diagSymptoms" class="form-control" rows="2" placeholder="Clinical observations and symptoms..." required></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Primary Diagnosis *</label>
+                <input type="text" id="diagPrimary" class="form-control" placeholder="e.g. Acute Pharyngitis, Viral Fever, Hypertension" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Doctor's Advice / Remarks</label>
+                <textarea id="diagRemarks" class="form-control" rows="2" placeholder="Lifestyle advice, dietary precautions..."></textarea>
+              </div>
+
+              <!-- 3. Prescribe Medications -->
+              <h4 style="font-size: 0.95rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">
+                3. Rx - Prescribe Medications (Shared with Pharmacist)
+              </h4>
+
+              <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1rem;">
+                <div class="rx-grid">
+                  <div>
+                    <label class="form-label">Medicine</label>
+                    <input type="text" id="rxMedName" list="medOptions" class="form-control" placeholder="Type or select">
+                    <datalist id="medOptions"></datalist>
+                  </div>
+                  <div>
+                    <label class="form-label">Dosage</label>
+                    <input type="text" id="rxDosage" class="form-control" placeholder="500mg">
+                  </div>
+                  <div>
+                    <label class="form-label">Frequency</label>
+                    <select id="rxFrequency" class="form-control">
+                      <option value="1-0-1">1-0-1 (Twice daily)</option>
+                      <option value="1-0-0">1-0-0 (Morning)</option>
+                      <option value="0-0-1">0-0-1 (Night)</option>
+                      <option value="1-1-1">1-1-1 (Thrice daily)</option>
+                      <option value="SOS">SOS (As needed)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="form-label">Duration</label>
+                    <input type="text" id="rxDuration" class="form-control" placeholder="5 Days">
+                  </div>
+                  <div>
+                    <label class="form-label">Instructions</label>
+                    <select id="rxInstructions" class="form-control">
+                      <option value="After Food">After Food</option>
+                      <option value="Before Food">Before Food</option>
+                      <option value="At Bedtime">At Bedtime</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button type="button" class="btn btn-secondary" onclick="addRxItem()">+ Add</button>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table" id="rxTable" style="display: none; background: white; border-radius: var(--radius-sm);">
+                    <thead>
+                      <tr>
+                        <th>Medicine</th>
+                        <th>Dosage</th>
+                        <th>Frequency</th>
+                        <th>Duration</th>
+                        <th>Instructions</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rxTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 4. Lab Tests -->
+              <h4 style="font-size: 0.95rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">
+                4. Diagnostic Lab Tests (Shared with Lab Technician)
+              </h4>
+              <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.65rem; margin-bottom: 0.75rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Complete Blood Count (CBC)"> Complete Blood Count (CBC)
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Fasting Blood Sugar (FBS)"> Fasting Blood Sugar (FBS)
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Lipid Profile"> Lipid Profile
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Urine Routine Examination"> Urine Routine
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Thyroid Profile (T3, T4, TSH)"> Thyroid Profile
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" name="labCheck" value="Chest X-Ray PA View"> Chest X-Ray
+                  </label>
+                </div>
+                <input type="text" id="labRemarks" class="form-control" placeholder="Special instructions for lab technician (optional)">
+              </div>
+
+              <!-- Submit -->
+              <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <button type="button" class="btn btn-outline" onclick="cancelConsultation()">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.5rem; font-size: 1rem;">
+                  💾 Save & Complete Consultation
+                </button>
+              </div>
+
+            </form>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Print Prescription Modal -->
+  <div class="modal-backdrop" id="printModal">
+    <div class="modal-content">
+      <div class="rx-paper" id="printPaper">
+        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid var(--primary); padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+          <div>
+            <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin: 0;">CAREPOINT CLINIC</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Healthcare & Diagnostic Center</p>
+          </div>
+          <div style="text-align: right; font-size: 0.85rem;">
+            <strong id="modalDoc">Dr. Jane Smith</strong><br>
+            <span style="color: var(--text-muted);">MBBS, MD</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1.25rem;">
+          <div>
+            <strong>Patient:</strong> <span id="modalPat">Robert Davis</span><br>
+            <strong>Details:</strong> <span id="modalMeta">45 / Male</span>
+          </div>
+          <div style="text-align: right;">
+            <strong>Date:</strong> <span id="modalDate">2026-09-28</span><br>
+            <strong>Rx ID:</strong> <span id="modalRx">RX-4001</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Diagnosis</h4>
+          <div id="modalDiag" style="font-weight: 700; font-size: 1.05rem;">Acute Pharyngitis</div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem;">℞ Medications</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid #cbd5e1; text-align: left;">
+                <th style="padding: 0.4rem 0;">#</th>
+                <th style="padding: 0.4rem 0;">Medicine</th>
+                <th style="padding: 0.4rem 0;">Dosage</th>
+                <th style="padding: 0.4rem 0;">Frequency</th>
+                <th style="padding: 0.4rem 0;">Duration</th>
+                <th style="padding: 0.4rem 0;">Instructions</th>
+              </tr>
+            </thead>
+            <tbody id="modalRxList"></tbody>
+          </table>
+        </div>
+
+        <div id="modalLabBox" style="margin-bottom: 1.25rem; display: none;">
+          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Investigations Ordered</h4>
+          <div id="modalLabTests" style="font-size: 0.85rem; font-weight: 600;"></div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Doctor's Advice</h4>
+          <div id="modalAdvice" style="font-size: 0.85rem; color: #334155;">Rest and drink plenty of fluids.</div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 2.5rem;">
+          <div style="text-align: center; border-top: 1px solid #94a3b8; width: 170px; padding-top: 0.4rem; font-size: 0.85rem;">
+            Doctor's Signature
+          </div>
+        </div>
+      </div>
+
+      <div class="no-print" style="padding: 1rem 1.5rem; background: #f1f5f9; display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border);">
+        <button type="button" class="btn btn-outline" onclick="closePrintModal()">Close</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/data.js"></script>
+  <script src="doctor.js"></script>
+</body>
+</html>

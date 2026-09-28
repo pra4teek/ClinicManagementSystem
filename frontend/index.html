@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - CarePoint Clinic</title>
+  <link rel="stylesheet" href="shared/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f8fafc 100%);
+      padding: 1.5rem;
+    }
+    .login-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.25rem 2rem;
+      box-shadow: var(--shadow-lg);
+      max-width: 420px;
+      width: 100%;
+    }
+    .brand-logo {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border-radius: var(--radius-md);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .demo-btn {
+      padding: 0.45rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      transition: var(--transition);
+    }
+    .demo-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div class="brand-logo">⚕️</div>
+      <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">CarePoint Clinic</h1>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">Clinic Management System</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="username">Username</label>
+        <input type="text" id="username" class="form-control" placeholder="e.g. doctor" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.7rem; font-size: 1rem; margin-top: 0.5rem;">
+        Sign In
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; text-align: center; margin-bottom: 0.5rem;">
+        ⚡ 1-Click Demo Logins
+      </div>
+      <div class="demo-grid">
+        <button type="button" class="demo-btn" onclick="quickLogin('doctor', '123')">
+          🩺 Doctor
+        </button>
+        <button type="button" class="demo-btn" onclick="quickLogin('reception', '123')">
+          📋 Receptionist
+        </button>
+        <button type="button" class="demo-btn" onclick="quickLogin('pharma', '123')">
+          💊 Pharmacist
+        </button>
+        <button type="button" class="demo-btn" onclick="quickLogin('labtech', '123')">
+          🔬 Lab Tech
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="shared/data.js"></script>
+  <script>
+    function quickLogin(u, p) {
+      document.getElementById('username').value = u;
+      document.getElementById('password').value = p;
+      login(u, p);
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      login(document.getElementById('username').value.trim(), document.getElementById('password').value.trim());
+    });
+
+    function login(username, password) {
+      const users = getStorage(CMS_KEYS.USERS, []);
+      const match = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+
+      if (!match) {
+        showToast('Invalid username or password!', 'danger');
+        return;
+      }
+
+      setCurrentUser(match);
+      showToast(`Welcome, ${match.name}!`, 'success');
+
+      setTimeout(() => {
+        if (match.role === 'Doctor') window.location.href = 'doctor/doctor.html';
+        else if (match.role === 'Receptionist') window.location.href = 'receptionist/receptionist.html';
+        else if (match.role === 'Pharmacist') window.location.href = 'pharmacist/pharmacist.html';
+        else if (match.role === 'Lab Technician') window.location.href = 'lab/lab.html';
+        else if (match.role === 'Admin') window.location.href = 'admin/admin.html';
+        else window.location.href = 'doctor/doctor.html';
+      }, 400);
+    }
+  </script>
+</body>
+</html>
