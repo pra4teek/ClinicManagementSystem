@@ -373,6 +373,9 @@
         <button type="button" class="demo-btn" onclick="quickLogin('labtech','123')">
           🔬 Lab Tech
         </button>
+        <button type="button" class="demo-btn" onclick="quickLogin('admin','123')" style="grid-column: span 2;">
+          👑 Admin Portal
+        </button>
       </div>
 
     </div>
@@ -422,7 +425,10 @@
         else if (match.role === 'Receptionist')   window.location.href = 'receptionist/receptionist.html';
         else if (match.role === 'Pharmacist')     window.location.href = 'pharmacist/pharmacist.html';
         else if (match.role === 'Lab Technician') window.location.href = 'lab/lab.html';
-        else if (match.role === 'Admin')          window.location.href = 'admin/admin.html';
+        else if (match.role === 'Admin') {
+          localStorage.setItem('clinicAdminLoggedIn', 'true');
+          window.location.href = 'admin/admin.html';
+        }
         else                                      window.location.href = 'doctor/doctor.html';
       }, 500);
     }
