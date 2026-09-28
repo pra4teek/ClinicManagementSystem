@@ -3,76 +3,497 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Management System - Admin</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Admin Portal · CarePoint Clinic</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <style>
+        /* ── App shell ── */
+        html, body { height: 100%; }
+
+        .app-shell {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 240px;
+            flex-shrink: 0;
+            background: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.25rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+        }
+
+        .sidebar-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -.01em;
+        }
+
+        .sidebar-brand-sub {
+            font-size: 0.68rem;
+            color: rgba(255,255,255,.45);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 0.75rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .nav-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: rgba(255,255,255,.3);
+            padding: 0.75rem 0.5rem 0.35rem;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: var(--font);
+            color: rgba(255,255,255,.65);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            transition: var(--transition);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,255,255,.08);
+            color: #fff;
+        }
+
+        .nav-btn.active {
+            background: rgba(0,87,184,.45);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            padding: 0.75rem;
+            border-top: 1px solid rgba(255,255,255,.08);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: var(--font);
+            color: rgba(255,255,255,.55);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .logout-btn:hover {
+            background: rgba(220,38,38,.2);
+            color: #fca5a5;
+        }
+
+        /* ── Main area ── */
+        .main-area {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Topbar ── */
+        .topbar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow-xs);
+        }
+
+        .topbar-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -.01em;
+        }
+
+        .topbar-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        .admin-user {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.78rem;
+            flex-shrink: 0;
+        }
+
+        .admin-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .admin-role {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            display: block;
+        }
+
+        /* ── Content area ── */
+        .content-area {
+            flex: 1;
+            padding: 2rem 1.5rem;
+            overflow-y: auto;
+        }
+
+        /* ── Modal ── */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(13,27,42,.55);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .modal.show,
+        .modal:not(.hidden) { display: flex; }
+        .modal.hidden        { display: none !important; }
+
+        .modal-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-xl);
+            max-width: 560px;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            animation: slideUp .25s var(--ease);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(.75rem) scale(.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: #fafbfc;
+        }
+
+        .modal-header h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            line-height: 1;
+            font-family: var(--font);
+        }
+
+        .close-btn:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        #recordForm {
+            padding: 1.5rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        /* ── Login page (used before app loads) ── */
+        .login-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg-page);
+            background-image:
+                radial-gradient(ellipse 800px 500px at 80% 20%, rgba(0,87,184,.07) 0%, transparent 70%),
+                radial-gradient(ellipse 600px 400px at 10% 90%, rgba(13,148,136,.06) 0%, transparent 70%);
+            padding: 1.5rem;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow-xl);
+            max-width: 420px;
+            width: 100%;
+        }
+
+        .login-card h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -.025em;
+            margin-bottom: 0.35rem;
+        }
+
+        .login-card .muted {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1.75rem;
+        }
+
+        .login-card label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 0.35rem;
+            margin-top: 0.75rem;
+        }
+
+        .login-card input[type="text"],
+        .login-card input[type="password"] {
+            width: 100%;
+            padding: 0.6rem 0.875rem;
+            font-size: 0.875rem;
+            font-family: var(--font);
+            color: var(--text-main);
+            background: var(--bg-card);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .login-card input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0,87,184,.12);
+        }
+
+        .btn.primary { background: var(--primary); color: #fff; border: none; }
+        .btn.primary:hover { background: var(--primary-hover); }
+        .btn.full { width: 100%; justify-content: center; }
+
+        .demo-box {
+            margin-top: 1.5rem;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 0.875rem 1rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .error {
+            color: var(--danger);
+            font-size: 0.8rem;
+            margin-top: 0.35rem;
+            font-weight: 500;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.85rem 1.25rem;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-main);
+            border-left: 4px solid var(--primary);
+            z-index: 9999;
+            max-width: 320px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <!-- ══ LOGIN PAGE ══ -->
     <div id="loginPage" class="login-page">
         <div class="login-card">
-            <h1>Clinic Management System</h1>
-            <p class="muted">Administrator Login</p>
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem;">
+                <div style="width:42px;height:42px;background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:1.3rem;">⚕️</div>
+                <div>
+                    <div style="font-size:1rem;font-weight:800;color:var(--text-main);letter-spacing:-.01em;">CarePoint Clinic</div>
+                    <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Admin Portal</div>
+                </div>
+            </div>
+            <h1>Administrator Login</h1>
+            <p class="muted">Manage users, roles, and clinic resources</p>
             <form id="loginForm">
-                <label>Username</label>
+                <label for="loginUsername">Username</label>
                 <input id="loginUsername" type="text" required placeholder="Enter username">
 
-                <label>Password</label>
+                <label for="loginPassword">Password</label>
                 <input id="loginPassword" type="password" required placeholder="Enter password">
 
-                <button type="submit" class="btn primary full">Login</button>
+                <button type="submit" class="btn primary full" style="margin-top:1rem;padding:.7rem;font-size:.95rem;border-radius:var(--radius-sm);font-family:var(--font);font-weight:600;cursor:pointer;">Sign In →</button>
                 <p id="loginError" class="error"></p>
             </form>
             <div class="demo-box">
-                <strong>Demo login</strong><br>
-                Username: <b>admin</b><br>
-                Password: <b>admin123</b>
+                <strong style="color:var(--text-main);">Demo credentials</strong><br>
+                Username: <b style="color:var(--primary);">admin</b><br>
+                Password: <b style="color:var(--primary);">admin123</b>
             </div>
         </div>
     </div>
 
-    <div id="appPage" class="app hidden">
+    <!-- ══ APP SHELL ══ -->
+    <div id="appPage" class="app-shell hidden">
+
+        <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-icon">+</div>
+            <div class="sidebar-brand">
+                <div class="sidebar-icon">⚕️</div>
                 <div>
-                    <h2>Clinic Admin</h2>
-                    <span>Management System</span>
+                    <div class="sidebar-brand-name">CarePoint</div>
+                    <div class="sidebar-brand-sub">Admin Portal</div>
                 </div>
             </div>
 
-            <nav>
-                <button class="nav-btn active" data-section="dashboard">Dashboard</button>
-                <button class="nav-btn" data-section="users">Users</button>
-                <button class="nav-btn" data-section="roles">Roles</button>
-                <button class="nav-btn" data-section="departments">Departments</button>
-                <button class="nav-btn" data-section="staff">Staff</button>
-                <button class="nav-btn" data-section="doctors">Doctors</button>
-                <button class="nav-btn" data-section="lab-tests">Lab Tests</button>
-                <button class="nav-btn" data-section="medicines">Medicines</button>
-                <button class="nav-btn" data-section="appointments">Appointments</button>
-                <button class="nav-btn" data-section="patients">Patients</button>
-                <button class="nav-btn" data-section="audit-logs">Audit Logs</button>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Overview</div>
+                <button class="nav-btn active" data-section="dashboard">📊 Dashboard</button>
+
+                <div class="nav-section-label">Users & Access</div>
+                <button class="nav-btn" data-section="users">👥 Users</button>
+                <button class="nav-btn" data-section="roles">🔑 Roles</button>
+                <button class="nav-btn" data-section="staff">👔 Staff</button>
+                <button class="nav-btn" data-section="doctors">🩺 Doctors</button>
+
+                <div class="nav-section-label">Clinic Setup</div>
+                <button class="nav-btn" data-section="departments">🏥 Departments</button>
+                <button class="nav-btn" data-section="lab-tests">🔬 Lab Tests</button>
+                <button class="nav-btn" data-section="medicines">💊 Medicines</button>
+
+                <div class="nav-section-label">Records</div>
+                <button class="nav-btn" data-section="appointments">📅 Appointments</button>
+                <button class="nav-btn" data-section="patients">🧑‍⚕️ Patients</button>
+                <button class="nav-btn" data-section="audit-logs">📋 Audit Logs</button>
             </nav>
 
-            <button id="logoutBtn" class="logout-btn">Logout</button>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="logout-btn">🚪 Sign Out</button>
+            </div>
         </aside>
 
-        <main class="main">
+        <!-- Main area -->
+        <div class="main-area">
+            <!-- Topbar -->
             <header class="topbar">
                 <div>
-                    <h1 id="pageTitle">Dashboard</h1>
-                    <p id="pageSubtitle">Clinic administration overview</p>
+                    <div class="topbar-title" id="pageTitle">Dashboard</div>
+                    <div class="topbar-subtitle" id="pageSubtitle">Clinic administration overview</div>
                 </div>
                 <div class="admin-user">
-                    <span class="avatar">A</span>
-                    <span>Administrator</span>
+                    <div class="avatar">A</div>
+                    <div>
+                        <span class="admin-name">Administrator</span>
+                        <span class="admin-role">Admin</span>
+                    </div>
                 </div>
             </header>
 
             <div id="toast" class="toast"></div>
-            <section id="content"></section>
-        </main>
+            <div class="content-area">
+                <section id="content"></section>
+            </div>
+        </div>
     </div>
 
+    <!-- ══ MODAL ══ -->
     <div id="modal" class="modal hidden">
         <div class="modal-card">
             <div class="modal-header">

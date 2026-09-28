@@ -7,14 +7,6 @@
 	<title>Laboratory | CarePoint Clinic</title>
 	<link rel="stylesheet" href="../shared/style.css">
 	<style>
-		.topbar {
-			min-height: 68px;
-			padding: 12px clamp(18px, 5vw, 68px);
-			color: #fff;
-			background: var(--primary);
-		}
-		.brand-title { color: #fff; font-size: 1.05rem; font-weight: 700; }
-		.brand-note { color: #e0f2fe; font-size: .75rem; }
 		main { max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
 		.page-heading {
 			display: flex;
@@ -23,8 +15,8 @@
 			gap: 1rem;
 			margin-bottom: 1.5rem;
 		}
-		.eyebrow { margin: 0 0 .25rem; color: var(--secondary); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
-		.intro { margin: .35rem 0 0; color: var(--text-muted); }
+		.eyebrow { margin: 0 0 .25rem; color: var(--secondary); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+		.intro { margin: .35rem 0 0; color: var(--text-muted); font-size: .875rem; }
 		.metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 		.metric-value { margin-top: .25rem; }
 		.workspace {
@@ -36,9 +28,9 @@
 		.column { display: grid; min-width: 0; gap: 1.25rem; }
 		.panel {
 			overflow: hidden;
-			margin-bottom: 1.25rem;
+			margin-bottom: 0;
 			border: 1px solid var(--border);
-			border-radius: var(--radius-sm);
+			border-radius: var(--radius-lg);
 			background: var(--bg-card);
 			box-shadow: var(--shadow-sm);
 		}
@@ -47,40 +39,45 @@
 			align-items: flex-start;
 			justify-content: space-between;
 			gap: .9rem;
-			padding: 1rem 1.25rem;
+			padding: 1rem 1.5rem;
 			border-bottom: 1px solid var(--border);
+			background: #fafbfc;
 		}
-		.panel-heading h2 { margin: 0; font-size: 1.05rem; }
+		.panel-heading h2 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-main); }
 		.panel-note { margin: .2rem 0 0; color: var(--text-muted); font-size: .8rem; }
 		.queue-tools { display: flex; align-items: center; gap: .5rem; }
 		.search-input { width: min(190px, 35vw); }
 		.table-wrap { overflow-x: auto; }
 		.lab-table { width: 100%; border-collapse: collapse; text-align: left; }
 		.lab-table th {
-			padding: .7rem .85rem;
-			background: var(--bg-main);
+			padding: .7rem 1rem;
+			background: #f8fafb;
 			color: var(--text-muted);
 			font-size: .7rem;
 			font-weight: 700;
 			text-transform: uppercase;
+			letter-spacing: .06em;
 			white-space: nowrap;
+			border-bottom: 1.5px solid var(--border);
 		}
-		.lab-table td { padding: .75rem .85rem; border-top: 1px solid var(--border); font-size: .8rem; vertical-align: middle; }
+		.lab-table td { padding: .8rem 1rem; border-top: 1px solid var(--border); font-size: .875rem; vertical-align: middle; color: var(--text-body); }
+		.lab-table tbody tr:last-child td { border-top: none; border-bottom: none; }
 		.lab-table tbody tr:hover { background: var(--bg-hover); }
-		.strong { font-weight: 650; }
-		.subtext { display: block; margin-top: .15rem; color: var(--text-muted); font-size: .7rem; }
-		.status { display: inline-block; border-radius: var(--radius-full); padding: .2rem .55rem; background: var(--bg-hover); font-size: .7rem; font-weight: 700; white-space: nowrap; }
-		.status-progress { background: var(--warning-light); color: #92400e; }
+		.strong { font-weight: 650; color: var(--text-main); }
+		.subtext { display: block; margin-top: .15rem; color: var(--text-muted); font-size: .72rem; }
+		.status { display: inline-block; border-radius: var(--radius-full); padding: .2rem .6rem; background: var(--bg-hover); font-size: .7rem; font-weight: 700; white-space: nowrap; }
+		.status-progress  { background: var(--warning-light); color: #92400e; }
 		.status-completed { background: var(--success-light); color: #065f46; }
 		.status-cancelled { background: var(--danger-light); color: #991b1b; }
-		.row-action { border: 0; padding: .25rem 0; background: transparent; color: var(--primary); font-weight: 700; white-space: nowrap; }
+		.row-action { border: 0; padding: .25rem 0; background: transparent; color: var(--primary); font-weight: 700; white-space: nowrap; cursor: pointer; font-family: var(--font); font-size: .8rem; }
+		.row-action:hover { text-decoration: underline; }
 		.empty-state { padding: 1.5rem; color: var(--text-muted); text-align: center; }
-		.form-body { display: grid; gap: .75rem; padding: 1rem 1.25rem 1.25rem; }
+		.form-body { display: grid; gap: .75rem; padding: 1rem 1.5rem 1.5rem; }
 		.field { display: grid; gap: .3rem; }
 		.form-hint { margin: -.2rem 0 0; color: var(--text-muted); font-size: .72rem; }
 		textarea.form-control { min-height: 5.5rem; resize: vertical; }
-		.form-message { min-height: 1.25rem; margin: 0; color: var(--danger); font-size: .8rem; }
-		footer { padding: 0 1rem 1.5rem; color: var(--text-muted); font-size: .75rem; text-align: center; }
+		.form-message { min-height: 1.25rem; margin: 0; color: var(--danger); font-size: .8rem; font-weight: 500; }
+		footer { padding: 1rem 1rem 1.5rem; color: var(--text-hint); font-size: .75rem; text-align: center; }
 		@media (max-width: 850px) {
 			.workspace { grid-template-columns: 1fr; }
 			.column:last-child { grid-row: 1; }
@@ -90,26 +87,35 @@
 			.page-heading { align-items: flex-start; }
 			.metrics { gap: .5rem; }
 			.metric { min-width: 0; padding: .8rem .65rem; }
-			.metric .stat-label { font-size: .7rem; }
-			.metric-value { font-size: 1.25rem; }
-			.panel-heading { padding: .8rem; }
+			.panel-heading { padding: .8rem 1rem; }
 			.queue-tools { align-items: stretch; flex-direction: column; }
 			.search-input { width: 130px; }
-			.lab-table th, .lab-table td { padding: .6rem; }
-			.form-body { padding: .8rem; }
+			.lab-table th, .lab-table td { padding: .6rem .75rem; }
+			.form-body { padding: .8rem 1rem 1rem; }
 		}
 	</style>
 </head>
 <body>
-	<header class="navbar topbar">
+	<nav class="navbar">
 		<div class="nav-container">
-			<div>
-				<div class="brand-title">CarePoint Clinic</div>
-				<div class="brand-note">Laboratory services</div>
+			<a href="#" class="nav-brand">
+				<div class="brand-icon">⚕️</div>
+				<div>
+					<span class="brand-name">CarePoint Clinic</span>
+					<span class="brand-role">Laboratory Portal</span>
+				</div>
+			</a>
+			<div class="nav-actions">
+				<div class="user-badge">
+					<div class="user-avatar">LT</div>
+					<div>
+						<span class="user-name">Lab Technician</span>
+						<span class="user-role-badge">Lab Tech</span>
+					</div>
+				</div>
 			</div>
-			<div class="brand-note">Lab technician workspace</div>
 		</div>
-	</header>
+	</nav>
 
 	<main>
 		<section class="page-heading" aria-labelledby="page-title">

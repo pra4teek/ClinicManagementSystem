@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - CarePoint Clinic</title>
+  <title>Login · CarePoint Clinic</title>
   <link rel="stylesheet" href="shared/style.css">
   <style>
     body {
@@ -11,105 +11,384 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f8fafc 100%);
+      background: var(--bg-page);
       padding: 1.5rem;
+      /* Subtle geometric background */
+      background-image:
+        radial-gradient(ellipse 900px 600px at 80% 20%, rgba(0,87,184,.07) 0%, transparent 70%),
+        radial-gradient(ellipse 700px 500px at 10% 90%, rgba(13,148,136,.06) 0%, transparent 70%);
     }
-    .login-card {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 2.25rem 2rem;
-      box-shadow: var(--shadow-lg);
-      max-width: 420px;
+
+    /* ── Decorative side panel (desktop) ── */
+    .login-wrapper {
+      display: flex;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-xl);
+      max-width: 860px;
       width: 100%;
     }
-    .brand-logo {
-      width: 56px;
-      height: 56px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
+
+    .login-side {
+      flex: 0 0 340px;
+      background: linear-gradient(160deg, var(--primary) 0%, #003d8f 40%, var(--secondary) 100%);
+      padding: 3rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: #fff;
+    }
+
+    .login-side-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .side-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(255,255,255,.15);
       border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .side-brand-name {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+
+    .side-tagline {
+      font-size: 0.75rem;
+      opacity: .75;
+      margin-top: 1px;
+    }
+
+    .login-side-copy {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2.5rem 0;
+    }
+
+    .login-side-copy h2 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.25;
+      letter-spacing: -.03em;
+      margin-bottom: 1rem;
+    }
+
+    .login-side-copy p {
+      font-size: 0.9rem;
+      opacity: .8;
+      line-height: 1.6;
+    }
+
+    .side-features {
+      list-style: none;
+      margin-top: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .side-features li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      opacity: .9;
+    }
+
+    .side-features li::before {
+      content: '';
+      width: 20px;
+      height: 20px;
+      background: rgba(255,255,255,.2);
+      border-radius: 50%;
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      background: rgba(255,255,255,.2);
+      border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.75rem;
-      margin-bottom: 0.75rem;
+      font-size: 0.65rem;
+      flex-shrink: 0;
     }
+
+    .login-side-footer {
+      font-size: 0.72rem;
+      opacity: .55;
+    }
+
+    /* ── Login card (right panel) ── */
+    .login-card {
+      flex: 1;
+      background: var(--bg-card);
+      padding: 3rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-card-header {
+      margin-bottom: 2rem;
+    }
+
+    .login-card-header h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -.025em;
+      margin-bottom: 0.35rem;
+    }
+
+    .login-card-header p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.5rem 0 1.25rem;
+    }
+
+    .login-divider::before, .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .login-divider span {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-hint);
+      white-space: nowrap;
+    }
+
     .demo-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0.5rem;
-      margin-top: 1rem;
     }
+
     .demo-btn {
-      padding: 0.45rem;
-      font-size: 0.8rem;
+      padding: 0.5rem 0.4rem;
+      font-size: 0.78rem;
       font-weight: 600;
+      font-family: var(--font);
       border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       background: var(--bg-main);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.35rem;
+      gap: 0.4rem;
       transition: var(--transition);
+      color: var(--text-body);
     }
+
     .demo-btn:hover {
       background: var(--primary-light);
       border-color: var(--primary);
       color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ── Responsive: collapse side panel ── */
+    @media (max-width: 700px) {
+      .login-wrapper { max-width: 440px; border-radius: var(--radius-lg); }
+      .login-side    { display: none; }
+      .login-card    { padding: 2.25rem 1.75rem; border-radius: var(--radius-lg); }
+      /* Show mini brand at top */
+      .mobile-brand  { display: flex !important; }
+    }
+
+    .mobile-brand {
+      display: none;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .mobile-brand .side-icon {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      width: 40px;
+      height: 40px;
+      font-size: 1.25rem;
+    }
+
+    .mobile-brand span {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -.02em;
+    }
+
+    /* ── Password field with show/hide ── */
+    .input-group {
+      position: relative;
+    }
+
+    .input-group .form-control {
+      padding-right: 2.75rem;
+    }
+
+    .input-eye {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-muted);
+      padding: 0;
+      line-height: 1;
+    }
+
+    .input-eye:hover { color: var(--text-main); }
+
+    /* ── Submit button ── */
+    #signInBtn {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 0.95rem;
+      margin-top: 0.25rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: .01em;
     }
   </style>
 </head>
 <body>
 
-  <div class="login-card">
-    <div style="text-align: center; margin-bottom: 1.5rem;">
-      <div class="brand-logo">⚕️</div>
-      <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">CarePoint Clinic</h1>
-      <p style="font-size: 0.85rem; color: var(--text-muted);">Clinic Management System</p>
+  <div class="login-wrapper">
+
+    <!-- ── Decorative Side Panel ── -->
+    <div class="login-side">
+      <div class="login-side-logo">
+        <div class="side-icon">⚕️</div>
+        <div>
+          <div class="side-brand-name">CarePoint</div>
+          <div class="side-tagline">Clinic Management System</div>
+        </div>
+      </div>
+
+      <div class="login-side-copy">
+        <h2>Your clinic,<br>fully connected.</h2>
+        <p>A unified workspace for every member of your healthcare team.</p>
+        <ul class="side-features">
+          <li>
+            <span class="check-icon">✓</span>
+            Doctor consultations &amp; prescriptions
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            Pharmacy &amp; medication dispensing
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            Laboratory test management
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            Patient records &amp; appointments
+          </li>
+        </ul>
+      </div>
+
+      <div class="login-side-footer">
+        © 2026 CarePoint Clinic · All rights reserved
+      </div>
     </div>
 
-    <form id="loginForm">
-      <div class="form-group">
-        <label class="form-label" for="username">Username</label>
-        <input type="text" id="username" class="form-control" placeholder="e.g. doctor" required>
+    <!-- ── Login Card ── -->
+    <div class="login-card">
+
+      <!-- Mobile-only branding -->
+      <div class="mobile-brand">
+        <div class="side-icon">⚕️</div>
+        <span>CarePoint Clinic</span>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="password">Password</label>
-        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+      <div class="login-card-header">
+        <h1>Welcome back</h1>
+        <p>Sign in to access your portal</p>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.7rem; font-size: 1rem; margin-top: 0.5rem;">
-        Sign In
-      </button>
-    </form>
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input type="text" id="username" class="form-control" placeholder="e.g. doctor" autocomplete="username" required>
+        </div>
 
-    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
-      <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; text-align: center; margin-bottom: 0.5rem;">
-        ⚡ 1-Click Demo Logins
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-group">
+            <input type="password" id="password" class="form-control" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="input-eye" id="eyeBtn" aria-label="Toggle password visibility">👁</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="signInBtn">
+          Sign In →
+        </button>
+      </form>
+
+      <div class="login-divider">
+        <span>⚡ Quick Demo Access</span>
       </div>
+
       <div class="demo-grid">
-        <button type="button" class="demo-btn" onclick="quickLogin('doctor', '123')">
+        <button type="button" class="demo-btn" onclick="quickLogin('doctor','123')">
           🩺 Doctor
         </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('reception', '123')">
+        <button type="button" class="demo-btn" onclick="quickLogin('reception','123')">
           📋 Receptionist
         </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('pharma', '123')">
+        <button type="button" class="demo-btn" onclick="quickLogin('pharma','123')">
           💊 Pharmacist
         </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('labtech', '123')">
+        <button type="button" class="demo-btn" onclick="quickLogin('labtech','123')">
           🔬 Lab Tech
         </button>
       </div>
+
     </div>
   </div>
 
   <script src="shared/data.js"></script>
   <script>
+    // Password show/hide
+    const eyeBtn = document.getElementById('eyeBtn');
+    const pwdInput = document.getElementById('password');
+    eyeBtn.addEventListener('click', () => {
+      const show = pwdInput.type === 'password';
+      pwdInput.type = show ? 'text' : 'password';
+      eyeBtn.textContent = show ? '🙈' : '👁';
+    });
+
     function quickLogin(u, p) {
       document.getElementById('username').value = u;
       document.getElementById('password').value = p;
@@ -118,29 +397,34 @@
 
     document.getElementById('loginForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      login(document.getElementById('username').value.trim(), document.getElementById('password').value.trim());
+      login(
+        document.getElementById('username').value.trim(),
+        document.getElementById('password').value.trim()
+      );
     });
 
     function login(username, password) {
       const users = getStorage(CMS_KEYS.USERS, []);
-      const match = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+      const match = users.find(u =>
+        u.username.toLowerCase() === username.toLowerCase() && u.password === password
+      );
 
       if (!match) {
-        showToast('Invalid username or password!', 'danger');
+        showToast('Invalid username or password.', 'danger');
         return;
       }
 
       setCurrentUser(match);
-      showToast(`Welcome, ${match.name}!`, 'success');
+      showToast(`Welcome back, ${match.name}!`, 'success');
 
       setTimeout(() => {
-        if (match.role === 'Doctor') window.location.href = 'doctor/doctor.html';
-        else if (match.role === 'Receptionist') window.location.href = 'receptionist/receptionist.html';
-        else if (match.role === 'Pharmacist') window.location.href = 'pharmacist/pharmacist.html';
+        if      (match.role === 'Doctor')         window.location.href = 'doctor/doctor.html';
+        else if (match.role === 'Receptionist')   window.location.href = 'receptionist/receptionist.html';
+        else if (match.role === 'Pharmacist')     window.location.href = 'pharmacist/pharmacist.html';
         else if (match.role === 'Lab Technician') window.location.href = 'lab/lab.html';
-        else if (match.role === 'Admin') window.location.href = 'admin/admin.html';
-        else window.location.href = 'doctor/doctor.html';
-      }, 400);
+        else if (match.role === 'Admin')          window.location.href = 'admin/admin.html';
+        else                                      window.location.href = 'doctor/doctor.html';
+      }, 500);
     }
   </script>
 </body>
