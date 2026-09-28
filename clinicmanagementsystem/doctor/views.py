@@ -29,6 +29,14 @@ class ConsultationViewSet(viewsets.ModelViewSet):
             queryset=queryset.filter(DoctorId=doctor_id)
         return queryset
 
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        # Auto-update appointment status when consultation is completed
+        if instance.ConsultationStatus == 'Completed':
+            appointment = instance.AppointmentId
+            appointment.AppointmentStatus = 'Completed'
+            appointment.save(update_fields=['AppointmentStatus'])
+
 
 class PrescriptionViewSet(viewsets.ModelViewSet):
     permission_classes=[IsAuthenticated]
@@ -53,4 +61,4 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
     queryset=LabPrescription.objects.all()
     serializer_class=LabPrescriptionSerializer
     filter_backends=[filters.SearchFilter]
-    search_fields=['Status', 'SampleType']
+    search_fields=['Status', 'SampleType']

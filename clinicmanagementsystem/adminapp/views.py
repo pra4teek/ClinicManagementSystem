@@ -16,7 +16,8 @@ from apibackendapp.models import (
     MasterMedicine,
     AuditLog,
     Appointment,
-    Patient
+    Patient,
+    Dosage,
 )
 
 from .serializers import (
@@ -27,7 +28,8 @@ from .serializers import (
     DoctorSerializer,
     LabTestSerializer,
     MasterMedicineSerializer,
-    AuditLogSerializer
+    AuditLogSerializer,
+    DosageSerializer,
 )
 
 from .authentication import (
@@ -718,3 +720,13 @@ class DashboardView(APIView):
             "patients_registered": patients_registered,
             "recent_audit_activity": audit_data
         })
+
+
+# -------------------------
+# DOSAGE
+# -------------------------
+
+class DosageViewSet(AdminModelViewSet):
+
+    queryset = Dosage.objects.all()
+    serializer_class = DosageSerializer

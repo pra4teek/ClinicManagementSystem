@@ -1,6 +1,7 @@
 from django.db import transaction
+from django.utils import timezone
 
-from apibackendapp.models import PharmacyStock, PharmacyBill, PharmacyBillItem
+from apibackendapp.models import PharmacyStock, PharmacyBill, PharmacyBillItem, Bill
 
 
 class DispenseError(Exception):
@@ -85,6 +86,16 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
     bill.save(update_fields=["TotalAmount"])
 
     _update_prescription_status(prescription)
+
+    # Auto-generate a general Bill for the patient after dispensing
+    Bill.objects.create(
+        PatientId=prescription.PatientId,
+        BillDate=timezone.now().date(),
+        Amount=total,
+        BillStatus='Pending',
+        BillType='Pharmacy',
+    )
+
     return bill
 
 
@@ -101,7 +112,7 @@ def _update_prescription_status(prescription):
     """
 
     prescribed_medicine_ids = set(
-        prescription.prescriptionitem_set.values_list("MedicineId_id", flat=True)
+        prescription.items.values_list("MedicineId_id", flat=True)
     )
     dispensed_medicine_ids = set(
         PharmacyBillItem.objects.filter(Bill__Prescription=prescription).values_list(

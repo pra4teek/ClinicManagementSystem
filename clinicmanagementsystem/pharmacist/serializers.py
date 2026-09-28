@@ -114,7 +114,7 @@ class PrescriptionQueueSerializer(serializers.ModelSerializer):
 
     PatientName = serializers.CharField(source="PatientId.Name", read_only=True)
     DoctorName = serializers.SerializerMethodField()
-    items = PrescriptionItemSerializer(source="prescriptionitem_set", many=True, read_only=True)
+    items = PrescriptionItemSerializer(source="items", many=True, read_only=True)
 
     class Meta:
         model = Prescription

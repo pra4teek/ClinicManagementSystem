@@ -8,7 +8,8 @@ from apibackendapp.models import (
     Doctor,
     LabTest,
     MasterMedicine,
-    AuditLog
+    AuditLog,
+    Dosage,
 )
 
 
@@ -176,3 +177,15 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = '__all__'
+
+
+class DosageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Dosage
+        fields = '__all__'
+
+    def validate_DosageValue(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Dosage value cannot be empty.")
+        return value
