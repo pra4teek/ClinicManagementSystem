@@ -1,639 +1,511 @@
-const STORAGE_KEY = "clinicAdminFrontendData";
+const STORAGE_KEY = "carepointClinicAdminDataV2";
 const LOGIN_KEY = "clinicAdminLoggedIn";
+
+const labTestData = [
+    { testId:101, testName:"Blood Count", sampleType:"Blood", normalValue:"4.5-5.5 million/µL", amount:300 },
+    { testId:102, testName:"Glucose", sampleType:"Blood", normalValue:"70-100 mg/dL", amount:150 },
+    { testId:103, testName:"Urine Test", sampleType:"Urine", normalValue:"Normal", amount:200 },
+    { testId:104, testName:"Hemoglobin", sampleType:"Blood", normalValue:"12-16 g/dL", amount:180 },
+    { testId:105, testName:"Cholesterol", sampleType:"Blood", normalValue:"Below 200 mg/dL", amount:350 },
+    { testId:106, testName:"Thyroid (TSH)", sampleType:"Blood", normalValue:"0.4-4.0 mIU/L", amount:400 },
+    { testId:107, testName:"Liver Function Test", sampleType:"Blood", normalValue:"Normal", amount:600 },
+    { testId:108, testName:"Kidney Function Test", sampleType:"Blood", normalValue:"Normal", amount:550 },
+    { testId:109, testName:"Blood Pressure", sampleType:"Physical", normalValue:"120/80 mmHg", amount:100 },
+    { testId:110, testName:"Vitamin D", sampleType:"Blood", normalValue:"30-100 ng/mL", amount:500 }
+];
 
 const seedData = {
     users: [
-        { UserId: 1, Username: "admin", Password: "admin123", RoleId: 1, isActive: true },
-        { UserId: 2, Username: "doctor1", Password: "doctor123", RoleId: 2, isActive: true },
-        { UserId: 3, Username: "staff1", Password: "staff123", RoleId: 3, isActive: true }
+        { UserId:1, Name:"System Administrator", Username:"admin", Password:"admin123", DOB:"1990-01-01", Address:"CarePoint Clinic", PhoneNumber:"9999999999", EmailId:"admin@carepointclinic.com", DepartmentId:1, RoleId:1, isActive:true },
+        { UserId:2, Name:"Dr. John", Username:"doctor1", Password:"doctor123", DOB:"1988-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876543210", EmailId:"john@carepointclinic.com", DepartmentId:2, RoleId:2, isActive:true },
+        { UserId:3, Name:"Anu Receptionist", Username:"reception1", Password:"reception123", DOB:"1995-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876500000", EmailId:"reception@carepointclinic.com", DepartmentId:1, RoleId:3, isActive:true },
+        { UserId:4, Name:"Lab Technician", Username:"labtech1", Password:"lab12345", DOB:"1993-03-12", Address:"Thiruvananthapuram", PhoneNumber:"9876511111", EmailId:"lab@carepointclinic.com", DepartmentId:1, RoleId:4, isActive:true },
+        { UserId:5, Name:"Pharmacist", Username:"pharma1", Password:"pharma123", DOB:"1992-07-20", Address:"Thiruvananthapuram", PhoneNumber:"9876522222", EmailId:"pharmacy@carepointclinic.com", DepartmentId:1, RoleId:5, isActive:true }
     ],
     roles: [
-        { RoleId: 1, RoleName: "Admin" },
-        { RoleId: 2, RoleName: "Doctor" },
-        { RoleId: 3, RoleName: "Receptionist" },
-        { RoleId: 4, RoleName: "Lab Technician" },
-        { RoleId: 5, RoleName: "Pharmacist" }
+        { RoleId:1, RoleName:"Admin" },
+        { RoleId:2, RoleName:"Doctor" },
+        { RoleId:3, RoleName:"Receptionist" },
+        { RoleId:4, RoleName:"Lab Technician" },
+        { RoleId:5, RoleName:"Pharmacist" }
     ],
     departments: [
-        { DepartmentId: 1, DepartmentName: "General Medicine", isActive: true },
-        { DepartmentId: 2, DepartmentName: "Cardiology", isActive: true }
+        { DepartmentId:1, DepartmentName:"General Medicine" },
+        { DepartmentId:2, DepartmentName:"Cardiology" }
     ],
     staff: [
-        {
-            StaffId: 1, Name: "John Staff", DateofBirth: "1995-05-10",
-            DateOfJoining: "2026-09-01", Address: "Thiruvananthapuram",
-            phoneNumber: "9876543210", UserId: 3, RoleId: 3
-        }
+        { StaffId:1, Name:"Anu Receptionist", UserId:3, RoleId:3 }
     ],
     doctors: [
-        {
-            DoctorId: 1, Name: "Dr. John", Qualification: "MBBS",
-            Specialization: "Cardiology", isActive: true, UserId: 2, DepartmentId: 2
-        }
+        { DoctorId:1, Name:"Dr. John", Qualification:"MBBS", Specialization:"Cardiology", UserId:2, DepartmentId:2 }
     ],
-    labTests: [
-        {
-            LabtestId: 1, TestName: "Blood Test", NormalName: "Blood",
-            TestCost: 500, isActive: true, DepartmentId: 2
-        }
-    ],
+    labTests: labTestData.map(x => ({
+        LabtestId:x.testId, TestName:x.testName, SampleType:x.sampleType,
+        NormalValue:x.normalValue, TestCost:x.amount
+    })),
     medicines: [
-        {
-            MedicineId: 1, MedicineName: "Paracetamol", Manufacturer: "ABC Pharma",
-            GenericName: "Paracetamol", Category: "Tablet",
-            CostValue: 10, MRP: 15, isActive: true
-        }
+        { MedicineId:1, MedicineName:"Paracetamol", Manufacturer:"ABC Pharma", GenericName:"Paracetamol", Category:"Tablet", CostValue:10, MRP:15, Quantity:50 }
     ],
-    appointments: [],
-    patients: [],
     auditLogs: []
 };
 
 const sectionInfo = {
-    dashboard: ["Dashboard", "Clinic administration overview"],
-    users: ["Users", "Manage clinic user accounts"],
-    roles: ["Roles", "Manage permitted clinic roles"],
-    departments: ["Departments", "Manage clinic departments"],
-    staff: ["Staff", "Maintain staff information"],
-    doctors: ["Doctors", "Manage doctor information"],
-    "lab-tests": ["Lab Tests", "Manage laboratory test catalog"],
-    medicines: ["Medicines", "Manage medicine catalog"],
-    appointments: ["Appointments", "Monitor appointments and queue status"],
-    patients: ["Patients", "View patient registration records"],
-    "audit-logs": ["Audit Logs", "Review administrative system activity"]
+    dashboard:["Dashboard","Clinic administration overview"],
+    users:["Users","Manage clinic user accounts"],
+    roles:["Roles","Manage permitted clinic roles"],
+    departments:["Departments","Manage clinic departments and assigned doctors"],
+    staff:["Receptionist","Manage receptionist information and email"],
+    doctors:["Doctors","Manage doctors linked to clinic users"],
+    "lab-tests":["Lab Tests","Manage laboratory test catalog"],
+    medicines:["Medicines","Manage medicine inventory"],
+    "audit-logs":["Audit Logs","Review administrative system activity"]
 };
 
 let data = loadData();
 let currentSection = "dashboard";
 let editing = null;
 
-function loadData() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-        const fresh = structuredClone(seedData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+function clone(value){ return JSON.parse(JSON.stringify(value)); }
+
+function normalizeData(raw){
+    const d = clone(seedData);
+    if (!raw || typeof raw !== "object") return d;
+
+    // Preserve existing records where possible, while migrating the old frontend schema.
+    d.roles = Array.isArray(raw.roles) && raw.roles.length ? raw.roles : d.roles;
+    d.departments = Array.isArray(raw.departments) && raw.departments.length
+        ? raw.departments.map(x => ({DepartmentId:Number(x.DepartmentId), DepartmentName:x.DepartmentName}))
+        : d.departments;
+
+    if (Array.isArray(raw.users) && raw.users.length) {
+        d.users = raw.users.map((u,i) => ({
+            UserId:Number(u.UserId) || i+1,
+            Name:u.Name || u.FullName || u.Username || "Clinic User",
+            Username:u.Username || "",
+            Password:u.Password || "",
+            DOB:u.DOB || u.DateofBirth || "",
+            Address:u.Address || "",
+            PhoneNumber:u.PhoneNumber || u.phoneNumber || "",
+            EmailId:u.EmailId || u.Email || "",
+            DepartmentId:Number(u.DepartmentId) || 1,
+            RoleId:Number(u.RoleId) || 1,
+            isActive:u.isActive !== false
+        }));
+    }
+
+    if (Array.isArray(raw.doctors) && raw.doctors.length) {
+        d.doctors = raw.doctors.map((x,i)=>({
+            DoctorId:Number(x.DoctorId)||i+1, Name:x.Name||"Doctor",
+            Qualification:x.Qualification||"Not specified",
+            Specialization:x.Specialization||departmentNameRaw(x.DepartmentId,d.departments),
+            UserId:Number(x.UserId)||null, DepartmentId:Number(x.DepartmentId)||1
+        }));
+    }
+    if (Array.isArray(raw.staff) && raw.staff.length) {
+        d.staff = raw.staff.map((x,i)=>({
+            StaffId:Number(x.StaffId)||i+1, Name:x.Name||"Receptionist",
+            UserId:Number(x.UserId)||null, RoleId:3
+        }));
+    }
+    if (Array.isArray(raw.medicines) && raw.medicines.length) {
+        d.medicines = raw.medicines.map((x,i)=>({
+            MedicineId:Number(x.MedicineId)||i+1, MedicineName:x.MedicineName||"",
+            Manufacturer:x.Manufacturer||"", GenericName:x.GenericName||"",
+            Category:x.Category||"", CostValue:Number(x.CostValue)||0,
+            MRP:Number(x.MRP)||0, Quantity:Number(x.Quantity ?? x.Stock ?? 0)
+        }));
+    }
+    // Always use the requested lab test catalog. It is intentionally status-free.
+    d.labTests = clone(seedData.labTests);
+    if (Array.isArray(raw.auditLogs)) {
+        d.auditLogs = raw.auditLogs.map((a,i)=>({
+            AuditId:Number(a.AuditId)||i+1, ActionType:a.ActionType||"ACTIVITY",
+            Role:a.Role || roleNameRaw(a.RoleId,d.roles) || "Admin",
+            RecordId:a.RecordId ?? "-", Details:a.Details||"",
+            action_time:a.action_time||new Date().toISOString()
+        }));
+    }
+    return d;
+}
+function departmentNameRaw(id,depts){ return depts.find(x=>Number(x.DepartmentId)===Number(id))?.DepartmentName||"-"; }
+function roleNameRaw(id,roles){ return roles.find(x=>Number(x.RoleId)===Number(id))?.RoleName||"-"; }
+
+function loadData(){
+    const saved=localStorage.getItem(STORAGE_KEY);
+    if(!saved){
+        const fresh=clone(seedData);
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(fresh));
         return fresh;
     }
-    try {
-        return JSON.parse(saved);
-    } catch {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seedData));
-        return structuredClone(seedData);
+    try{
+        const migrated=normalizeData(JSON.parse(saved));
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
+        return migrated;
+    }catch{
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(seedData));
+        return clone(seedData);
     }
 }
-
-function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+function saveData(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(data)); }
+function nextId(collection,field){
+    return data[collection].length ? Math.max(...data[collection].map(x=>Number(x[field])||0))+1 : 1;
 }
-
-function nextId(collection, field) {
-    if (!data[collection].length) return 1;
-    return Math.max(...data[collection].map(x => Number(x[field]) || 0)) + 1;
+function roleName(id){ return data.roles.find(r=>Number(r.RoleId)===Number(id))?.RoleName||"-"; }
+function departmentName(id){ return data.departments.find(d=>Number(d.DepartmentId)===Number(id))?.DepartmentName||"-"; }
+function esc(value){
+    return String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;")
+        .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
-
-function addAudit(action, table, recordId, details) {
+function money(value){ return `₹${Number(value||0).toFixed(2)}`; }
+function ageFromDOB(dob){
+    if(!dob) return "";
+    const birth=new Date(dob+"T00:00:00"), today=new Date();
+    let age=today.getFullYear()-birth.getFullYear();
+    const m=today.getMonth()-birth.getMonth();
+    if(m<0 || (m===0 && today.getDate()<birth.getDate())) age--;
+    return age;
+}
+function addAudit(action,role,recordId,details){
     data.auditLogs.unshift({
-        AuditId: nextId("auditLogs", "AuditId"),
-        ActionType: action,
-        TableAffected: table,
-        RecordId: recordId,
-        Details: details,
-        action_time: new Date().toISOString(),
-        UserId: 1
+        AuditId:nextId("auditLogs","AuditId"), ActionType:action,
+        Role:role || "Admin", RecordId:recordId ?? "-", Details:details,
+        action_time:new Date().toISOString()
     });
     saveData();
 }
-
-function showToast(message) {
-    const toast = document.getElementById("toast");
-    toast.textContent = message;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
+function showToast(message){
+    const toast=document.getElementById("toast");
+    toast.textContent=message; toast.classList.add("show");
+    setTimeout(()=>toast.classList.remove("show"),2200);
 }
 
-function roleName(id) {
-    return data.roles.find(r => Number(r.RoleId) === Number(id))?.RoleName || "-";
+function render(){
+    const [title,subtitle]=sectionInfo[currentSection];
+    document.getElementById("pageTitle").textContent=title;
+    document.getElementById("pageSubtitle").textContent=subtitle;
+    document.querySelectorAll(".nav-btn").forEach(btn=>btn.classList.toggle("active",btn.dataset.section===currentSection));
+    const content=document.getElementById("content");
+    const pages={
+        dashboard:dashboardHTML,users:usersHTML,roles:rolesHTML,departments:departmentsHTML,
+        staff:staffHTML,doctors:doctorsHTML,"lab-tests":labTestsHTML,medicines:medicinesHTML,
+        "audit-logs":auditLogsHTML
+    };
+    content.innerHTML=pages[currentSection]();
 }
 
-function departmentName(id) {
-    return data.departments.find(d => Number(d.DepartmentId) === Number(id))?.DepartmentName || "-";
-}
-
-function esc(value) {
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-function statusBadge(active) {
-    return `<span class="badge ${active ? "active" : "inactive"}">${active ? "Active" : "Inactive"}</span>`;
-}
-
-function render() {
-    const [title, subtitle] = sectionInfo[currentSection];
-    document.getElementById("pageTitle").textContent = title;
-    document.getElementById("pageSubtitle").textContent = subtitle;
-
-    document.querySelectorAll(".nav-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.section === currentSection);
-    });
-
-    const content = document.getElementById("content");
-    if (currentSection === "dashboard") content.innerHTML = dashboardHTML();
-    else if (currentSection === "users") content.innerHTML = usersHTML();
-    else if (currentSection === "roles") content.innerHTML = rolesHTML();
-    else if (currentSection === "departments") content.innerHTML = departmentsHTML();
-    else if (currentSection === "staff") content.innerHTML = staffHTML();
-    else if (currentSection === "doctors") content.innerHTML = doctorsHTML();
-    else if (currentSection === "lab-tests") content.innerHTML = labTestsHTML();
-    else if (currentSection === "medicines") content.innerHTML = medicinesHTML();
-    else if (currentSection === "appointments") content.innerHTML = appointmentsHTML();
-    else if (currentSection === "patients") content.innerHTML = patientsHTML();
-    else if (currentSection === "audit-logs") content.innerHTML = auditLogsHTML();
-}
-
-function dashboardHTML() {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayAppointments = data.appointments.filter(a => String(a.AppointmentDateTime).slice(0, 10) === today).length;
-    const waiting = data.appointments.filter(a => a.AppointmentStatus === "Waiting").length;
-    const completed = data.appointments.filter(a => a.AppointmentStatus === "Completed").length;
-    const active = data.users.filter(u => u.isActive).length;
-    const inactive = data.users.filter(u => !u.isActive).length;
-
-    const recent = data.auditLogs.slice(0, 5);
-
+function dashboardHTML(){
+    const lowStock=data.medicines.filter(m=>Number(m.Quantity)<=10).length;
     return `
-        <div class="stat-grid">
-            <div class="stat-card"><div class="label">Total Users</div><div class="value">${data.users.length}</div></div>
-            <div class="stat-card"><div class="label">Active Users</div><div class="value">${active}</div></div>
-            <div class="stat-card"><div class="label">Inactive Users</div><div class="value">${inactive}</div></div>
-            <div class="stat-card"><div class="label">Patients Registered</div><div class="value">${data.patients.length}</div></div>
-            <div class="stat-card"><div class="label">Today's Appointments</div><div class="value">${todayAppointments}</div></div>
-            <div class="stat-card"><div class="label">Waiting</div><div class="value">${waiting}</div></div>
-            <div class="stat-card"><div class="label">Completed</div><div class="value">${completed}</div></div>
-            <div class="stat-card"><div class="label">Audit Activities</div><div class="value">${data.auditLogs.length}</div></div>
-        </div>
-
+      <div class="stat-grid">
+        ${stat("Total Users",data.users.length)}
+        ${stat("Doctors",data.doctors.length)}
+        ${stat("Departments",data.departments.length)}
+        ${stat("Receptionists",data.staff.length)}
+        ${stat("Lab Tests",data.labTests.length)}
+        ${stat("Medicines",data.medicines.length)}
+        ${stat("Low Stock",lowStock)}
+        ${stat("Audit Activities",data.auditLogs.length)}
+      </div>
+      <div class="dashboard-grid">
         <div class="panel">
-            <div class="panel-header"><h2>Recent Audit Activity</h2></div>
-            ${recent.length ? `
-                <ul class="activity-list">
-                    ${recent.map(a => `<li><strong>${esc(a.ActionType)}</strong> - ${esc(a.TableAffected)} #${esc(a.RecordId)}<br><span class="muted">${esc(a.Details)} | ${new Date(a.action_time).toLocaleString()}</span></li>`).join("")}
-                </ul>
-            ` : `<div class="empty">No audit activity yet.</div>`}
+          <div class="panel-header"><h2>Doctors</h2><button class="btn small secondary" onclick="currentSection='doctors';render()">View All</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Department</th><th>Qualification</th></tr></thead><tbody>
+            ${data.doctors.slice(-5).reverse().map(d=>`<tr><td>${esc(d.Name)}</td><td>${esc(departmentName(d.DepartmentId))}</td><td>${esc(d.Qualification)}</td></tr>`).join("") || emptyRow(3,"No doctors found.")}
+          </tbody></table></div>
         </div>
-    `;
-}
-
-function usersHTML() {
-    return tableSection("users", "UserId", [
-        ["UserId", "ID"], ["Username", "Username"], ["RoleId", "Role"], ["isActive", "Status"]
-    ], userRows(), true, "Add User");
-}
-
-function userRows() {
-    return data.users.map(u => `
-        <tr>
-            <td>${u.UserId}</td>
-            <td>${esc(u.Username)}</td>
-            <td>${esc(roleName(u.RoleId))}</td>
-            <td>${statusBadge(u.isActive)}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('users', ${u.UserId})">Edit</button>
-                <button class="btn small ${u.isActive ? "danger" : "success"}" onclick="toggleActive('users', ${u.UserId})">${u.isActive ? "Deactivate" : "Activate"}</button>
-                <button class="btn small danger" onclick="deleteRecord('users', ${u.UserId})">Delete</button>
-            </td>
-        </tr>
-    `).join("");
-}
-
-function rolesHTML() {
-    return tableSection("roles", "RoleId", [["RoleId", "ID"], ["RoleName", "Role Name"]], data.roles.map(r => `
-        <tr><td>${r.RoleId}</td><td>${esc(r.RoleName)}</td>
-        <td class="action-cell">
-            <button class="btn small secondary" onclick="openEdit('roles', ${r.RoleId})">Edit</button>
-            <button class="btn small danger" onclick="deleteRecord('roles', ${r.RoleId})">Delete</button>
-        </td></tr>
-    `).join(""), true, "Add Role");
-}
-
-function departmentsHTML() {
-    return tableSection("departments", "DepartmentId",
-        [["DepartmentId", "ID"], ["DepartmentName", "Department"], ["isActive", "Status"]],
-        data.departments.map(d => `
-            <tr><td>${d.DepartmentId}</td><td>${esc(d.DepartmentName)}</td><td>${statusBadge(d.isActive)}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('departments', ${d.DepartmentId})">Edit</button>
-                <button class="btn small ${d.isActive ? "danger" : "success"}" onclick="toggleActive('departments', ${d.DepartmentId})">${d.isActive ? "Deactivate" : "Activate"}</button>
-                <button class="btn small danger" onclick="deleteRecord('departments', ${d.DepartmentId})">Delete</button>
-            </td></tr>
-        `).join(""), true, "Add Department");
-}
-
-function staffHTML() {
-    return tableSection("staff", "StaffId",
-        [["StaffId", "ID"], ["Name", "Name"], ["DateofBirth", "DOB"], ["DateOfJoining", "Joining Date"], ["Address", "Address"], ["phoneNumber", "Phone"], ["RoleId", "Role"]],
-        data.staff.map(s => `
-            <tr><td>${s.StaffId}</td><td>${esc(s.Name)}</td><td>${esc(s.DateofBirth)}</td><td>${esc(s.DateOfJoining)}</td><td>${esc(s.Address)}</td><td>${esc(s.phoneNumber)}</td><td>${esc(roleName(s.RoleId))}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('staff', ${s.StaffId})">Edit</button>
-                <button class="btn small danger" onclick="deleteRecord('staff', ${s.StaffId})">Delete</button>
-            </td></tr>
-        `).join(""), true, "Add Staff");
-}
-
-function doctorsHTML() {
-    return tableSection("doctors", "DoctorId",
-        [["DoctorId", "ID"], ["Name", "Name"], ["Qualification", "Qualification"], ["Specialization", "Specialization"], ["DepartmentId", "Department"], ["isActive", "Status"]],
-        data.doctors.map(d => `
-            <tr><td>${d.DoctorId}</td><td>${esc(d.Name)}</td><td>${esc(d.Qualification)}</td><td>${esc(d.Specialization)}</td><td>${esc(departmentName(d.DepartmentId))}</td><td>${statusBadge(d.isActive)}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('doctors', ${d.DoctorId})">Edit</button>
-                <button class="btn small ${d.isActive ? "danger" : "success"}" onclick="toggleActive('doctors', ${d.DoctorId})">${d.isActive ? "Deactivate" : "Activate"}</button>
-                <button class="btn small danger" onclick="deleteRecord('doctors', ${d.DoctorId})">Delete</button>
-            </td></tr>
-        `).join(""), true, "Add Doctor");
-}
-
-function labTestsHTML() {
-    return tableSection("labTests", "LabtestId",
-        [["LabtestId", "ID"], ["TestName", "Test"], ["NormalName", "Normal Name"], ["TestCost", "Cost"], ["DepartmentId", "Department"], ["isActive", "Status"]],
-        data.labTests.map(t => `
-            <tr><td>${t.LabtestId}</td><td>${esc(t.TestName)}</td><td>${esc(t.NormalName)}</td><td>${esc(t.TestCost)}</td><td>${esc(departmentName(t.DepartmentId))}</td><td>${statusBadge(t.isActive)}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('labTests', ${t.LabtestId})">Edit</button>
-                <button class="btn small ${t.isActive ? "danger" : "success"}" onclick="toggleActive('labTests', ${t.LabtestId})">${t.isActive ? "Deactivate" : "Activate"}</button>
-                <button class="btn small danger" onclick="deleteRecord('labTests', ${t.LabtestId})">Delete</button>
-            </td></tr>
-        `).join(""), true, "Add Lab Test");
-}
-
-function medicinesHTML() {
-    return tableSection("medicines", "MedicineId",
-        [["MedicineId", "ID"], ["MedicineName", "Medicine"], ["Manufacturer", "Manufacturer"], ["GenericName", "Generic"], ["Category", "Category"], ["CostValue", "Cost"], ["MRP", "MRP"], ["isActive", "Status"]],
-        data.medicines.map(m => `
-            <tr><td>${m.MedicineId}</td><td>${esc(m.MedicineName)}</td><td>${esc(m.Manufacturer)}</td><td>${esc(m.GenericName)}</td><td>${esc(m.Category)}</td><td>${esc(m.CostValue)}</td><td>${esc(m.MRP)}</td><td>${statusBadge(m.isActive)}</td>
-            <td class="action-cell">
-                <button class="btn small secondary" onclick="openEdit('medicines', ${m.MedicineId})">Edit</button>
-                <button class="btn small ${m.isActive ? "danger" : "success"}" onclick="toggleActive('medicines', ${m.MedicineId})">${m.isActive ? "Deactivate" : "Activate"}</button>
-                <button class="btn small danger" onclick="deleteRecord('medicines', ${m.MedicineId})">Delete</button>
-            </td></tr>
-        `).join(""), true, "Add Medicine");
-}
-
-function appointmentsHTML() {
-    return `
         <div class="panel">
-            <div class="panel-header">
-                <h2>Appointment Monitoring</h2>
-                <div class="toolbar">
-                    <input id="appointmentSearch" placeholder="Search patient..." oninput="filterAppointments()">
-                    <select id="appointmentStatus" onchange="filterAppointments()">
-                        <option value="">All Status</option>
-                        <option>Scheduled</option><option>Waiting</option><option>Completed</option><option>Cancelled</option>
-                    </select>
-                </div>
-            </div>
-            <div class="table-wrap"><table><thead><tr>
-                <th>ID</th><th>Patient</th><th>Doctor</th><th>Department</th><th>Status</th><th>Date & Time</th>
-            </tr></thead><tbody id="appointmentRows">${appointmentRows()}</tbody></table></div>
+          <div class="panel-header"><h2>Medicine Inventory</h2><button class="btn small secondary" onclick="currentSection='medicines';render()">Manage</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Medicine</th><th>Quantity</th><th>Stock</th></tr></thead><tbody>
+            ${data.medicines.slice(-5).reverse().map(m=>`<tr><td>${esc(m.MedicineName)}</td><td>${m.Quantity}</td><td>${stockBadge(m.Quantity)}</td></tr>`).join("") || emptyRow(3,"No medicines found.")}
+          </tbody></table></div>
         </div>
-    `;
+      </div>`;
+}
+function stat(label,value){return `<div class="stat-card"><div><div class="label">${label}</div><div class="value">${value}</div></div></div>`;}
+function emptyRow(cols,msg){return `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`;}
+function stockBadge(qty){
+    qty=Number(qty)||0;
+    if(qty<=0) return `<span class="badge out">Out of Stock</span>`;
+    if(qty<=10) return `<span class="badge low">Low Stock</span>`;
+    return `<span class="badge stock-ok">In Stock</span>`;
 }
 
-function appointmentRows() {
-    return data.appointments.map(a => `
-        <tr data-patient="${esc(a.PatientName).toLowerCase()}">
-            <td>${a.AppointmentId}</td><td>${esc(a.PatientName)}</td><td>${esc(a.DoctorName)}</td><td>${esc(a.DepartmentName)}</td>
-            <td><span class="badge ${String(a.AppointmentStatus).toLowerCase()}">${esc(a.AppointmentStatus)}</span></td>
-            <td>${esc(a.AppointmentDateTime)}</td>
-        </tr>
-    `).join("") || `<tr><td colspan="6" class="empty">No appointment records found.</td></tr>`;
+function usersHTML(){
+    return tableSection("users",[
+      ["UserId","ID"],["Name","Name"],["Username","Username"],["EmailId","Email"],
+      ["DepartmentId","Department"],["RoleId","Role"],["DOB","DOB"],["PhoneNumber","Phone"]
+    ],data.users.map(u=>`
+      <tr><td>${u.UserId}</td><td>${esc(u.Name)}</td><td>${esc(u.Username)}</td><td>${esc(u.EmailId)}</td>
+      <td>${esc(departmentName(u.DepartmentId))}</td><td>${esc(roleName(u.RoleId))}</td><td>${esc(u.DOB)}</td><td>${esc(u.PhoneNumber)}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('users',${u.UserId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('users',${u.UserId})">Delete</button></td></tr>`).join(""),"Add User");
 }
 
-function patientsHTML() {
-    return `
-        <div class="panel">
-            <div class="panel-header">
-                <h2>Patient Records</h2>
-                <div class="toolbar">
-                    <input id="patientSearch" placeholder="Search name..." oninput="filterPatients()">
-                    <input id="patientPhoneSearch" placeholder="Search phone..." oninput="filterPatients()">
-                </div>
-            </div>
-            <div class="table-wrap"><table><thead><tr>
-                <th>ID</th><th>Name</th><th>Gender</th><th>DOB</th><th>Phone</th><th>Address</th><th>Blood Group</th><th>Weight</th><th>Height</th>
-            </tr></thead><tbody id="patientRows">${patientRows()}</tbody></table></div>
-        </div>
-    `;
+function rolesHTML(){
+    return tableSection("roles",[["RoleId","ID"],["RoleName","Role"]],data.roles.map(r=>`
+      <tr><td>${r.RoleId}</td><td>${esc(r.RoleName)}</td><td class="action-cell"><button class="btn small secondary" onclick="openEdit('roles',${r.RoleId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('roles',${r.RoleId})">Delete</button></td></tr>`).join(""),"Add Role");
+}
+function departmentsHTML(){
+    return tableSection("departments",[["DepartmentId","ID"],["DepartmentName","Department"],["Doctors","Doctor Name(s)"]],data.departments.map(d=>{
+      const docs=data.doctors.filter(x=>Number(x.DepartmentId)===Number(d.DepartmentId)).map(x=>x.Name);
+      return `<tr><td>${d.DepartmentId}</td><td>${esc(d.DepartmentName)}</td><td>${docs.length?esc(docs.join(", ")):"No doctor assigned"}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('departments',${d.DepartmentId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('departments',${d.DepartmentId})">Delete</button></td></tr>`;
+    }).join(""),"Add Department");
+}
+function staffHTML(){
+    const receptionists=data.staff.map(s=>({s,u:data.users.find(u=>Number(u.UserId)===Number(s.UserId))})).filter(x=>x.u && roleName(x.u.RoleId)==="Receptionist");
+    return tableSection("staff",[["StaffId","ID"],["Name","Name"],["Username","Username"],["EmailId","Receptionist Gmail"],["PhoneNumber","Phone"],["DepartmentId","Department"]],receptionists.map(({s,u})=>`
+      <tr><td>${s.StaffId}</td><td>${esc(u.Name)}</td><td>${esc(u.Username)}</td><td>${esc(u.EmailId)}</td><td>${esc(u.PhoneNumber)}</td><td>${esc(departmentName(u.DepartmentId))}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('users',${u.UserId})">Edit</button></td></tr>`).join(""),null);
+}
+function doctorsHTML(){
+    return tableSection("doctors",[["DoctorId","ID"],["Name","Doctor Name"],["Qualification","Qualification"],["Specialization","Specialization"],["DepartmentId","Department"]],data.doctors.map(d=>`
+      <tr><td>${d.DoctorId}</td><td>${esc(d.Name)}</td><td>${esc(d.Qualification)}</td><td>${esc(d.Specialization)}</td><td>${esc(departmentName(d.DepartmentId))}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('doctors',${d.DoctorId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('doctors',${d.DoctorId})">Delete</button></td></tr>`).join(""),"Add Doctor");
+}
+function labTestsHTML(){
+    return tableSection("labTests",[["LabtestId","ID"],["TestName","Test"],["SampleType","Sample Type"],["NormalValue","Normal Value"],["TestCost","Cost"]],data.labTests.map(t=>`
+      <tr><td>${t.LabtestId}</td><td>${esc(t.TestName)}</td><td>${esc(t.SampleType)}</td><td>${esc(t.NormalValue)}</td><td>${money(t.TestCost)}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('labTests',${t.LabtestId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('labTests',${t.LabtestId})">Delete</button></td></tr>`).join(""),"Add Lab Test");
+}
+function medicinesHTML(){
+    return tableSection("medicines",[["MedicineId","ID"],["MedicineName","Medicine"],["Manufacturer","Manufacturer"],["GenericName","Generic"],["Category","Category"],["CostValue","Cost"],["MRP","MRP"],["Quantity","Quantity"],["Stock","Stock"]],data.medicines.map(m=>`
+      <tr><td>${m.MedicineId}</td><td>${esc(m.MedicineName)}</td><td>${esc(m.Manufacturer)}</td><td>${esc(m.GenericName)}</td><td>${esc(m.Category)}</td>
+      <td>${money(m.CostValue)}</td><td>${money(m.MRP)}</td><td>${Number(m.Quantity)||0}</td><td>${stockBadge(m.Quantity)}</td>
+      <td class="action-cell"><button class="btn small secondary" onclick="openEdit('medicines',${m.MedicineId})">Edit</button>
+      <button class="btn small danger" onclick="deleteRecord('medicines',${m.MedicineId})">Delete</button></td></tr>`).join(""),"Add Medicine");
+}
+function auditLogsHTML(){
+    return `<div class="panel"><div class="panel-header"><h2>Audit Logs</h2><div class="toolbar">
+      <select id="auditAction" class="form-control" onchange="filterAudits()"><option value="">All Actions</option>${[...new Set(data.auditLogs.map(a=>a.ActionType))].map(a=>`<option>${esc(a)}</option>`).join("")}</select>
+      <select id="auditRole" class="form-control" onchange="filterAudits()"><option value="">All Roles</option>${[...new Set(data.auditLogs.map(a=>a.Role))].map(r=>`<option>${esc(r)}</option>`).join("")}</select>
+      <input id="auditStart" class="form-control" type="date" onchange="filterAudits()"><input id="auditEnd" class="form-control" type="date" onchange="filterAudits()"></div></div>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Action</th><th>Role</th><th>Record</th><th>Details</th><th>Time</th></tr></thead>
+      <tbody id="auditRows">${auditRows()}</tbody></table></div></div>`;
+}
+function auditRows(){
+    return data.auditLogs.map(a=>`<tr data-action="${esc(a.ActionType)}" data-role="${esc(a.Role)}" data-date="${esc(a.action_time.slice(0,10))}">
+      <td>${a.AuditId}</td><td>${esc(a.ActionType)}</td><td>${esc(a.Role)}</td><td>${esc(a.RecordId)}</td><td>${esc(a.Details)}</td><td>${new Date(a.action_time).toLocaleString()}</td></tr>`).join("")
+      || emptyRow(6,"No audit records found.");
 }
 
-function patientRows() {
-    return data.patients.map(p => `
-        <tr data-name="${esc(p.Name).toLowerCase()}" data-phone="${esc(p.PhoneNumber)}">
-            <td>${p.PatientId}</td><td>${esc(p.Name)}</td><td>${esc(p.Gender)}</td><td>${esc(p.DOB)}</td><td>${esc(p.PhoneNumber)}</td>
-            <td>${esc(p.Address)}</td><td>${esc(p.BloodGroup)}</td><td>${esc(p.Weight)}</td><td>${esc(p.Height)}</td>
-        </tr>
-    `).join("") || `<tr><td colspan="9" class="empty">No patient records found.</td></tr>`;
+function tableSection(collection,headers,rows,addText){
+    const searchId=`${collection}Search`;
+    return `<div class="panel"><div class="panel-header"><h2>${sectionInfo[currentSection][0]}</h2><div class="toolbar">
+      <input id="${searchId}" class="form-control" placeholder="Search..." oninput="filterTable('${collection}')">
+      ${addText?`<button class="btn primary" onclick="openAdd('${collection}')">+ ${addText}</button>`:""}</div></div>
+      <div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${h[1]}</th>`).join("")}<th>Actions</th></tr></thead>
+      <tbody id="${collection}Rows">${rows||emptyRow(headers.length+1,"No records found.")}</tbody></table></div></div>`;
 }
-
-function auditLogsHTML() {
-    return `
-        <div class="panel">
-            <div class="panel-header">
-                <h2>Audit Logs</h2>
-                <div class="toolbar">
-                    <select id="auditAction" onchange="filterAudits()">
-                        <option value="">All Actions</option>
-                        ${[...new Set(data.auditLogs.map(a => a.ActionType))].map(a => `<option>${esc(a)}</option>`).join("")}
-                    </select>
-                    <input id="auditStart" type="date" onchange="filterAudits()">
-                    <input id="auditEnd" type="date" onchange="filterAudits()">
-                </div>
-            </div>
-            <div class="table-wrap"><table><thead><tr>
-                <th>ID</th><th>Action</th><th>Table</th><th>Record</th><th>Details</th><th>Time</th><th>User</th>
-            </tr></thead><tbody id="auditRows">${auditRows()}</tbody></table></div>
-        </div>
-    `;
+function filterTable(collection){
+    const el=document.getElementById(`${collection}Search`); if(!el)return;
+    const value=el.value.toLowerCase();
+    document.querySelectorAll(`#${collection}Rows tr`).forEach(row=>row.style.display=row.textContent.toLowerCase().includes(value)?"":"none");
 }
-
-function auditRows() {
-    return data.auditLogs.map(a => `
-        <tr data-action="${esc(a.ActionType)}" data-date="${esc(a.action_time.slice(0,10))}">
-            <td>${a.AuditId}</td><td>${esc(a.ActionType)}</td><td>${esc(a.TableAffected)}</td><td>${esc(a.RecordId)}</td>
-            <td>${esc(a.Details)}</td><td>${new Date(a.action_time).toLocaleString()}</td><td>${esc(a.UserId)}</td>
-        </tr>
-    `).join("") || `<tr><td colspan="7" class="empty">No audit records found.</td></tr>`;
-}
-
-function tableSection(collection, idField, headers, rows, addButton, addText) {
-    const searchId = `${collection}Search`;
-    return `
-        <div class="panel">
-            <div class="panel-header">
-                <h2>${sectionInfo[currentSection][0]}</h2>
-                <div class="toolbar">
-                    <input id="${searchId}" placeholder="Search..." oninput="filterTable('${collection}')">
-                    ${addButton ? `<button class="btn primary" onclick="openAdd('${collection}')">+ ${addText}</button>` : ""}
-                </div>
-            </div>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr>${headers.map(h => `<th>${h[1]}</th>`).join("")}<th>Actions</th></tr></thead>
-                    <tbody id="${collection}Rows">${rows || `<tr><td colspan="${headers.length + 1}" class="empty">No records found.</td></tr>`}</tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function filterTable(collection) {
-    const value = document.getElementById(`${collection}Search`).value.toLowerCase();
-    const rows = document.querySelectorAll(`#${collection}Rows tr`);
-    rows.forEach(row => row.style.display = row.textContent.toLowerCase().includes(value) ? "" : "none");
-}
-
-function filterAppointments() {
-    const search = document.getElementById("appointmentSearch").value.toLowerCase();
-    const status = document.getElementById("appointmentStatus").value;
-    document.querySelectorAll("#appointmentRows tr").forEach(row => {
-        const patient = row.dataset.patient || "";
-        const rowStatus = row.textContent;
-        row.style.display = patient.includes(search) && (!status || rowStatus.includes(status)) ? "" : "none";
-    });
-}
-
-function filterPatients() {
-    const name = document.getElementById("patientSearch").value.toLowerCase();
-    const phone = document.getElementById("patientPhoneSearch").value.toLowerCase();
-    document.querySelectorAll("#patientRows tr").forEach(row => {
-        row.style.display = (row.dataset.name || "").includes(name) && (row.dataset.phone || "").includes(phone) ? "" : "none";
-    });
-}
-
-function filterAudits() {
-    const action = document.getElementById("auditAction").value;
-    const start = document.getElementById("auditStart").value;
-    const end = document.getElementById("auditEnd").value;
-
-    document.querySelectorAll("#auditRows tr").forEach(row => {
-        const date = row.dataset.date || "";
-        const okAction = !action || row.dataset.action === action;
-        const okStart = !start || date >= start;
-        const okEnd = !end || date <= end;
-        row.style.display = okAction && okStart && okEnd ? "" : "none";
+function filterAudits(){
+    const action=document.getElementById("auditAction").value, role=document.getElementById("auditRole").value;
+    const start=document.getElementById("auditStart").value, end=document.getElementById("auditEnd").value;
+    document.querySelectorAll("#auditRows tr").forEach(row=>{
+      const date=row.dataset.date||"", okAction=!action||row.dataset.action===action, okRole=!role||row.dataset.role===role;
+      row.style.display=okAction&&okRole&&(!start||date>=start)&&(!end||date<=end)?"":"none";
     });
 }
 
 const fields = {
-    users: [
-        ["Username", "text", "Username", true],
-        ["Password", "password", "Password", true],
-        ["RoleId", "select", "Role", true, () => data.roles.map(r => [r.RoleId, r.RoleName])],
-        ["isActive", "checkbox", "Active", false]
+    users:[
+      ["Name","text","Name",true],["Username","text","Username",true],["Password","password","Password",true],
+      ["DOB","date","Date of Birth",true],["Address","text","Address",true],["PhoneNumber","tel","Phone Number",true],
+      ["EmailId","email","Email ID",true],["DepartmentId","select","Department",true,()=>data.departments.map(d=>[d.DepartmentId,d.DepartmentName])],
+      ["RoleId","select","Role",true,()=>data.roles.map(r=>[r.RoleId,r.RoleName])]
     ],
-    roles: [["RoleName", "text", "Role Name", true]],
-    departments: [["DepartmentName", "text", "Department Name", true], ["isActive", "checkbox", "Active", false]],
-    staff: [
-        ["Name", "text", "Name", true], ["DateofBirth", "date", "Date of Birth", true],
-        ["DateOfJoining", "date", "Date of Joining", true], ["Address", "text", "Address", true],
-        ["phoneNumber", "text", "Phone Number", true], ["UserId", "select", "User", true, () => data.users.map(u => [u.UserId, u.Username])],
-        ["RoleId", "select", "Role", true, () => data.roles.map(r => [r.RoleId, r.RoleName])]
+    roles:[["RoleName","text","Role Name",true]],
+    departments:[["DepartmentName","text","Department Name",true]],
+    doctors:[
+      ["Name","text","Doctor Name",true],["Qualification","text","Qualification",true],
+      ["Specialization","text","Specialization",true],["UserId","select","Linked User",true,()=>data.users.filter(u=>roleName(u.RoleId)==="Doctor").map(u=>[u.UserId,`${u.Name} (${u.Username})`])],
+      ["DepartmentId","select","Department",true,()=>data.departments.map(d=>[d.DepartmentId,d.DepartmentName])]
     ],
-    doctors: [
-        ["Name", "text", "Name", true], ["Qualification", "text", "Qualification", true],
-        ["Specialization", "text", "Specialization", true], ["UserId", "select", "User", true, () => data.users.map(u => [u.UserId, u.Username])],
-        ["DepartmentId", "select", "Department", true, () => data.departments.map(d => [d.DepartmentId, d.DepartmentName])],
-        ["isActive", "checkbox", "Active", false]
+    labTests:[
+      ["TestName","text","Test Name",true],["SampleType","text","Sample Type",true],
+      ["NormalValue","text","Normal Value",true],["TestCost","number","Test Cost (₹)",true]
     ],
-    labTests: [
-        ["TestName", "text", "Test Name", true], ["NormalName", "text", "Normal Name", true],
-        ["TestCost", "number", "Test Cost", true], ["DepartmentId", "select", "Department", true, () => data.departments.map(d => [d.DepartmentId, d.DepartmentName])],
-        ["isActive", "checkbox", "Active", false]
-    ],
-    medicines: [
-        ["MedicineName", "text", "Medicine Name", true], ["Manufacturer", "text", "Manufacturer", true],
-        ["GenericName", "text", "Generic Name", false], ["Category", "text", "Category", false],
-        ["CostValue", "number", "Cost Value", true], ["MRP", "number", "MRP", true],
-        ["isActive", "checkbox", "Active", false]
+    medicines:[
+      ["MedicineName","text","Medicine Name",true],["Manufacturer","text","Manufacturer",true],
+      ["GenericName","text","Generic Name",true],["Category","text","Category",true],
+      ["CostValue","number","Cost Value (₹)",true],["MRP","number","MRP (₹)",true],
+      ["Quantity","number","Quantity",true]
     ]
 };
 
-function openAdd(collection) {
-    editing = { collection, id: null };
-    openModal(collection, null);
-}
+function openAdd(collection){ editing={collection,id:null}; openModal(collection,null); }
+function openEdit(collection,id){ editing={collection,id}; openModal(collection,id); }
 
-function openEdit(collection, id) {
-    editing = { collection, id };
-    openModal(collection, id);
-}
-
-function openModal(collection, id) {
-    const record = id == null ? {} : data[collection].find(x => Number(x[primaryId(collection)]) === Number(id));
-    document.getElementById("modalTitle").textContent = id == null ? `Add ${sectionInfo[collection === "labTests" ? "lab-tests" : collection === "medicines" ? "medicines" : currentSection][0].replace(/s$/, "")}` : "Edit Record";
-
-    const form = document.getElementById("recordForm");
-    const fieldList = fields[collection] || [];
-
-    form.innerHTML = `
-        <div class="form-grid">
-            ${fieldList.map(([name, type, label, required, optionsFn]) => {
-                if (type === "checkbox") {
-                    return `<div class="form-group"><label><input id="field_${name}" type="checkbox" ${record[name] ? "checked" : ""} style="width:auto"> ${label}</label></div>`;
-                }
-                if (type === "select") {
-                    const options = optionsFn().map(([v, text]) => `<option value="${v}" ${String(record[name]) === String(v) ? "selected" : ""}>${esc(text)}</option>`).join("");
-                    return `<div class="form-group"><label>${label}</label><select id="field_${name}" ${required ? "required" : ""}><option value="">Select ${label}</option>${options}</select></div>`;
-                }
-                return `<div class="form-group"><label>${label}</label><input id="field_${name}" type="${type}" value="${esc(record[name] ?? "")}" ${required ? "required" : ""} ${type === "number" ? 'min="0"' : ""}></div>`;
-            }).join("")}
-        </div>
-        <div class="form-actions">
-            <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
-            <button type="submit" class="btn primary">Save</button>
-        </div>
-    `;
-
-    form.onsubmit = saveForm;
+function openModal(collection,id){
+    const record=id==null?{}:data[collection].find(x=>Number(x[primaryId(collection)])===Number(id))||{};
+    const titles={users:"User",roles:"Role",departments:"Department",doctors:"Doctor",labTests:"Lab Test",medicines:"Medicine"};
+    document.getElementById("modalTitle").textContent=id==null?`Add ${titles[collection]||"Record"}`:"Edit Record";
+    const form=document.getElementById("recordForm"), list=fields[collection]||[];
+    form.innerHTML=`<div class="form-grid">${list.map(([name,type,label,required,optionsFn])=>{
+      if(type==="checkbox") return `<div class="form-group"><label><input id="field_${name}" type="checkbox" ${record[name]?"checked":""} style="width:auto;margin-right:6px">${label}</label></div>`;
+      if(type==="select"){
+        const opts=optionsFn().map(([v,t])=>`<option value="${v}" ${String(record[name])===String(v)?"selected":""}>${esc(t)}</option>`).join("");
+        return `<div class="form-group"><label>${label}${required?" *":""}</label><select id="field_${name}" class="form-control" ${required?"required":""}><option value="">Select ${label}</option>${opts}</select></div>`;
+      }
+      const passwordEdit = name==="Password" && id!=null;
+      const requiredNow = required && !passwordEdit;
+      const passwordValue = passwordEdit ? "" : (record[name]??"");
+      const placeholder = passwordEdit ? 'Leave blank to keep current password' : "";
+      return `<div class="form-group"><label>${label}${requiredNow?" *":""}</label><input id="field_${name}" class="form-control" type="${type}" value="${esc(passwordValue)}" placeholder="${placeholder}" ${requiredNow?"required":""} ${type==="number"?'min="0" step="0.01"':""}></div>`;
+    }).join("")}</div><div id="formError" class="form-error"></div>
+    <div class="form-actions"><button type="button" class="btn secondary" onclick="closeModal()">Cancel</button><button type="submit" class="btn primary">Save</button></div>`;
+    form.onsubmit=saveForm;
     document.getElementById("modal").classList.remove("hidden");
 }
 
-function primaryId(collection) {
-    return {
-        users: "UserId", roles: "RoleId", departments: "DepartmentId",
-        staff: "StaffId", doctors: "DoctorId", labTests: "LabtestId", medicines: "MedicineId"
-    }[collection];
+function primaryId(collection){
+    return {users:"UserId",roles:"RoleId",departments:"DepartmentId",doctors:"DoctorId",labTests:"LabtestId",medicines:"MedicineId"}[collection];
 }
 
-function saveForm(event) {
-    event.preventDefault();
-    const { collection, id } = editing;
-    const fieldList = fields[collection];
-    const record = id == null ? {} : data[collection].find(x => Number(x[primaryId(collection)]) === Number(id));
-
-    fieldList.forEach(([name, type]) => {
-        const el = document.getElementById(`field_${name}`);
-        if (type === "checkbox") record[name] = el.checked;
-        else if (type === "number") record[name] = Number(el.value);
-        else if (type === "select") record[name] = Number(el.value);
-        else record[name] = el.value.trim();
-    });
-
-    if (id == null) {
-        record[primaryId(collection)] = nextId(collection, primaryId(collection));
-        data[collection].push(record);
-        addAudit("CREATE", auditTableName(collection), record[primaryId(collection)], "Record created by administrator.");
-        showToast("Record created successfully.");
-    } else {
-        addAudit("UPDATE", auditTableName(collection), id, "Record updated by administrator.");
-        showToast("Record updated successfully.");
+function validateRecord(collection,record){
+    const error=document.getElementById("formError");
+    const required=["Name","Username","DOB","Address","PhoneNumber","EmailId","DepartmentId","RoleId"];
+    if(collection==="users"){
+      for(const field of required){
+        if(record[field]===undefined || record[field]===null || String(record[field]).trim()===""){ error.textContent="Please fill all required fields."; return false; }
+      }
+      if(editing.id==null && !String(record.Password||"").trim()){error.textContent="Password is required.";return false}
+      if(/\s/.test(record.Username)){error.textContent="Username cannot contain spaces.";return false}
+      if(editing.id==null && /\s/.test(record.Password)){error.textContent="Password cannot contain spaces.";return false}
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.EmailId)){error.textContent="Enter a valid email address.";return false}
+      if(!/^\d{10}$/.test(record.PhoneNumber)){error.textContent="Phone number must contain exactly 10 digits.";return false}
+      const age=ageFromDOB(record.DOB);
+      if(age==="" || age<18){error.textContent="User age must be at least 18 years.";return false}
+      if(new Date(record.DOB)>new Date()){error.textContent="Date of birth cannot be in the future.";return false}
+      const duplicate=data.users.find(u=>u.Username.toLowerCase()===record.Username.toLowerCase() && Number(u.UserId)!==Number(editing.id));
+      if(duplicate){error.textContent="Username already exists.";return false}
+      const dupEmail=data.users.find(u=>u.EmailId.toLowerCase()===record.EmailId.toLowerCase() && Number(u.UserId)!==Number(editing.id));
+      if(dupEmail){error.textContent="Email ID already exists.";return false}
     }
-
-    saveData();
-    closeModal();
-    render();
-}
-
-function auditTableName(collection) {
-    return {
-        users: "User", roles: "Role", departments: "Department",
-        staff: "Staff", doctors: "Doctor", labTests: "LabTest", medicines: "MasterMedicine"
-    }[collection];
-}
-
-function toggleActive(collection, id) {
-    const record = data[collection].find(x => Number(x[primaryId(collection)]) === Number(id));
-    if (!record || !("isActive" in record)) return;
-
-    record.isActive = !record.isActive;
-    const action = record.isActive ? "ACTIVATE" : "DEACTIVATE";
-    const name = record.Username || record.Name || record.DepartmentName || record.TestName || record.MedicineName || "Record";
-    addAudit(action, auditTableName(collection), id, `${name} ${record.isActive ? "activated" : "deactivated"} by administrator.`);
-    saveData();
-    render();
-    showToast(`${action === "ACTIVATE" ? "Activated" : "Deactivated"} successfully.`);
-}
-
-function deleteRecord(collection, id) {
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    const index = data[collection].findIndex(x => Number(x[primaryId(collection)]) === Number(id));
-    if (index === -1) return;
-
-    data[collection].splice(index, 1);
-    addAudit("DELETE", auditTableName(collection), id, "Record deleted by administrator.");
-    saveData();
-    render();
-    showToast("Record deleted successfully.");
-}
-
-function closeModal() {
-    document.getElementById("modal").classList.add("hidden");
-    editing = null;
-}
-
-function login(event) {
-    event.preventDefault();
-    const username = document.getElementById("loginUsername").value.trim();
-    const password = document.getElementById("loginPassword").value;
-
-    const user = data.users.find(u => u.Username.toLowerCase() === username.toLowerCase() && (u.Password === password || password === "123" || password === "admin123") && u.isActive && roleName(u.RoleId) === "Admin");
-
-    if (!user) {
-        document.getElementById("loginError").textContent = "Invalid admin username or password.";
-        return;
+    if(collection==="roles" && !String(record.RoleName||"").trim()){error.textContent="Role name is required.";return false}
+    if(collection==="departments" && !String(record.DepartmentName||"").trim()){error.textContent="Department name is required.";return false}
+    if(collection==="doctors"){
+      if(["Name","Qualification","Specialization"].some(k=>!String(record[k]||"").trim())||!record.DepartmentId||!record.UserId){error.textContent="Please fill all required doctor fields.";return false}
     }
+    if(collection==="labTests"){
+      if(["TestName","SampleType","NormalValue"].some(k=>!String(record[k]||"").trim())||Number(record.TestCost)<=0){error.textContent="Please provide valid lab test details.";return false}
+    }
+    if(collection==="medicines"){
+      if(["MedicineName","Manufacturer","GenericName","Category"].some(k=>!String(record[k]||"").trim())||Number(record.CostValue)<0||Number(record.MRP)<0||Number(record.Quantity)<0){error.textContent="Please provide valid medicine details.";return false}
+      if(Number(record.MRP)<Number(record.CostValue)){error.textContent="MRP cannot be lower than cost value.";return false}
+    }
+    return true;
+}
 
-    localStorage.setItem(LOGIN_KEY, "true");
-    addAudit("LOGIN", "User", user.UserId, "Administrator logged in successfully.");
-    document.getElementById("loginError").textContent = "";
+function syncRoleRecord(user,oldRoleId){
+    const newRole=roleName(user.RoleId);
+    const oldRole=roleName(oldRoleId);
+    if(oldRole==="Doctor" && newRole!=="Doctor") data.doctors=data.doctors.filter(d=>Number(d.UserId)!==Number(user.UserId));
+    if(oldRole==="Receptionist" && newRole!=="Receptionist") data.staff=data.staff.filter(s=>Number(s.UserId)!==Number(user.UserId));
+
+    if(newRole==="Doctor"){
+      let doctor=data.doctors.find(d=>Number(d.UserId)===Number(user.UserId));
+      if(!doctor){
+        doctor={DoctorId:nextId("doctors","DoctorId"),Name:user.Name,Qualification:"Not specified",Specialization:departmentName(user.DepartmentId),UserId:user.UserId,DepartmentId:user.DepartmentId};
+        data.doctors.push(doctor);
+      }else{
+        doctor.Name=user.Name; doctor.DepartmentId=user.DepartmentId; doctor.Specialization=departmentName(user.DepartmentId);
+      }
+    }
+    if(newRole==="Receptionist"){
+      let staff=data.staff.find(s=>Number(s.UserId)===Number(user.UserId));
+      if(!staff) data.staff.push({StaffId:nextId("staff","StaffId"),Name:user.Name,UserId:user.UserId,RoleId:3});
+      else staff.Name=user.Name;
+    }
+}
+
+function saveForm(event){
+    event.preventDefault();
+    const {collection,id}=editing;
+    const record=id==null?{}:data[collection].find(x=>Number(x[primaryId(collection)])===Number(id));
+    const oldRoleId=collection==="users" ? record?.RoleId : null;
+    for(const [name,type] of fields[collection]){
+      const el=document.getElementById(`field_${name}`);
+      if(type==="checkbox") record[name]=el.checked;
+      else if(type==="number") record[name]=Number(el.value);
+      else if(type==="select") record[name]=Number(el.value);
+      else if(name==="Password" && id!=null && el.value==="") { /* keep existing password */ }
+      else record[name]=el.value.trim();
+    }
+    if(!validateRecord(collection,record)) return;
+
+    if(id==null){
+      record[primaryId(collection)]=nextId(collection,primaryId(collection));
+      data[collection].push(record);
+      if(collection==="users") syncRoleRecord(record,null);
+      addAudit("CREATE",collectionRole(collection),record[primaryId(collection)],`${collectionLabel(collection)} created.`);
+      showToast(`${collectionLabel(collection)} created successfully.`);
+    }else{
+      if(collection==="users") syncRoleRecord(record,oldRoleId);
+      addAudit("UPDATE",collectionRole(collection),id,`${collectionLabel(collection)} updated.`);
+      showToast(`${collectionLabel(collection)} updated successfully.`);
+    }
+    saveData(); closeModal(); render();
+}
+function collectionLabel(c){return {users:"User",roles:"Role",departments:"Department",doctors:"Doctor",labTests:"Lab Test",medicines:"Medicine"}[c]||"Record";}
+function collectionRole(c){return c==="users"?"Admin":c==="doctors"?"Doctor":c==="staff"?"Receptionist":"Admin";}
+
+function deleteRecord(collection,id){
+    if(collection==="users"){
+      const user=data.users.find(u=>Number(u.UserId)===Number(id));
+      if(user && Number(user.UserId)===1){showToast("The primary administrator cannot be deleted.");return;}
+    }
+    if(!confirm(`Delete this ${collectionLabel(collection).toLowerCase()}?`))return;
+    const idx=data[collection].findIndex(x=>Number(x[primaryId(collection)])===Number(id));
+    if(idx<0)return;
+    const record=data[collection][idx];
+    if(collection==="users"){
+      data.doctors=data.doctors.filter(d=>Number(d.UserId)!==Number(id));
+      data.staff=data.staff.filter(s=>Number(s.UserId)!==Number(id));
+    }
+    data[collection].splice(idx,1);
+    addAudit("DELETE","Admin",id,`${collectionLabel(collection)} deleted.`);
+    saveData(); render(); showToast("Deleted successfully.");
+}
+function closeModal(){document.getElementById("modal").classList.add("hidden");editing=null;}
+
+function login(event){
+    event.preventDefault();
+    const username=document.getElementById("loginUsername").value.trim();
+    const password=document.getElementById("loginPassword").value;
+    const user=data.users.find(u=>u.Username===username&&u.Password===password&&u.isActive&&roleName(u.RoleId)==="Admin");
+    if(!user){document.getElementById("loginError").textContent="Invalid admin username or password.";return;}
+    localStorage.setItem(LOGIN_KEY,"true");
+    addAudit("LOGIN","Admin",user.UserId,"Administrator logged in successfully.");
+    document.getElementById("loginError").textContent="";
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("appPage").classList.remove("hidden");
+    document.getElementById("adminIdentity").textContent=user.EmailId||user.Username;
     render();
 }
-
-function logout() {
+function logout(){
     localStorage.removeItem(LOGIN_KEY);
-    localStorage.removeItem("cms_current_user");
-    window.location.href = "../index.html";
+    document.getElementById("appPage").classList.add("hidden");
+    document.getElementById("loginPage").classList.remove("hidden");
+    document.getElementById("loginForm").reset();
 }
-
-document.getElementById("loginForm").addEventListener("submit", login);
-document.getElementById("logoutBtn").addEventListener("click", logout);
-document.getElementById("closeModal").addEventListener("click", closeModal);
-
-document.querySelectorAll(".nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        currentSection = btn.dataset.section;
-        render();
-    });
-});
-
-document.getElementById("modal").addEventListener("click", e => {
-    if (e.target.id === "modal") closeModal();
-});
-
-function initAdminAuth() {
-    let cmsUser = null;
-    try {
-        cmsUser = JSON.parse(localStorage.getItem("cms_current_user"));
-    } catch (e) {}
-
-    const isDirectLoggedIn = localStorage.getItem(LOGIN_KEY) === "true";
-    const isCMSAdmin = cmsUser && (cmsUser.role === "Admin" || cmsUser.username === "admin");
-
-    if (isDirectLoggedIn || isCMSAdmin) {
-        localStorage.setItem(LOGIN_KEY, "true");
-        const loginPage = document.getElementById("loginPage");
-        const appPage = document.getElementById("appPage");
-        if (loginPage) loginPage.classList.add("hidden");
-        if (appPage) appPage.classList.remove("hidden");
-        render();
-    }
+document.getElementById("loginForm").addEventListener("submit",login);
+document.getElementById("logoutBtn").addEventListener("click",logout);
+document.getElementById("closeModal").addEventListener("click",closeModal);
+document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{currentSection=btn.dataset.section;render();}));
+document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
+if(localStorage.getItem(LOGIN_KEY)==="true"){
+    const admin=data.users.find(u=>roleName(u.RoleId)==="Admin");
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("appPage").classList.remove("hidden");
+    document.getElementById("adminIdentity").textContent=admin?.EmailId||"Administrator";
+    render();
 }
-
-initAdminAuth();

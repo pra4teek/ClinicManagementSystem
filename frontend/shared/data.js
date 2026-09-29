@@ -10,6 +10,7 @@ const CMS_KEYS = {
   CONSULTATIONS: 'cms_consultations',
   PRESCRIPTIONS: 'cms_prescriptions',
   LAB_ORDERS: 'cms_lab_orders',
+  LAB_REPORTS: 'cms_lab_reports',
   MEDICINES: 'cms_medicines'
 };
 
@@ -90,6 +91,7 @@ function initCMSStorage() {
   if (!localStorage.getItem(CMS_KEYS.CONSULTATIONS)) localStorage.setItem(CMS_KEYS.CONSULTATIONS, JSON.stringify([]));
   if (!localStorage.getItem(CMS_KEYS.PRESCRIPTIONS)) localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify([]));
   if (!localStorage.getItem(CMS_KEYS.LAB_ORDERS)) localStorage.setItem(CMS_KEYS.LAB_ORDERS, JSON.stringify([]));
+  if (!localStorage.getItem(CMS_KEYS.LAB_REPORTS)) localStorage.setItem(CMS_KEYS.LAB_REPORTS, JSON.stringify([]));
 }
 
 function resetAllDemoData() {
