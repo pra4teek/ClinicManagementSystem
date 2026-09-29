@@ -3,21 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Doctor Consultation - CarePoint Clinic</title>
+  <title>Doctor Consultation · CarePoint Clinic</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
+    .icon {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .icon-lg { 
+      width: 1.25em; 
+      height: 1.25em; }
+    .icon-xl { width: 1.5em; height: 1.5em; }
+
+    /* ── Layout ── */
     .doctor-layout {
       display: grid;
       grid-template-columns: 360px 1fr;
       gap: 1.5rem;
       align-items: start;
     }
-
     @media (max-width: 1024px) {
       .doctor-layout { grid-template-columns: 1fr; }
     }
 
-    /* ── Queue items ── */
+    /* ── Greeting ── */
+    .greeting-eyebrow {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+
+    /* ── Queue cards ── */
     .queue-card {
       border: 1.5px solid var(--border);
       border-radius: var(--radius-md);
@@ -27,32 +54,17 @@
       cursor: pointer;
       transition: var(--transition);
     }
-
     .queue-card:hover {
       border-color: var(--primary);
       box-shadow: var(--shadow-sm);
       background: var(--primary-subtle);
     }
-
     .queue-card.active {
       border-color: var(--primary);
       background: var(--primary-light);
       border-left: 3px solid var(--primary);
       box-shadow: var(--shadow-sm);
     }
-
-    .queue-card .patient-name {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .queue-card .patient-meta {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 0.1rem;
-    }
-
     .token-badge {
       font-size: 0.7rem;
       font-weight: 700;
@@ -77,18 +89,38 @@
       gap: 1rem;
     }
 
+    /* ── Complaint strip ── */
+    .complaint-strip {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 3px solid var(--warning);
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-body);
+    }
+    .complaint-strip strong { color: var(--warning); }
+
     /* ── Section headers ── */
     .form-section-title {
-      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.76rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .06em;
+      letter-spacing: .07em;
       color: var(--primary);
       border-bottom: 1.5px solid var(--primary-light);
       padding-bottom: 0.4rem;
       margin-bottom: 1rem;
       margin-top: 1.5rem;
     }
+    .form-section-title:first-of-type { margin-top: 0; }
 
     /* ── Rx grid ── */
     .rx-grid {
@@ -98,12 +130,35 @@
       align-items: end;
       margin-bottom: 0.75rem;
     }
-
     @media (max-width: 768px) {
       .rx-grid { grid-template-columns: 1fr; }
     }
 
-    /* ── Print modal ── */
+    /* ── Empty state (no patient) ── */
+    .empty-panel {
+      text-align: center;
+      padding: 4rem 1.5rem;
+      color: var(--text-muted);
+    }
+    .empty-panel-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1rem;
+      background: var(--bg-main);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-hint);
+    }
+    .empty-panel h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.35rem;
+    }
+
+    /* ── Print / View modal ── */
     .rx-paper { padding: 2rem; color: #1e293b; }
 
     @media print {
@@ -116,11 +171,18 @@
 </head>
 <body>
 
-  <!-- Top Navbar -->
+  <!-- ═══ NAVBAR ═══ -->
   <nav class="navbar">
     <div class="nav-container">
       <a href="#" class="nav-brand">
-        <div class="brand-icon">⚕️</div>
+        <!-- Stethoscope SVG -->
+        <div class="brand-icon">
+          <svg class="icon" style="width:1.4rem;height:1.4rem;stroke:white;stroke-width:1.8;" viewBox="0 0 24 24">
+            <path d="M4.5 4.5a1 1 0 0 1 2 0v6a5.5 5.5 0 0 0 11 0V4.5a1 1 0 0 1 2 0v6a7.5 7.5 0 0 1-7 7.484V19a3 3 0 0 1-6 0v-1.016A7.5 7.5 0 0 1 4.5 10.5v-6Z"/>
+            <circle cx="19.5" cy="4.5" r="1.5"/>
+            <circle cx="4.5" cy="4.5" r="1.5" stroke="none" fill="white"/>
+          </svg>
+        </div>
         <div>
           <span class="brand-name">CarePoint Clinic</span>
           <span class="brand-role">Doctor Portal</span>
@@ -128,57 +190,69 @@
       </a>
 
       <div class="nav-actions">
-        <button class="btn btn-outline btn-sm" onclick="resetAllDemoData()">
-          🔄 Reset
-        </button>
         <div class="user-badge">
           <div class="user-avatar" id="docAvatar">DR</div>
           <div>
             <span class="user-name" id="docName">Dr. Jane Smith</span>
-            <span class="user-role-badge">Doctor</span>
+            <span class="user-role-badge">Physician</span>
           </div>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
+        <button class="btn btn-outline btn-sm" onclick="logoutUser()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
       </div>
     </div>
   </nav>
 
   <div class="container">
-    
-    <!-- Header & Stats -->
+
+    <!-- ═══ GREETING HEADER ═══ -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Patient Consultations</h1>
-        <p class="page-subtitle">Examine patients, record findings, prescribe medications, and order lab tests</p>
+        <p class="greeting-eyebrow" id="dateDisplay"></p>
+        <h1 class="page-title" id="greetingText">Good Morning, Doctor</h1>
+        <p class="page-subtitle">Your patient queue is ready. Review appointments, record clinical findings, and issue prescriptions below.</p>
       </div>
-      <div id="dateDisplay" style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);"></div>
     </div>
 
-    <!-- Stats -->
+    <!-- ═══ STATS ═══ -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon blue">📅</div>
+        <div class="stat-icon blue">
+          <!-- Calendar icon -->
+          <svg class="icon icon-xl" viewBox="0 0 24 24" style="stroke:var(--primary);"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
         <div>
           <div class="stat-value" id="statTotal">0</div>
           <div class="stat-label">Appointments Today</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon amber">⏳</div>
+        <div class="stat-icon amber">
+          <!-- Clock icon -->
+          <svg class="icon icon-xl" viewBox="0 0 24 24" style="stroke:var(--warning);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <div>
           <div class="stat-value" id="statWaiting">0</div>
           <div class="stat-label">Waiting in Queue</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon green">✅</div>
+        <div class="stat-icon green">
+          <!-- Check-circle icon -->
+          <svg class="icon icon-xl" viewBox="0 0 24 24" style="stroke:var(--success);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
         <div>
           <div class="stat-value" id="statCompleted">0</div>
-          <div class="stat-label">Completed Today</div>
+          <div class="stat-label">Consultations Done</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon indigo">💊</div>
+        <div class="stat-icon indigo">
+          <!-- File-text (prescription) icon -->
+          <svg class="icon icon-xl" viewBox="0 0 24 24" style="stroke:#6366f1;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
         <div>
           <div class="stat-value" id="statRx">0</div>
           <div class="stat-label">Prescriptions Issued</div>
@@ -186,16 +260,19 @@
       </div>
     </div>
 
-    <!-- Doctor Workspace -->
+    <!-- ═══ WORKSPACE ═══ -->
     <div class="doctor-layout">
-      
-      <!-- Queue Column -->
+
+      <!-- ── Queue Column ── -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">👥 Patient Queue</h2>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--text-muted);"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <h2 class="card-title">Patient Queue</h2>
+          </div>
           <span class="badge badge-scheduled" id="queueBadge">0 Waiting</span>
         </div>
-        
+
         <div style="display: flex; gap: 0.4rem; padding: 0.75rem 0.75rem 0 0.75rem;">
           <button class="btn btn-sm btn-primary" id="btnFilterAll" onclick="setFilter('all')">All</button>
           <button class="btn btn-sm btn-outline" id="btnFilterWait" onclick="setFilter('Scheduled')">Waiting</button>
@@ -207,48 +284,64 @@
         </div>
       </div>
 
-      <!-- Consultation Column -->
+      <!-- ── Consultation Column ── -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">🩺 Clinical Examination</h2>
-          <button type="button" id="btnPrintRx" class="btn btn-outline btn-sm" style="display: none;" onclick="openPrintModal()">
-            🖨️ Print Prescription
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--text-muted);"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <h2 class="card-title">Clinical Examination</h2>
+          </div>
+          <!-- Button shown for COMPLETED appointments only -->
+          <button type="button" id="btnPrintRx" class="btn btn-outline btn-sm" style="display:none;" onclick="openPrintModal()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            View Prescription
           </button>
         </div>
+
         <div class="card-body">
-          
-          <div id="noSelection" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-            <div style="font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.6;">👈</div>
+
+          <!-- Empty state -->
+          <div id="noSelection" class="empty-panel">
+            <div class="empty-panel-icon">
+              <svg class="icon" style="width:1.75rem;height:1.75rem;" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
             <h3>No Patient Selected</h3>
-            <p>Please select an appointment from the queue to start consultation.</p>
+            <p>Select an appointment from the queue on the left to begin the consultation.</p>
           </div>
 
+          <!-- Consultation form (shown when patient selected) -->
           <div id="consultationPanel" style="display: none;">
-            
-            <!-- Patient Banner -->
+
+            <!-- Patient banner -->
             <div class="patient-banner">
               <div>
-                <h3 id="panelPatName" style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">Patient Name</h3>
-                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
-                  <span id="panelPatMeta">Age: 45 | Male | O+</span> • Phone: <span id="panelPatPhone">9876543210</span>
+                <h3 id="panelPatName" style="font-size:1.2rem;font-weight:800;color:var(--primary);letter-spacing:-.01em;">Patient Name</h3>
+                <div style="font-size:0.82rem;color:var(--text-muted);margin-top:0.25rem;">
+                  <span id="panelPatMeta">Age: 45 | Male | O+</span>
+                  &ensp;·&ensp; Phone:&nbsp;<span id="panelPatPhone">—</span>
                 </div>
               </div>
-              <div style="text-align: right;">
+              <div style="text-align:right;">
                 <span class="token-badge" id="panelToken">Token #1</span>
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                  Time: <strong id="panelTime">10:00 AM</strong>
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">
+                  Scheduled at <strong id="panelTime">10:00 AM</strong>
                 </div>
               </div>
             </div>
 
-            <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.85rem;">
-              <strong>Chief Complaint:</strong> <span id="panelComplaint">Headache and fever</span>
+            <!-- Chief complaint -->
+            <div class="complaint-strip">
+              <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--warning);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span><strong>Symptoms Reported By Patient: &nbsp;</strong><span id="panelComplaint">Headache and fever</span></span>
             </div>
 
             <form id="consultationForm">
-              
+
               <!-- 1. Vitals -->
-              <h4 class="form-section-title">1. Patient Vital Signs</h4>
+              <h4 class="form-section-title">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                1. Patient Vital Signs
+              </h4>
               <div class="form-row" style="margin-bottom: 1.5rem;">
                 <div class="form-group">
                   <label class="form-label">BP (mmHg)</label>
@@ -269,26 +362,30 @@
               </div>
 
               <!-- 2. Diagnosis -->
-              <h4 class="form-section-title">2. Clinical Findings & Diagnosis</h4>
+              <h4 class="form-section-title">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                2. Clinical Findings &amp; Diagnosis
+              </h4>
               <div class="form-group">
-                <label class="form-label">Symptoms & Observations *</label>
+                <label class="form-label">Symptoms &amp; Observations *</label>
                 <textarea id="diagSymptoms" class="form-control" rows="2" placeholder="Clinical observations and symptoms..." required></textarea>
               </div>
-
               <div class="form-group">
                 <label class="form-label">Primary Diagnosis *</label>
                 <input type="text" id="diagPrimary" class="form-control" placeholder="e.g. Acute Pharyngitis, Viral Fever, Hypertension" required>
               </div>
-
               <div class="form-group">
                 <label class="form-label">Doctor's Advice / Remarks</label>
                 <textarea id="diagRemarks" class="form-control" rows="2" placeholder="Lifestyle advice, dietary precautions..."></textarea>
               </div>
 
               <!-- 3. Prescribe Medications -->
-              <h4 class="form-section-title">3. Rx – Prescribe Medications (Shared with Pharmacist)</h4>
+              <h4 class="form-section-title">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                3. Prescribe Medications
+              </h4>
 
-              <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 1rem;">
+              <div style="background:var(--bg-main);padding:1rem;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:1rem;">
                 <div class="rx-grid">
                   <div>
                     <label class="form-label">Medicine</label>
@@ -322,12 +419,15 @@
                     </select>
                   </div>
                   <div>
-                    <button type="button" class="btn btn-secondary" onclick="addRxItem()">+ Add</button>
+                    <button type="button" class="btn btn-secondary" onclick="addRxItem()">
+                      <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Add
+                    </button>
                   </div>
                 </div>
 
                 <div class="table-responsive">
-                  <table class="table" id="rxTable" style="display: none; background: white; border-radius: var(--radius-sm);">
+                  <table class="table" id="rxTable" style="display:none;background:white;border-radius:var(--radius-sm);">
                     <thead>
                       <tr>
                         <th>Medicine</th>
@@ -335,7 +435,7 @@
                         <th>Frequency</th>
                         <th>Duration</th>
                         <th>Instructions</th>
-                        <th>Action</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody id="rxTableBody"></tbody>
@@ -344,25 +444,28 @@
               </div>
 
               <!-- 4. Lab Tests -->
-              <h4 class="form-section-title">4. Diagnostic Lab Tests (Shared with Lab Technician)</h4>
-              <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 1.5rem;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.65rem; margin-bottom: 0.75rem;">
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+              <h4 class="form-section-title">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5m4 0h4m6-5v5m0 0h-4m4 0h2"/><path d="M9 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+                4. Diagnostic Lab Tests
+              </h4>
+              <div style="background:var(--bg-main);padding:1rem;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:1.5rem;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.65rem;margin-bottom:0.75rem;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Complete Blood Count (CBC)"> Complete Blood Count (CBC)
                   </label>
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Fasting Blood Sugar (FBS)"> Fasting Blood Sugar (FBS)
                   </label>
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Lipid Profile"> Lipid Profile
                   </label>
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Urine Routine Examination"> Urine Routine
                   </label>
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Thyroid Profile (T3, T4, TSH)"> Thyroid Profile
                   </label>
-                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;">
                     <input type="checkbox" name="labCheck" value="Chest X-Ray PA View"> Chest X-Ray
                   </label>
                 </div>
@@ -370,10 +473,11 @@
               </div>
 
               <!-- Submit -->
-              <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-                <button type="button" class="btn btn-outline" onclick="cancelConsultation()">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.5rem; font-size: 1rem;">
-                  💾 Save & Complete Consultation
+              <div style="display:flex;justify-content:flex-end;gap:1rem;border-top:1px solid var(--border);padding-top:1rem;">
+                <button type="button" class="btn btn-outline" onclick="cancelConsultation()">Discard</button>
+                <button type="submit" class="btn btn-primary" style="padding:0.7rem 1.5rem;font-size:0.95rem;">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Save &amp; Complete Consultation
                 </button>
               </div>
 
@@ -384,77 +488,98 @@
       </div>
 
     </div>
-
   </div>
 
-  <!-- Print Prescription Modal -->
+  <!-- ═══ PRESCRIPTION MODAL ═══ -->
   <div class="modal-backdrop" id="printModal">
     <div class="modal-content">
       <div class="rx-paper" id="printPaper">
-        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid var(--primary); padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+
+        <!-- Clinic header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--primary);padding-bottom:0.9rem;margin-bottom:1.25rem;">
           <div>
-            <h2 style="color: var(--primary); font-size: 1.5rem; font-weight: 800; margin: 0;">CAREPOINT CLINIC</h2>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Healthcare & Diagnostic Center</p>
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.15rem;">
+              <svg style="width:22px;height:22px;stroke:var(--primary);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <h2 style="color:var(--primary);font-size:1.4rem;font-weight:800;margin:0;letter-spacing:-.02em;">CarePoint Clinic</h2>
+            </div>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:0;padding-left:28px;">Healthcare &amp; Diagnostic Centre</p>
           </div>
-          <div style="text-align: right; font-size: 0.85rem;">
+          <div style="text-align:right;font-size:0.85rem;">
             <strong id="modalDoc">Dr. Jane Smith</strong><br>
-            <span style="color: var(--text-muted);">MBBS, MD</span>
+            <span style="color:var(--text-muted);">MBBS, MD</span>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1.25rem;">
-          <div>
-            <strong>Patient:</strong> <span id="modalPat">Robert Davis</span><br>
-            <strong>Details:</strong> <span id="modalMeta">45 / Male</span>
+        <!-- Patient details row -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8fafb;border:1px solid var(--border);padding:0.85rem 1rem;border-radius:var(--radius-sm);font-size:0.85rem;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;">
+          <div style="display:grid;gap:0.2rem;">
+            <div style="color:var(--text-muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Patient</div>
+            <div style="font-weight:700;color:var(--text-main);font-size:0.95rem;" id="modalPat">—</div>
           </div>
-          <div style="text-align: right;">
-            <strong>Date:</strong> <span id="modalDate">2026-09-28</span><br>
-            <strong>Rx ID:</strong> <span id="modalRx">RX-4001</span>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+            <div style="display:grid;gap:0.2rem;">
+              <div style="color:var(--text-muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Age</div>
+              <div style="font-weight:600;color:var(--text-main);" id="modalAge">—</div>
+            </div>
+            <div style="display:grid;gap:0.2rem;">
+              <div style="color:var(--text-muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Gender</div>
+              <div style="font-weight:600;color:var(--text-main);" id="modalGender">—</div>
+            </div>
+            <div style="display:grid;gap:0.2rem;">
+              <div style="color:var(--text-muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Blood Group</div>
+              <div style="font-weight:600;color:var(--text-main);" id="modalBloodGroup">—</div>
+            </div>
+            <div style="display:grid;gap:0.2rem;">
+              <div style="color:var(--text-muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Date</div>
+              <div style="font-weight:600;color:var(--text-main);" id="modalDate">—</div>
+            </div>
           </div>
         </div>
 
-        <div style="margin-bottom: 1rem;">
-          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Diagnosis</h4>
-          <div id="modalDiag" style="font-weight: 700; font-size: 1.05rem;">Acute Pharyngitis</div>
+        <!-- Diagnosis -->
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin-bottom:0.25rem;">Diagnosis</div>
+          <div id="modalDiag" style="font-weight:700;font-size:1.05rem;color:var(--text-main);">—</div>
         </div>
 
-        <div style="margin-bottom: 1.25rem;">
-          <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem;">℞ Medications</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+        <!-- Medications -->
+        <div style="margin-bottom:1.25rem;">
+          <h3 style="font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;">
+            <svg style="width:16px;height:16px;stroke:var(--primary);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Medications
+          </h3>
+          <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
             <thead>
-              <tr style="border-bottom: 1px solid #cbd5e1; text-align: left;">
-                <th style="padding: 0.4rem 0;">#</th>
-                <th style="padding: 0.4rem 0;">Medicine</th>
-                <th style="padding: 0.4rem 0;">Dosage</th>
-                <th style="padding: 0.4rem 0;">Frequency</th>
-                <th style="padding: 0.4rem 0;">Duration</th>
-                <th style="padding: 0.4rem 0;">Instructions</th>
+              <tr style="border-bottom:1px solid #cbd5e1;text-align:left;">
+                <th style="padding:0.4rem 0.3rem;">#</th>
+                <th style="padding:0.4rem 0.3rem;">Medicine</th>
+                <th style="padding:0.4rem 0.3rem;">Dosage</th>
+                <th style="padding:0.4rem 0.3rem;">Frequency</th>
+                <th style="padding:0.4rem 0.3rem;">Duration</th>
+                <th style="padding:0.4rem 0.3rem;">Instructions</th>
               </tr>
             </thead>
             <tbody id="modalRxList"></tbody>
           </table>
         </div>
 
-        <div id="modalLabBox" style="margin-bottom: 1.25rem; display: none;">
-          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Investigations Ordered</h4>
-          <div id="modalLabTests" style="font-size: 0.85rem; font-weight: 600;"></div>
+        <!-- Lab tests -->
+        <div id="modalLabBox" style="margin-bottom:1.25rem;display:none;">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin-bottom:0.25rem;">Investigations Ordered</div>
+          <div id="modalLabTests" style="font-size:0.85rem;font-weight:600;color:var(--text-main);"></div>
         </div>
 
-        <div style="margin-bottom: 2rem;">
-          <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem;">Doctor's Advice</h4>
-          <div id="modalAdvice" style="font-size: 0.85rem; color: #334155;">Rest and drink plenty of fluids.</div>
+        <!-- Doctor's advice -->
+        <div>
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin-bottom:0.25rem;">Doctor's Advice</div>
+          <div id="modalAdvice" style="font-size:0.85rem;color:#334155;">—</div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 2.5rem;">
-          <div style="text-align: center; border-top: 1px solid #94a3b8; width: 170px; padding-top: 0.4rem; font-size: 0.85rem;">
-            Doctor's Signature
-          </div>
-        </div>
       </div>
 
-      <div class="no-print" style="padding: 1rem 1.5rem; background: #f1f5f9; display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border);">
-        <button type="button" class="btn btn-outline" onclick="closePrintModal()">Close</button>
-        <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <!-- Modal footer — Close only -->
+      <div class="no-print" style="padding:1rem 1.5rem;background:#f1f5f9;display:flex;justify-content:flex-end;border-top:1px solid var(--border);">
+        <button type="button" class="btn btn-primary" onclick="closePrintModal()">Close</button>
       </div>
     </div>
   </div>

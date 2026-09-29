@@ -11,11 +11,17 @@ document.addEventListener('DOMContentLoaded', function() {
   currentUser = requireAuth(['Doctor', 'Admin'], '../index.html');
   if (!currentUser) return;
 
-  document.getElementById('docName').textContent = currentUser.name || 'Dr. Jane Smith';
-  document.getElementById('docAvatar').textContent = (currentUser.name || 'DR').substring(0, 2).toUpperCase();
+  const name = currentUser.name || 'Doctor';
+  document.getElementById('docName').textContent = name;
+  document.getElementById('docAvatar').textContent = name.substring(0, 2).toUpperCase();
 
   const now = new Date();
-  document.getElementById('dateDisplay').textContent = `📅 ${now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+
+  document.getElementById('greetingText').textContent = `${greeting}, ${name}`;
+  document.getElementById('dateDisplay').textContent =
+    now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
   loadMedicineOptions();
   renderQueueAndStats();
@@ -68,6 +74,9 @@ function renderQueueAndStats() {
   if (currentFilter === 'Scheduled') list = list.filter(a => a.status === 'Scheduled');
   else if (currentFilter === 'Completed') list = list.filter(a => a.status === 'Completed');
 
+  // Always sort by token number
+  list.sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+
   const container = document.getElementById('queueList');
   container.innerHTML = '';
 
@@ -76,23 +85,39 @@ function renderQueueAndStats() {
     return;
   }
 
+  // Find the lowest pending token (next to be served)
+  const allAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+  const nextScheduled = allAppts
+    .filter(a => a.status === 'Scheduled')
+    .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+  const nextToken = nextScheduled.length > 0 ? nextScheduled[0].tokenNumber : null;
+
   list.forEach(a => {
     const isSelected = activeAppt && activeAppt.appointmentId === a.appointmentId;
     const card = document.createElement('div');
     card.className = `queue-card ${isSelected ? 'active' : ''}`;
-    
+
     let badgeClass = 'badge-scheduled';
     if (a.status === 'Completed') badgeClass = 'badge-completed';
     else if (a.status === 'In-Progress') badgeClass = 'badge-in-progress';
 
+    // Show a subtle "Next" indicator on the next-in-queue card
+    const isNext = a.status === 'Scheduled' && a.tokenNumber === nextToken;
+    const nextIndicator = isNext
+      ? `<span style="font-size:0.65rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.05em;">Next</span>`
+      : '';
+
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-        <span class="token-badge">Token #${a.tokenNumber || '—'}</span>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+          <span class="token-badge">Token #${a.tokenNumber || '—'}</span>
+          ${nextIndicator}
+        </div>
         <span class="badge ${badgeClass}">${a.status}</span>
       </div>
       <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">${a.patientName}</div>
       <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
-        🕒 ${a.time || '10:00 AM'} • ${a.reason || 'General Checkup'}
+        ${a.time || '10:00 AM'} &nbsp;·&nbsp; ${a.reason || 'General Checkup'}
       </div>
     `;
     card.onclick = () => selectPatient(a);
@@ -101,6 +126,27 @@ function renderQueueAndStats() {
 }
 
 function selectPatient(appt) {
+  // ── Sequential token enforcement ──
+  // Completed patients can always be viewed. Only block Scheduled ones that are out of order.
+  if (appt.status !== 'Completed') {
+    const allAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+    const scheduled = allAppts
+      .filter(a => a.status === 'Scheduled')
+      .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+
+    if (scheduled.length > 0) {
+      const nextToken = scheduled[0].tokenNumber;
+      if ((appt.tokenNumber || 0) > nextToken) {
+        const nextPatient = scheduled[0].patientName;
+        showToast(
+          `Token #${nextToken} (${nextPatient}) must be consulted first. Please follow the queue order.`,
+          'warning'
+        );
+        return; // Block the selection
+      }
+    }
+  }
+
   activeAppt = appt;
   currentRxItems = [];
   renderRxTable();
@@ -114,8 +160,13 @@ function selectPatient(appt) {
     phone: '—'
   };
 
+  // Store patient details on activeAppt for the prescription modal
+  activeAppt._patientDetails = p;
+
   document.getElementById('panelPatName').textContent = p.name;
-  document.getElementById('panelPatMeta').textContent = `Age: ${p.age || '—'} | ${p.gender || '—'} | Blood Group: ${p.bloodGroup || '—'}`;
+  // Comma-separated, no pipes
+  document.getElementById('panelPatMeta').textContent =
+    `Age: ${p.age || '—'}, Gender: ${p.gender || '—'}, Blood Group: ${p.bloodGroup || '—'}`;
   document.getElementById('panelPatPhone').textContent = p.phone || '—';
   document.getElementById('panelToken').textContent = `Token #${appt.tokenNumber || '—'}`;
   document.getElementById('panelTime').textContent = appt.time || '—';
@@ -189,7 +240,7 @@ function addRxItem() {
   document.getElementById('rxMedName').focus();
 
   renderRxTable();
-  showToast(`Added ${name} to prescription.`, 'info');
+  showToast(`${name} added to prescription.`, 'success');
 }
 
 function removeRx(idx) {
@@ -217,7 +268,9 @@ function renderRxTable() {
       <td>${it.duration}</td>
       <td>${it.instructions}</td>
       <td>
-        <button type="button" class="btn btn-outline btn-sm" style="color: var(--danger); border-color:#fca5a5;" onclick="removeRx(${i})">🗑️</button>
+        <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:#fca5a5;" onclick="removeRx(${i})">
+          <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -263,7 +316,7 @@ function handleConsultationSave(e) {
     appointmentId: activeAppt.appointmentId,
     patientId: activeAppt.patientId,
     patientName: activeAppt.patientName,
-    doctorName: currentUser.name || 'Dr. Jane Smith',
+    doctorName: currentUser.name || 'Doctor',
     date: todayStr,
     vitals: vitals,
     symptoms: symp,
@@ -277,7 +330,7 @@ function handleConsultationSave(e) {
   else consList.push(newCons);
   setStorage(CMS_KEYS.CONSULTATIONS, consList);
 
-  // 2. Save Prescription (Shared with Pharmacist Adarsh!)
+  // 2. Save Prescription
   if (currentRxItems.length > 0) {
     const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
     const newRx = {
@@ -286,7 +339,7 @@ function handleConsultationSave(e) {
       appointmentId: activeAppt.appointmentId,
       patientId: activeAppt.patientId,
       patientName: activeAppt.patientName,
-      doctorName: currentUser.name || 'Dr. Jane Smith',
+      doctorName: currentUser.name || 'Doctor',
       date: todayStr,
       items: currentRxItems,
       status: 'Pending'
@@ -298,7 +351,7 @@ function handleConsultationSave(e) {
     setStorage(CMS_KEYS.PRESCRIPTIONS, rxList);
   }
 
-  // 3. Save Lab Orders (Shared with Lab Tech!)
+  // 3. Save Lab Orders
   const labTests = [];
   document.querySelectorAll('input[name="labCheck"]:checked').forEach(cb => labTests.push(cb.value));
 
@@ -310,7 +363,7 @@ function handleConsultationSave(e) {
       appointmentId: activeAppt.appointmentId,
       patientId: activeAppt.patientId,
       patientName: activeAppt.patientName,
-      doctorName: currentUser.name || 'Dr. Jane Smith',
+      doctorName: currentUser.name || 'Doctor',
       date: todayStr,
       tests: labTests,
       remarks: document.getElementById('labRemarks').value.trim(),
@@ -325,9 +378,10 @@ function handleConsultationSave(e) {
   if (aIdx >= 0) {
     appts[aIdx].status = 'Completed';
     setStorage(CMS_KEYS.APPOINTMENTS, appts);
+    activeAppt.status = 'Completed'; // keep local state in sync
   }
 
-  showToast(`Consultation completed for ${activeAppt.patientName}!`, 'success');
+  showToast(`Consultation completed for ${activeAppt.patientName}.`, 'success');
   document.getElementById('btnPrintRx').style.display = 'inline-flex';
 
   renderQueueAndStats();
@@ -343,11 +397,19 @@ function openPrintModal() {
   const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
   const lab = labList.find(l => l.appointmentId === activeAppt.appointmentId);
 
-  document.getElementById('modalDoc').textContent = currentUser.name || 'Dr. Jane Smith';
+  // Patient details — use stored details if available, else fall back to meta text
+  const p = activeAppt._patientDetails || {};
+  const age = p.age || '—';
+  const gender = p.gender || '—';
+  const bloodGroup = p.bloodGroup || '—';
+
+  document.getElementById('modalDoc').textContent = currentUser.name || 'Doctor';
   document.getElementById('modalPat').textContent = activeAppt.patientName;
-  document.getElementById('modalMeta').textContent = document.getElementById('panelPatMeta').textContent;
+  // Nicely formatted patient details — comma-separated, no pipes
+  document.getElementById('modalAge').textContent = age;
+  document.getElementById('modalGender').textContent = gender;
+  document.getElementById('modalBloodGroup').textContent = bloodGroup;
   document.getElementById('modalDate').textContent = cons ? cons.date : new Date().toISOString().split('T')[0];
-  document.getElementById('modalRx').textContent = rx ? rx.prescriptionId : 'RX-NEW';
   document.getElementById('modalDiag').textContent = cons ? cons.diagnosis : document.getElementById('diagPrimary').value;
   document.getElementById('modalAdvice').textContent = (cons && cons.remarks) ? cons.remarks : (document.getElementById('diagRemarks').value || 'Rest and review in 5 days.');
 
@@ -360,12 +422,12 @@ function openPrintModal() {
     items.forEach((it, i) => {
       rxTable.innerHTML += `
         <tr style="border-bottom: 1px dashed #e2e8f0;">
-          <td style="padding: 0.4rem 0;">${i+1}</td>
-          <td style="padding: 0.4rem 0;"><strong>${it.medicineName}</strong></td>
-          <td style="padding: 0.4rem 0;">${it.dosage}</td>
-          <td style="padding: 0.4rem 0;">${it.frequency}</td>
-          <td style="padding: 0.4rem 0;">${it.duration}</td>
-          <td style="padding: 0.4rem 0;">${it.instructions}</td>
+          <td style="padding: 0.4rem 0.3rem;">${i + 1}</td>
+          <td style="padding: 0.4rem 0.3rem;"><strong>${it.medicineName}</strong></td>
+          <td style="padding: 0.4rem 0.3rem;">${it.dosage}</td>
+          <td style="padding: 0.4rem 0.3rem;">${it.frequency}</td>
+          <td style="padding: 0.4rem 0.3rem;">${it.duration}</td>
+          <td style="padding: 0.4rem 0.3rem;">${it.instructions}</td>
         </tr>
       `;
     });
