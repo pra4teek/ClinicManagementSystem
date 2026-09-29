@@ -1,243 +1,895 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="theme-color" content="#f8fafc">
-	<title>Laboratory | CarePoint Clinic</title>
-	<link rel="stylesheet" href="../shared/style.css">
-	<style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Technician</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <style>
+        .lab-shell { min-height: 100vh; }
+        .lab-sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            width: 230px;
+            background: #fff;
+            color: var(--text-main);
+            border-right: 1px solid var(--border);
+        }
+        .lab-sidebar-brand {
+            padding: 1.35rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .lab-sidebar-brand span {
+            display: block;
+            margin-top: .2rem;
+            color: var(--text-muted);
+            font-size: .68rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .lab-sidebar-doctor {
+            margin-top: .55rem;
+            color: var(--text-muted) !important;
+            font-size: .76rem !important;
+            text-transform: none !important;
+        }
+        .lab-sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: .25rem;
+            padding: 1rem .65rem;
+        }
+        .lab-nav-item {
+            width: 100%;
+            padding: .7rem .8rem;
+            border: 0;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-body);
+            cursor: pointer;
+            font: 500 .88rem var(--font);
+            text-align: left;
+            transition: var(--transition);
+        }
+        .lab-nav-item:hover { background: var(--bg-hover); color: var(--text-main); }
+        .lab-nav-item.active {
+            background: var(--primary-light);
+            box-shadow: inset 3px 0 0 var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .lab-main { min-height: 100vh; margin-left: 230px; background: var(--bg-main); }
+        .lab-content { max-width: 1440px; margin: 0 auto; padding: 2rem 1.75rem 3rem; }
+        @media (max-width: 700px) {
+            .lab-sidebar { position: static; width: 100%; }
+            .lab-sidebar-brand { padding: .9rem 1rem; }
+            .lab-sidebar-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: .5rem; }
+            .lab-nav-item { padding: .6rem; }
+            .lab-main { margin-left: 0; }
+            .lab-content { padding: 1.25rem 1rem 2rem; }
+        }
 
-		.topbar {
-			min-height: 68px;
-			padding: 12px clamp(18px, 5vw, 68px);  
-			color: #fff;
-			background: var(--primary);
-		}
-		.brand-title { color: #fff; font-size: 1.05rem; font-weight: 700; }
-		.brand-note { color: #e0f2fe; font-size: .75rem; }
-		main { max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-		.page-heading {
-			display: flex;
-			align-items: flex-end;
-			justify-content: space-between;
-			gap: 1rem;
-			margin-bottom: 1.5rem;
-		}
-		.eyebrow { margin: 0 0 .25rem; color: var(--secondary); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-		.intro { margin: .35rem 0 0; color: var(--text-muted); font-size: .875rem; }
-		.metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-		.metric-value { margin-top: .25rem; }
-		.workspace {
-			display: grid;
-			grid-template-columns: minmax(0, 1.65fr) minmax(290px, .85fr);
-			align-items: start;
-			gap: 1.25rem;
-		}
-		.column { display: grid; min-width: 0; gap: 1.25rem; }
-		.panel {
-			overflow: hidden;
-			margin-bottom: 0;
-			border: 1px solid var(--border);
-			border-radius: var(--radius-lg);
-			background: var(--bg-card);
-			box-shadow: var(--shadow-sm);
-		}
-		.panel-heading {
-			display: flex;
-			align-items: flex-start;
-			justify-content: space-between;
-			gap: .9rem;
-			padding: 1rem 1.5rem;
-			border-bottom: 1px solid var(--border);
-			background: #fafbfc;
-		}
-		.panel-heading h2 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-main); }
-		.panel-note { margin: .2rem 0 0; color: var(--text-muted); font-size: .8rem; }
-		.queue-tools { display: flex; align-items: center; gap: .5rem; }
-		.search-input { width: min(190px, 35vw); }
-		.table-wrap { overflow-x: auto; }
-		.lab-table { width: 100%; border-collapse: collapse; text-align: left; }
-		.lab-table th {
-			padding: .7rem 1rem;
-			background: #f8fafb;
-			color: var(--text-muted);
-			font-size: .7rem;
-			font-weight: 700;
-			text-transform: uppercase;
-			letter-spacing: .06em;
-			white-space: nowrap;
-			border-bottom: 1.5px solid var(--border);
-		}
-		.lab-table td { padding: .8rem 1rem; border-top: 1px solid var(--border); font-size: .875rem; vertical-align: middle; color: var(--text-body); }
-		.lab-table tbody tr:last-child td { border-top: none; border-bottom: none; }
-		.lab-table tbody tr:hover { background: var(--bg-hover); }
-		.strong { font-weight: 650; color: var(--text-main); }
-		.subtext { display: block; margin-top: .15rem; color: var(--text-muted); font-size: .72rem; }
-		.status { display: inline-block; border-radius: var(--radius-full); padding: .2rem .6rem; background: var(--bg-hover); font-size: .7rem; font-weight: 700; white-space: nowrap; }
-		.status-progress  { background: var(--warning-light); color: #92400e; }
-		.status-completed { background: var(--success-light); color: #065f46; }
-		.status-cancelled { background: var(--danger-light); color: #991b1b; }
-		.row-action { border: 0; padding: .25rem 0; background: transparent; color: var(--primary); font-weight: 700; white-space: nowrap; cursor: pointer; font-family: var(--font); font-size: .8rem; }
-		.row-action:hover { text-decoration: underline; }
-		.empty-state { padding: 1.5rem; color: var(--text-muted); text-align: center; }
-		.form-body { display: grid; gap: .75rem; padding: 1rem 1.5rem 1.5rem; }
-		.field { display: grid; gap: .3rem; }
-		.form-hint { margin: -.2rem 0 0; color: var(--text-muted); font-size: .72rem; }
-		textarea.form-control { min-height: 5.5rem; resize: vertical; }
-		.form-message { min-height: 1.25rem; margin: 0; color: var(--danger); font-size: .8rem; font-weight: 500; }
-		footer { padding: 1rem 1rem 1.5rem; color: var(--text-hint); font-size: .75rem; text-align: center; }
-		@media (max-width: 850px) {
-			.workspace { grid-template-columns: 1fr; }
-			.column:last-child { grid-row: 1; }
-		}
-		@media (max-width: 560px) {
-			main { padding: 1.5rem .75rem 2.5rem; }
-			.page-heading { align-items: flex-start; }
-			.metrics { gap: .5rem; }
-			.metric { min-width: 0; padding: .8rem .65rem; }
-			.panel-heading { padding: .8rem 1rem; }
-			.queue-tools { align-items: stretch; flex-direction: column; }
-			.search-input { width: 130px; }
-			.lab-table th, .lab-table td { padding: .6rem .75rem; }
-			.form-body { padding: .8rem 1rem 1rem; }
-		}
-	</style>
+        /* Parameter Builder & Validation Styles */
+        .param-builder-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .param-builder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.85rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .param-builder-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .preset-btn-group {
+            display: flex;
+            gap: 0.4rem;
+        }
+        .param-btn {
+            padding: 0.28rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: var(--text-body);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .param-btn:hover {
+            background: #f1f5f9;
+            color: var(--text-main);
+            border-color: #94a3b8;
+        }
+        .param-btn.btn-normal-preset {
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+            color: #065f46;
+        }
+        .param-btn.btn-normal-preset:hover {
+            background: #d1fae5;
+            border-color: #6ee7b7;
+        }
+        .param-btn.btn-high-preset {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        .param-btn.btn-high-preset:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+        .param-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .param-row:last-child {
+            border-bottom: none;
+        }
+        .param-meta {
+            display: flex;
+            flex-direction: column;
+        }
+        .param-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .param-ref {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .param-input {
+            width: 100%;
+            padding: 0.45rem 0.65rem;
+            border: 1px solid #cbd5e1;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            background: #fff;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .param-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+        }
+        .param-input.is-invalid {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+        }
+        .param-unit-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            background: #e2e8f0;
+            border-radius: 4px;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .validation-alert-banner {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            animation: fadeIn 0.2s ease-in;
+        }
+        .validation-alert-banner strong {
+            font-weight: 700;
+        }
+    </style>
 </head>
+
 <body>
-	<nav class="navbar">
-		<div class="nav-container">
-			<a href="#" class="nav-brand">
-				<div class="brand-icon">⚕️</div>
-				<div>
-					<span class="brand-name">CarePoint Clinic</span>
-					<span class="brand-role">Laboratory Portal</span>
-				</div>
-			</a>
-			<div class="nav-actions">
-				<div class="user-badge">
-					<div class="user-avatar">LT</div>
-					<div>
-						<span class="user-name">Lab Technician</span>
-						<span class="user-role-badge">Lab Tech</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</nav>
 
-	<main>
-		<section class="page-heading" aria-labelledby="page-title">
-			<div>
-				<p class="eyebrow">Laboratory</p>
-				<h1 class="page-title" id="page-title">Test orders &amp; reports</h1>
-				<p class="intro">Review incoming tests, record findings, and update order status.</p>
-			</div>
-			<button class="btn btn-outline" id="refresh-button" type="button">Refresh data</button>
-		</section>
+<div class="lab-shell">
 
-		<section class="metrics stats-grid" aria-label="Lab order summary">
-			<div class="metric stat-card"><div><div class="stat-label">Open orders</div><div class="metric-value stat-value" id="open-count">--</div></div></div>
-			<div class="metric stat-card"><div><div class="stat-label">In progress</div><div class="metric-value stat-value" id="progress-count">--</div></div></div>
-			<div class="metric stat-card"><div><div class="stat-label">Reports recorded</div><div class="metric-value stat-value" id="report-count">--</div></div></div>
-		</section>
+    <aside class="lab-sidebar">
+        <div class="lab-sidebar-brand">
+            CarePoint Clinic
+            <span>Lab Technician</span>
+            <span class="lab-sidebar-doctor" id="assignedDoctorName">Doctor: Dr. Jane Smith</span>
+        </div>
+        <nav class="lab-sidebar-nav" aria-label="Lab technician navigation">
+            <button class="lab-nav-item active" data-section="orders" onclick="showSection('orders')">Lab Tests</button>
+            <button class="lab-nav-item" data-section="patient" onclick="showSection('patient')">Process Test</button>
+            <button class="lab-nav-item" data-section="reports" onclick="showSection('reports')">Reports</button>
+            <button class="lab-nav-item" data-section="billing" onclick="showSection('billing')">Billing</button>
+        </nav>
+    </aside>
 
-		<div class="workspace">
-			<div class="column">
-				<section class="panel" aria-labelledby="queue-title">
-					<div class="panel-heading">
-						<div>
-							<h2 id="queue-title">Lab order queue</h2>
-							<p class="panel-note">Choose an order to record a result or update its status.</p>
-						</div>
-						<div class="queue-tools">
-							<input class="search-input form-control" id="order-search" type="search" placeholder="Search orders" aria-label="Search lab orders">
-						</div>
-					</div>
-					<div class="table-wrap">
-						<table class="lab-table">
-							<thead><tr><th>Order</th><th>Patient / test</th><th>Sample</th><th>Status</th><th>Action</th></tr></thead>
-							<tbody id="orders-body"><tr><td colspan="5" class="empty-state">Loading lab orders...</td></tr></tbody>
-						</table>
-					</div>
-				</section>
+    <main class="lab-main">
+    <div class="lab-content">
 
-				<section class="panel" aria-labelledby="reports-title">
-					<div class="panel-heading">
-						<div>
-							<h2 id="reports-title">Recent reports</h2>
-							<p class="panel-note">Latest findings recorded for lab orders.</p>
-						</div>
-					</div>
-					<div class="table-wrap">
-						<table class="lab-table">
-							<thead><tr><th>Lab order</th><th>Patient</th><th>Reading</th><th>Date</th></tr></thead>
-							<tbody id="reports-body"><tr><td colspan="4" class="empty-state">Loading reports...</td></tr></tbody>
-						</table>
-					</div>
-				</section>
-			</div>
+    <div class="page-header">
 
-			<div class="column">
-				<section class="panel" aria-labelledby="result-title">
-					<div class="panel-heading">
-						<div>
-							<h2 id="result-title">Record a result</h2>
-							<p class="panel-note">Add the measured value and technician remarks.</p>
-						</div>
-					</div>
-					<form id="report-form" class="form-body">
-						<div class="field form-group">
-							<label class="form-label" for="order-select">Lab order</label>
-							<select class="form-control" id="order-select" name="LabPrescriptionId" required><option value="">Select an order</option></select>
-						</div>
-						<div class="field form-group">
-							<label class="form-label" for="technician-id">Technician staff ID</label>
-							<input class="form-control" id="technician-id" name="LabTechnician" type="number" min="1" placeholder="Optional">
-							<p class="form-hint">Leave blank if your staff ID is not available.</p>
-						</div>
-						<div class="field form-group">
-							<label class="form-label" for="actual-reading">Actual reading</label>
-							<textarea class="form-control" id="actual-reading" name="ActualReading" required placeholder="Enter the result and units"></textarea>
-						</div>
-						<div class="field form-group">
-							<label class="form-label" for="remarks">Remarks</label>
-							<textarea class="form-control" id="remarks" name="remarks" required placeholder="Add relevant lab notes"></textarea>
-						</div>
-						<p class="form-message" id="form-message" role="status" aria-live="polite"></p>
-						<button class="btn btn-primary" id="submit-report" type="submit">Save report</button>
-					</form>
-				</section>
+        <div>
+            <h1 class="page-title">
+                Lab Technician Dashboard
+            </h1>
 
-				<section class="panel" aria-labelledby="status-title">
-					<div class="panel-heading">
-						<div>
-							<h2 id="status-title">Update order status</h2>
-							<p class="panel-note">Save the latest progress for a lab order.</p>
-						</div>
-					</div>
-					<form id="status-form" class="form-body">
-						<div class="field form-group">
-							<label class="form-label" for="status-order">Lab order</label>
-							<select class="form-control" id="status-order" required><option value="">Select an order</option></select>
-						</div>
-						<div class="field form-group">
-							<label class="form-label" for="new-status">New status</label>
-							<select class="form-control" id="new-status" required>
-								<option>Pending</option>
-								<option>In-Progress</option>
-								<option>Completed</option>
-								<option>Cancelled</option>
-							</select>
-						</div>
-						<p class="form-message" id="status-message" role="status" aria-live="polite"></p>
-						<button class="btn btn-outline" id="save-status" type="submit">Save status</button>
-					</form>
-				</section>
-			</div>
-		</div>
-	</main>
-	<footer>CarePoint Clinic · Laboratory</footer>
-	<script src="lab.js" defer></script>
+            <p class="page-subtitle">
+                Manage lab tests, patient reports and billing
+            </p>
+        </div>
+
+        <button
+            class="btn btn-primary"
+            onclick="showSection('orders')"
+        >
+            View Lab Tests
+        </button>
+
+    </div>
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M9 3h6"></path>
+                    <path d="M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"></path>
+                </svg>
+            </div>
+
+            <div>
+                <div class="stat-value" id="totalTests">0</div>
+                <div class="stat-label">Total Lab Tests</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 7v5l3 2"></path>
+                </svg>
+            </div>
+
+            <div>
+                <div class="stat-value" id="pendingTests">0</div>
+                <div class="stat-label">Pending Tests</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M7 3v18"></path>
+                    <path d="M17 3v18"></path>
+                    <path d="M7 8h10"></path>
+                    <path d="M7 16h10"></path>
+                    <path d="M7 12h10"></path>
+                </svg>
+            </div>
+
+            <div>
+                <div class="stat-value" id="progressTests">0</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M5 12l4 4L19 6"></path>
+                </svg>
+            </div>
+
+            <div>
+                <div class="stat-value" id="completedTests">0</div>
+                <div class="stat-label">Completed Tests</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M6 3h9l3 3v15H6z"></path>
+                    <path d="M15 3v4h3"></path>
+                    <path d="M9 12h6"></path>
+                    <path d="M9 16h6"></path>
+                </svg>
+            </div>
+
+            <div>
+                <div class="stat-value" id="totalReports">0</div>
+                <div class="stat-label">Reports</div>
+            </div>
+        </div>
+
+    </div>
+
+    <section id="ordersSection">
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    All Lab Tests
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Patient ID</th>
+                                <th>Doctor ID</th>
+                                <th>Doctor Name</th>
+                                <th>Test Name</th>
+                                <th>Sample Type</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="ordersList"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <section id="patientSection" style="display:none;">
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    Pending Queue
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Patient ID</th>
+                                <th>Patient Name</th>
+                                <th>Doctor Name</th>
+                                <th>Test Name</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="pendingQueue"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card" id="progressQueueCard">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    In Progress Queue
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Patient ID</th>
+                                <th>Patient Name</th>
+                                <th>Doctor Name</th>
+                                <th>Test Name</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="progressQueue"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card" id="completedQueueCard">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    Completed Queue
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Patient ID</th>
+                                <th>Patient Name</th>
+                                <th>Doctor Name</th>
+                                <th>Test Name</th>
+                                <th>Action</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="completedQueue"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card" id="processFormCard" style="display:none;">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    Process Patient Test
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <form id="patientForm">
+
+                    <input
+                        type="hidden"
+                        id="testId"
+                    >
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Patient ID
+                            </label>
+
+                            <input
+                                type="text"
+                                id="patientId"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Patient Name
+                            </label>
+
+                            <input
+                                type="text"
+                                id="patientName"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Doctor ID
+                            </label>
+
+                            <input
+                                type="text"
+                                id="doctorId"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Doctor Name
+                            </label>
+
+                            <input
+                                type="text"
+                                id="doctorName"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Test Name
+                            </label>
+
+                            <input
+                                type="text"
+                                id="testName"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label class="form-label">
+                                Sample Type
+                            </label>
+
+                            <input
+                                type="text"
+                                id="sampleType"
+                                class="form-control"
+                                readonly
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Normal Reference Value / Range (Editable)
+                        </label>
+
+                        <input
+                            type="text"
+                            id="normalValue"
+                            class="form-control"
+                            placeholder="e.g. 70-99 mg/dL or 12.0-16.0 g/dL"
+                        >
+
+                        <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.25rem;display:block;">
+                            Established healthy clinical reference interval. You can edit this to match your lab analyzer standards.
+                        </small>
+
+                    </div>
+
+                    <!-- Validation Error Alert Banner -->
+                    <div id="validationAlertBanner" class="validation-alert-banner" role="alert">
+                        <strong>Invalid Clinical Reading:</strong>
+                        <span id="validationAlertMessage">Please enter a valid laboratory measurement.</span>
+                    </div>
+
+                    <!-- Dynamic Structured Parameters Card (Auto-generated for panels like Lipid Profile, CBC, etc.) -->
+                    <div id="structuredParamsCard" class="param-builder-card" style="display:none;">
+                        <div class="param-builder-header">
+                            <div class="param-builder-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                <span>Test Component Parameters</span>
+                            </div>
+                            <div class="preset-btn-group">
+                                <button type="button" class="param-btn btn-normal-preset" onclick="fillTestPreset('normal')">
+                                    Fill Normal Preset
+                                </button>
+                                <button type="button" class="param-btn btn-high-preset" onclick="fillTestPreset('high')">
+                                    Fill High / Abnormal
+                                </button>
+                                <button type="button" class="param-btn" onclick="clearTestParams()">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="dynamicParamsList">
+                            <!-- Dynamic parameter rows rendered via JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="rawActualReadingGroup">
+
+                        <label class="form-label" id="actualReadingLabel">
+                            Actual Reading
+                        </label>
+
+                        <input
+                            type="text"
+                            id="actualReading"
+                            class="form-control"
+                            placeholder="Enter actual reading"
+                        >
+
+                        <small id="readingHelpText" style="color:var(--text-muted);font-size:0.75rem;margin-top:0.25rem;display:block;">
+                            Enter measured value from analyzer. Standalone "0" or blank entries are not accepted.
+                        </small>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Remarks
+                        </label>
+
+                        <textarea
+                            id="remarks"
+                            class="form-control"
+                            rows="4"
+                            placeholder="Enter remarks"
+                        ></textarea>
+
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Save Lab Report
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <section id="reportsSection" style="display:none;">
+
+        <div id="reportsContainer"></div>
+
+    </section>
+
+    <section id="billingSection" style="display:none;">
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    Create Lab Bill
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="form-group">
+
+                    <label class="form-label">
+                        Select Completed Test
+                    </label>
+
+                    <select
+                        id="billingTestId"
+                        class="form-control"
+                        onchange="loadBillingDetails()"
+                    >
+
+                        <option value="">
+                            Select Completed Test
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Patient ID
+                        </label>
+
+                        <input
+                            type="text"
+                            id="billingPatientId"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Test Name
+                        </label>
+
+                        <input
+                            type="text"
+                            id="billingTestName"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+                </div>
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Test Charge
+                        </label>
+
+                        <input
+                            type="text"
+                            id="testCharge"
+                            class="form-control"
+                            readonly
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label class="form-label">
+                            Payment Status
+                        </label>
+
+                        <input
+                            type="text"
+                            id="paymentStatus"
+                            class="form-control"
+                            value="Pending"
+                            readonly
+                        >
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="createBill()"
+                >
+                    Create Bill
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-header">
+
+                <h2 class="card-title">
+                    Billing History
+                </h2>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Bill ID</th>
+                                <th>Patient ID</th>
+                                <th>Test Name</th>
+                                <th>Amount</th>
+                                <th>Payment Status</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="billingList"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    </div>
+    </main>
+</div>
+
+<script src="../shared/data.js"></script>
+<script src="lab.js?v=4"></script>
+
 </body>
 </html>

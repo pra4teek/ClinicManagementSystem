@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f8fafc">
+  <meta name="description" content="CarePoint Clinic">
+  <title>Receptionist | CarePoint Clinic</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    /* ── Page-level layout (mirrors lab.html) ── */
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+    }
+
+    .page-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .front {
+      margin: 0 0 .25rem;
+      color: var(--secondary);
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .intro {
+      margin: .35rem 0 0;
+      color: var(--text-muted);
+      font-size: .875rem;
+    }
+
+    /* ── Metrics row ── */
+    .metrics {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .metric-value {
+      margin-top: .25rem;
+    }
+
+    /* ── Two-column workspace ── */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, .9fr);
+      align-items: start;
+      gap: 1.25rem;
+    }
+
+    .column {
+      display: grid;
+      min-width: 0;
+      gap: 1.25rem;
+    }
+
+    /* ── Panel (same as lab panel) ── */
+    .panel {
+      overflow: hidden;
+      margin-bottom: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: .9rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: #fafbfc;
+    }
+
+    .panel-heading h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .panel-note {
+      margin: .2rem 0 0;
+      color: var(--text-muted);
+      font-size: .8rem;
+    }
+
+    /* ── Queue toolbar ── */
+    .queue-tools {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .search-input {
+      width: min(200px, 35vw);
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    .rec-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .rec-table th {
+      padding: .7rem 1rem;
+      background: #f8fafb;
+      color: var(--text-muted);
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .rec-table td {
+      padding: .8rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: .875rem;
+      vertical-align: middle;
+      color: var(--text-body);
+    }
+
+    .rec-table tbody tr:last-child td {
+      border-top: none;
+      border-bottom: none;
+    }
+
+    .rec-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+
+    /* ── Cell helpers ── */
+    .strong {
+      font-weight: 650;
+      color: var(--text-main);
+    }
+
+    .subtext {
+      display: block;
+      margin-top: .15rem;
+      color: var(--text-muted);
+      font-size: .72rem;
+    }
+
+    /* ── Token chip ── */
+    .token-chip {
+      display: inline-block;
+      min-width: 28px;
+      padding: .2rem .55rem;
+      border-radius: var(--radius-xs);
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: .75rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    /* ── Status badges (appointment) ── */
+    .status {
+      display: inline-block;
+      border-radius: var(--radius-full);
+      padding: .2rem .6rem;
+      font-size: .7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-scheduled { background: var(--info-light);    color: var(--info); }
+    .status-completed { background: var(--success-light); color: var(--success); }
+    .status-cancelled { background: var(--danger-light);  color: var(--danger); }
+
+    /* ── Row action link-button ── */
+    .row-action {
+      border: 0;
+      padding: .25rem 0;
+      background: transparent;
+      color: var(--primary);
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: .8rem;
+    }
+
+    .row-action:hover {
+      text-decoration: underline;
+    }
+
+    .row-action.danger {
+      color: var(--danger);
+    }
+
+    /* ── Form body ── */
+    .form-body {
+      display: grid;
+      gap: .75rem;
+      padding: 1rem 1.5rem 1.5rem;
+    }
+
+    .field {
+      display: grid;
+      gap: .3rem;
+    }
+
+    .form-message {
+      min-height: 1.25rem;
+      margin: 0;
+      color: var(--danger);
+      font-size: .8rem;
+      font-weight: 500;
+    }
+
+    .form-message.ok {
+      color: var(--success);
+    }
+
+    /* ── Two-column form row ── */
+    .form-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
+
+    /* ── Patient detail preview (inline) ── */
+    .patient-preview {
+      display: none;
+      padding: .75rem 1rem;
+      background: var(--primary-subtle);
+      border: 1px solid var(--primary-light);
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      color: var(--text-body);
+      gap: .5rem;
+    }
+
+    .patient-preview.visible {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .patient-preview dt {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .patient-preview dd {
+      margin: 0;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: .82rem;
+    }
+
+    .preview-pair {
+      display: grid;
+      gap: .1rem;
+    }
+
+    /* ── Empty state row ── */
+    .empty-row td {
+      padding: 1.5rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 1rem 1rem 1.5rem;
+      color: var(--text-hint);
+      font-size: .75rem;
+      text-align: center;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .column:last-child { grid-row: 1; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 560px) {
+      main { padding: 1.5rem .75rem 2.5rem; }
+      .page-heading { align-items: flex-start; flex-wrap: wrap; }
+      .metrics { gap: .5rem; }
+      .panel-heading { padding: .8rem 1rem; }
+      .queue-tools { align-items: stretch; flex-direction: column; }
+      .search-input { width: 100%; }
+      .rec-table th, .rec-table td { padding: .6rem .75rem; }
+      .form-body { padding: .8rem 1rem 1rem; }
+      .form-2col { grid-template-columns: 1fr; }
+      .patient-preview.visible { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <nav class="navbar" role="banner">
+    <div class="nav-container">
+      <a href="../index.html" class="nav-brand" aria-label="CarePoint Clinic home">
+        <div class="brand-icon" aria-hidden="true">+</div>
+        <div>
+          <span class="brand-name">CarePoint Clinic</span>
+          <span class="brand-role">Reception Portal</span>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <div class="user-badge" id="user-badge">
+          <div class="user-avatar" id="user-avatar">RC</div>
+          <div>
+            <span class="user-name" id="user-name">Receptionist</span>
+            <span class="user-role-badge">Front Desk</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="logoutUser()">Sign out</button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── Page heading ── -->
+    <section class="page-heading" aria-labelledby="page-title">
+      <div>
+        <p class="front">Reception</p>
+        <h1 class="page-title" id="page-title">Patient &amp; appointment management</h1>
+        <p class="intro">Register patients, book appointments, and manage today's queue.</p>
+      </div>
+      <button class="btn btn-outline" id="refresh-btn" type="button">Refresh data</button>
+    </section>
+
+    <!-- ── Summary metrics ── -->
+    <section class="metrics stats-grid" aria-label="Today's reception summary">
+      <div class="stat-card">
+        <div class="stat-icon blue" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="var(--primary)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-label">Registered patients</div>
+          <div class="metric-value stat-value" id="stat-patients">--</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon teal" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="var(--secondary)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-label">Total appointments</div>
+          <div class="metric-value stat-value" id="stat-total-apts">--</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="var(--warning)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-label">Scheduled</div>
+          <div class="metric-value stat-value" id="stat-scheduled">--</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="var(--success)" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-label">Completed</div>
+          <div class="metric-value stat-value" id="stat-completed">--</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Workspace: left tables | right forms ── -->
+    <div class="workspace">
+
+      <!-- ===== LEFT column: tables ===== -->
+      <div class="column">
+
+        <!-- Appointment queue -->
+        <section class="panel" aria-labelledby="queue-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="queue-title">Appointment queue</h2>
+              <p class="panel-note">All booked appointments. Click Edit to change status, or Cancel to void.</p>
+            </div>
+            <div class="queue-tools">
+              <input class="search-input form-control"
+                     id="apt-search"
+                     type="search"
+                     placeholder="Search patient or token"
+                     aria-label="Search appointment queue">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="rec-table" aria-label="Appointment queue">
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Patient</th>
+                  <th>Doctor</th>
+                  <th>Time</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="apt-body">
+                <tr class="empty-row"><td colspan="7">Loading appointments...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Patient registry -->
+        <section class="panel" aria-labelledby="patients-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="patients-title">Patient registry</h2>
+              <p class="panel-note">All registered patients. Click Book apt to pre-fill the appointment form.</p>
+            </div>
+            <div class="queue-tools">
+              <input class="search-input form-control"
+                     id="pat-search"
+                     type="search"
+                     placeholder="Search patients"
+                     aria-label="Search patient registry">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="rec-table" aria-label="Patient registry">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Age / Gender</th>
+                  <th>Blood group</th>
+                  <th>Phone</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="pat-body">
+                <tr class="empty-row"><td colspan="6">Loading patients...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div><!-- /LEFT column -->
+
+      <!-- ===== RIGHT column: forms ===== -->
+      <div class="column">
+
+        <!-- Register new patient -->
+        <section class="panel" aria-labelledby="reg-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="reg-title">Register patient</h2>
+              <p class="panel-note">Add a new patient to the system.</p>
+            </div>
+          </div>
+          <form id="reg-form" class="form-body" novalidate>
+            <div class="field form-group">
+              <label class="form-label" for="reg-name">Full name</label>
+              <input class="form-control" id="reg-name" type="text"
+                placeholder="e.g. John Doe" autocomplete="name"
+                minlength="3" maxlength="100" required>
+            </div>
+            <div class="form-2col">
+              <div class="field form-group">
+                  <label class="form-label" for="reg-age">Age</label>
+                  <input class="form-control" id="reg-age" type="number"
+                    min="0" max="120" placeholder="Years" required>
+              </div>
+              <div class="field form-group">
+                <label class="form-label" for="reg-gender">Gender</label>
+                <select class="form-control" id="reg-gender" required>
+                  <option value="">Select</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-2col">
+              <div class="field form-group">
+                <label class="form-label" for="reg-phone">Phone</label>
+                <input class="form-control" id="reg-phone" type="tel"
+                    placeholder="10-digit number" autocomplete="tel"
+                    minlength="10" maxlength="10" required>
+              </div>
+              <div class="field form-group">
+                <label class="form-label" for="reg-blood">Blood group</label>
+                <select class="form-control" id="reg-blood" required>
+                  <option value="">Select</option>
+                  <option>A+</option>
+                  <option>A-</option>
+                  <option>B+</option>
+                  <option>B-</option>
+                  <option>AB+</option>
+                  <option>AB-</option>
+                  <option>O+</option>
+                  <option>O-</option>
+                </select>
+              </div>
+            </div>
+            <p class="form-message" id="reg-message" role="status" aria-live="polite"></p>
+            <button class="btn btn-primary" id="reg-submit" type="submit">Register patient</button>
+          </form>
+        </section>
+
+        <!-- Book appointment -->
+        <section class="panel" aria-labelledby="apt-form-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="apt-form-title">Book appointment</h2>
+              <p class="panel-note">Schedule a visit for a registered patient.</p>
+            </div>
+          </div>
+          <form id="apt-form" class="form-body" novalidate>
+
+            <div class="field form-group">
+              <label class="form-label" for="apt-patient">Patient</label>
+              <select class="form-control" id="apt-patient" required>
+                <option value="">Select a patient</option>
+              </select>
+            </div>
+
+            <!-- Inline patient preview -->
+            <dl class="patient-preview" id="patient-preview" aria-live="polite">
+              <div class="preview-pair">
+                <dt>Age / Gender</dt>
+                <dd id="prev-age-gender">--</dd>
+              </div>
+              <div class="preview-pair">
+                <dt>Blood group</dt>
+                <dd id="prev-blood">--</dd>
+              </div>
+              <div class="preview-pair">
+                <dt>Phone</dt>
+                <dd id="prev-phone">--</dd>
+              </div>
+              <div class="preview-pair">
+                <dt>Patient ID</dt>
+                <dd id="prev-id">--</dd>
+              </div>
+            </dl>
+
+            <div class="field form-group">
+              <label class="form-label" for="apt-doctor">Doctor</label>
+              <input class="form-control" id="apt-doctor" type="text"
+                value="Dr. Jane Smith" placeholder="Doctor's name"
+                minlength="3" maxlength="30" required>
+            </div>
+
+            <div class="form-2col">
+              <div class="field form-group">
+                <label class="form-label" for="apt-time">Time slot</label>
+                <select class="form-control" id="apt-time" required>
+                  <option value="">Select time</option>
+                  <option>09:00 AM</option>
+                  <option>09:30 AM</option>
+                  <option>10:00 AM</option>
+                  <option>10:30 AM</option>
+                  <option>11:00 AM</option>
+                  <option>11:30 AM</option>
+                  <option>12:00 PM</option>
+                  <option>02:00 PM</option>
+                  <option>02:30 PM</option>
+                  <option>03:00 PM</option>
+                  <option>03:30 PM</option>
+                  <option>04:00 PM</option>
+                </select>
+              </div>
+              <div class="field form-group">
+                <label class="form-label" for="apt-status-init">Initial status</label>
+                <select class="form-control" id="apt-status-init">
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Waiting">Waiting</option>
+                  <option value="Consulting">Consulting</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field form-group">
+              <label class="form-label" for="apt-reason">Reason for visit</label>
+              <textarea class="form-control" id="apt-reason" rows="3"
+                        placeholder="Describe the patient's complaint"
+                        minlength="3" maxlength="200" required></textarea>
+            </div>
+
+            <p class="form-message" id="apt-message" role="status" aria-live="polite"></p>
+            <button class="btn btn-primary" id="apt-submit" type="submit">Book appointment</button>
+          </form>
+        </section>
+
+        <!-- Update appointment status -->
+        <section class="panel" aria-labelledby="status-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="status-title">Update appointment</h2>
+              <p class="panel-note">Change the status of an existing appointment.</p>
+            </div>
+          </div>
+          <form id="status-form" class="form-body" novalidate>
+            <div class="field form-group">
+              <label class="form-label" for="status-apt">Appointment</label>
+              <select class="form-control" id="status-apt" required>
+                <option value="">Select appointment</option>
+              </select>
+            </div>
+            <div class="field form-group">
+              <label class="form-label" for="status-new">New status</label>
+              <select class="form-control" id="status-new" required>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Waiting">Waiting</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+            <p class="form-message" id="status-message" role="status" aria-live="polite"></p>
+            <button class="btn btn-outline" id="status-submit" type="submit">Save status</button>
+          </form>
+        </section>
+
+      </div><!-- /RIGHT column -->
+    </div><!-- /workspace -->
+  </main>
+
+  <footer>CarePoint Clinic &middot; Reception Portal</footer>
+
+  <script src="../shared/data.js"></script>
+  <script src="receptionist.js"></script>
+  <script type="text/plain">
+    /* ============================================================
+       RECEPTIONIST MODULE
+       Manages patients and appointments via localStorage helpers
+       defined in shared/data.js.
+       ============================================================ */
+
+    // ── Auth guard ──────────────────────────────────────────────
+    const currentUser = requireAuth(['Receptionist'], '../index.html');
+
+    // ── Populate navbar ─────────────────────────────────────────
+    if (currentUser) {
+      document.getElementById('user-name').textContent = currentUser.name;
+      const initials = currentUser.name
+        .split(' ')
+        .map(function(w) { return w[0]; })
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+      document.getElementById('user-avatar').textContent = initials;
+    }
+
+    // ── ID / token generators ────────────────────────────────────
+    function nextToken() {
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      if (!apts.length) return 1;
+      return Math.max.apply(null, apts.map(function(a) { return a.tokenNumber || 0; })) + 1;
+    }
+
+    function nextPatientId() {
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      if (!patients.length) return 'PAT-1001';
+      var nums = patients.map(function(p) {
+        return parseInt((p.patientId || '').replace('PAT-', ''), 10) || 0;
+      });
+      return 'PAT-' + (Math.max.apply(null, nums) + 1);
+    }
+
+    function nextAptId() {
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      if (!apts.length) return 'APT-2001';
+      var nums = apts.map(function(a) {
+        return parseInt((a.appointmentId || '').replace('APT-', ''), 10) || 0;
+      });
+      return 'APT-' + (Math.max.apply(null, nums) + 1);
+    }
+
+    // ── Status badge helper ──────────────────────────────────────
+    function statusBadge(s) {
+      var cls = { Scheduled: 'status-scheduled', Completed: 'status-completed', Cancelled: 'status-cancelled' }[s] || '';
+      return '<span class="status ' + cls + '">' + (s || 'Unknown') + '</span>';
+    }
+
+    // ── Render appointment queue ─────────────────────────────────
+    function renderAptTable(filter) {
+      filter = filter || '';
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      var q = filter.toLowerCase();
+      var filtered = q
+        ? apts.filter(function(a) {
+            return (a.patientName || '').toLowerCase().indexOf(q) !== -1 ||
+                   String(a.tokenNumber).indexOf(q) !== -1 ||
+                   (a.doctorName || '').toLowerCase().indexOf(q) !== -1;
+          })
+        : apts;
+
+      var tbody = document.getElementById('apt-body');
+
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">' +
+          (q ? 'No appointments match your search.' : 'No appointments booked yet.') +
+          '</td></tr>';
+      } else {
+        tbody.innerHTML = filtered.map(function(a) {
+          return '<tr>' +
+            '<td><span class="token-chip">' + a.tokenNumber + '</span></td>' +
+            '<td><span class="strong">' + a.patientName + '</span>' +
+              '<span class="subtext">' + a.patientId + '</span></td>' +
+            '<td>' + (a.doctorName || '--') + '</td>' +
+            '<td>' + (a.time || '--') + '</td>' +
+            '<td style="max-width:180px;white-space:normal">' + (a.reason || '--') + '</td>' +
+            '<td>' + statusBadge(a.status) + '</td>' +
+            '<td>' +
+              '<button class="row-action" type="button" ' +
+                'onclick="prefillStatus(\'' + a.appointmentId + '\',\'' + a.status + '\')">Edit</button>' +
+              ' &nbsp; ' +
+              '<button class="row-action danger" type="button" ' +
+                'onclick="cancelApt(\'' + a.appointmentId + '\')">Cancel</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      // Repopulate status-form select
+      var statusSelect = document.getElementById('status-apt');
+      var prevVal = statusSelect.value;
+      statusSelect.innerHTML = '<option value="">Select appointment</option>' +
+        apts.map(function(a) {
+          return '<option value="' + a.appointmentId + '">' +
+            a.tokenNumber + '. ' + a.patientName + ' \u2013 ' + (a.time || '') +
+            '</option>';
+        }).join('');
+      if (prevVal) statusSelect.value = prevVal;
+    }
+
+    // ── Render patient registry ──────────────────────────────────
+    function renderPatTable(filter) {
+      filter = filter || '';
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      var q = filter.toLowerCase();
+      var filtered = q
+        ? patients.filter(function(p) {
+            return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+                   (p.patientId || '').toLowerCase().indexOf(q) !== -1 ||
+                   (p.phone || '').indexOf(q) !== -1;
+          })
+        : patients;
+
+      var tbody = document.getElementById('pat-body');
+
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">' +
+          (q ? 'No patients match your search.' : 'No patients registered yet.') +
+          '</td></tr>';
+      } else {
+        tbody.innerHTML = filtered.map(function(p) {
+          return '<tr>' +
+            '<td><span class="strong">' + p.patientId + '</span></td>' +
+            '<td>' + p.name + '</td>' +
+            '<td>' + p.age + ' / ' + p.gender + '</td>' +
+            '<td>' + p.bloodGroup + '</td>' +
+            '<td>' + p.phone + '</td>' +
+            '<td><button class="row-action" type="button" ' +
+              'onclick="selectPatientForApt(\'' + p.patientId + '\')">Book apt</button></td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      // Repopulate appointment form select
+      var aptPatient = document.getElementById('apt-patient');
+      var prevVal = aptPatient.value;
+      aptPatient.innerHTML = '<option value="">Select a patient</option>' +
+        patients.map(function(p) {
+          return '<option value="' + p.patientId + '">' + p.name + ' (' + p.patientId + ')</option>';
+        }).join('');
+      if (prevVal) aptPatient.value = prevVal;
+    }
+
+    // ── Update summary metrics ───────────────────────────────────
+    function updateStats() {
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      var apts     = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      document.getElementById('stat-patients').textContent    = patients.length;
+      document.getElementById('stat-total-apts').textContent  = apts.length;
+      document.getElementById('stat-scheduled').textContent   = apts.filter(function(a) { return a.status === 'Scheduled'; }).length;
+      document.getElementById('stat-completed').textContent   = apts.filter(function(a) { return a.status === 'Completed'; }).length;
+    }
+
+    // ── Full refresh ─────────────────────────────────────────────
+    function refreshAll() {
+      updateStats();
+      renderAptTable(document.getElementById('apt-search').value);
+      renderPatTable(document.getElementById('pat-search').value);
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+      refreshAll();
+      showToast('Data refreshed.', 'success');
+    });
+
+    // ── Search filters ───────────────────────────────────────────
+    document.getElementById('apt-search').addEventListener('input', function(e) {
+      renderAptTable(e.target.value);
+    });
+
+    document.getElementById('pat-search').addEventListener('input', function(e) {
+      renderPatTable(e.target.value);
+    });
+
+    // ── Register patient form ─────────────────────────────────────
+    document.getElementById('reg-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var msg = document.getElementById('reg-message');
+      msg.className = 'form-message';
+      msg.textContent = '';
+
+      var name   = document.getElementById('reg-name').value.trim();
+      var age    = parseInt(document.getElementById('reg-age').value, 10);
+      var gender = document.getElementById('reg-gender').value;
+      var phone  = document.getElementById('reg-phone').value.trim();
+      var blood  = document.getElementById('reg-blood').value;
+
+      if (!name || !age || !gender || !phone || !blood) {
+        msg.textContent = 'Please fill in all required fields.';
+        return;
+      }
+      if (!/^\d{10}$/.test(phone)) {
+        msg.textContent = 'Phone must be exactly 10 digits.';
+        return;
+      }
+
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      var newPatient = { patientId: nextPatientId(), name: name, age: age, gender: gender, phone: phone, bloodGroup: blood };
+      patients.push(newPatient);
+      setStorage(CMS_KEYS.PATIENTS, patients);
+
+      msg.className = 'form-message ok';
+      msg.textContent = 'Registered: ' + newPatient.patientId;
+      this.reset();
+      refreshAll();
+      showToast(name + ' registered successfully.', 'success');
+    });
+
+    // ── Patient preview on select ────────────────────────────────
+    document.getElementById('apt-patient').addEventListener('change', function() {
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      var p = null;
+      for (var i = 0; i < patients.length; i++) {
+        if (patients[i].patientId === this.value) { p = patients[i]; break; }
+      }
+      var preview = document.getElementById('patient-preview');
+      if (p) {
+        document.getElementById('prev-age-gender').textContent = p.age + ' / ' + p.gender;
+        document.getElementById('prev-blood').textContent = p.bloodGroup;
+        document.getElementById('prev-phone').textContent = p.phone;
+        document.getElementById('prev-id').textContent = p.patientId;
+        preview.classList.add('visible');
+      } else {
+        preview.classList.remove('visible');
+      }
+    });
+
+    // ── Book appointment form ─────────────────────────────────────
+    document.getElementById('apt-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var msg = document.getElementById('apt-message');
+      msg.className = 'form-message';
+      msg.textContent = '';
+
+      var patientId = document.getElementById('apt-patient').value;
+      var doctor    = document.getElementById('apt-doctor').value.trim();
+      var time      = document.getElementById('apt-time').value;
+      var status    = document.getElementById('apt-status-init').value;
+      var reason    = document.getElementById('apt-reason').value.trim();
+
+      if (!patientId || !doctor || !time || !reason) {
+        msg.textContent = 'Please fill in all required fields.';
+        return;
+      }
+
+      var patients = getStorage(CMS_KEYS.PATIENTS, []);
+      var patient  = null;
+      for (var i = 0; i < patients.length; i++) {
+        if (patients[i].patientId === patientId) { patient = patients[i]; break; }
+      }
+      if (!patient) {
+        msg.textContent = 'Patient not found. Please refresh and try again.';
+        return;
+      }
+
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      var newApt = {
+        appointmentId: nextAptId(),
+        patientId: patientId,
+        patientName: patient.name,
+        doctorName: doctor,
+        tokenNumber: nextToken(),
+        time: time,
+        status: status,
+        reason: reason
+      };
+      apts.push(newApt);
+      setStorage(CMS_KEYS.APPOINTMENTS, apts);
+
+      msg.className = 'form-message ok';
+      msg.textContent = newApt.appointmentId + ' booked \u2013 Token #' + newApt.tokenNumber;
+      this.reset();
+      document.getElementById('patient-preview').classList.remove('visible');
+      refreshAll();
+      showToast('Appointment booked for ' + patient.name + '.', 'success');
+    });
+
+    // ── Update appointment status form ───────────────────────────
+    document.getElementById('status-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var msg = document.getElementById('status-message');
+      msg.className = 'form-message';
+      msg.textContent = '';
+
+      var aptId  = document.getElementById('status-apt').value;
+      var newSts = document.getElementById('status-new').value;
+
+      if (!aptId) {
+        msg.textContent = 'Select an appointment to update.';
+        return;
+      }
+
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      var idx  = -1;
+      for (var i = 0; i < apts.length; i++) {
+        if (apts[i].appointmentId === aptId) { idx = i; break; }
+      }
+      if (idx === -1) {
+        msg.textContent = 'Appointment not found.';
+        return;
+      }
+
+      apts[idx].status = newSts;
+      setStorage(CMS_KEYS.APPOINTMENTS, apts);
+
+      msg.className = 'form-message ok';
+      msg.textContent = 'Status updated to "' + newSts + '".';
+      refreshAll();
+      showToast('Appointment status set to ' + newSts + '.', 'success');
+    });
+
+    // ── Quick action helpers ─────────────────────────────────────
+    function prefillStatus(aptId, currentStatus) {
+      document.getElementById('status-apt').value = aptId;
+      document.getElementById('status-new').value = currentStatus;
+      document.getElementById('status-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function cancelApt(aptId) {
+      var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      var idx  = -1;
+      for (var i = 0; i < apts.length; i++) {
+        if (apts[i].appointmentId === aptId) { idx = i; break; }
+      }
+      if (idx === -1) return;
+      if (apts[idx].status === 'Cancelled') {
+        showToast('This appointment is already cancelled.', 'warning');
+        return;
+      }
+      apts[idx].status = 'Cancelled';
+      setStorage(CMS_KEYS.APPOINTMENTS, apts);
+      refreshAll();
+      showToast('Appointment ' + aptId + ' cancelled.', 'danger');
+    }
+
+    function selectPatientForApt(patientId) {
+      var aptPatient = document.getElementById('apt-patient');
+      aptPatient.value = patientId;
+      aptPatient.dispatchEvent(new Event('change'));
+      document.getElementById('apt-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────
+    refreshAll();
+  </script>
+</body>
+</html>
