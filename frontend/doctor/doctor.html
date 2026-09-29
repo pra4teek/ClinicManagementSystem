@@ -314,11 +314,53 @@
     }
 
     .result-chip {
-      background: var(--success-light); border: 1px solid #a7f3d0;
       border-radius: var(--radius-md); padding: 0.5rem 0.75rem;
       font-size: 0.82rem; color: var(--text-main);
+      transition: var(--transition);
+      display: inline-block;
     }
-    .result-chip strong { color: var(--success); display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.1rem; }
+    .result-chip.chip-normal {
+      background: #ecfdf5; border: 1px solid #a7f3d0;
+    }
+    .result-chip.chip-normal strong {
+      color: #059669; display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.15rem;
+    }
+    .result-chip.chip-normal .chip-val {
+      font-weight: 700; color: #065f46;
+    }
+
+    .result-chip.chip-abnormal {
+      background: #fef2f2; border: 1.5px solid #f87171; box-shadow: 0 1px 3px rgba(239,68,68,0.1);
+    }
+    .result-chip.chip-abnormal strong {
+      color: #dc2626; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.15rem;
+    }
+    .result-chip.chip-abnormal .chip-val {
+      font-weight: 800; color: #b91c1c; font-size: 0.95rem;
+    }
+
+    .badge-status-abnormal {
+      background: #fee2e2; color: #b91c1c; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid #fca5a5; display: inline-flex; align-items: center; gap: 0.25rem;
+    }
+    .badge-status-normal {
+      background: #d1fae5; color: #065f46; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 0.25rem;
+    }
+
+    .lab-results-table {
+      width: 100%; border-collapse: collapse; margin-top: 0.65rem; font-size: 0.83rem; background: #ffffff; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border);
+    }
+    .lab-results-table th {
+      background: var(--bg-main); padding: 0.45rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border);
+    }
+    .lab-results-table td {
+      padding: 0.5rem 0.75rem; border-top: 1px solid #f1f5f9; vertical-align: middle;
+    }
+    .lab-results-table tr.row-abnormal {
+      background: #fff5f5;
+    }
+    .lab-results-table tr.row-abnormal td {
+      border-top-color: #fee2e2;
+    }
 
     /* ══════════════════════════════════════════════════
        PRESCRIPTION MODAL
@@ -471,7 +513,12 @@
                 <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--text-muted);"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <h2 class="card-title">Patient Queue</h2>
               </div>
-              <span class="badge badge-scheduled" id="queueBadge">0 Waiting</span>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="setAllAppointmentsScheduled(); renderQueueAndStats(); showToast('All patients set to Scheduled!', 'success');" title="Reset all patient appointments to Scheduled" style="font-size:0.75rem;padding:0.25rem 0.6rem;">
+                  Reset to Scheduled
+                </button>
+                <span class="badge badge-scheduled" id="queueBadge">0 Waiting</span>
+              </div>
             </div>
 
             <div style="display:flex;gap:0.4rem;padding:0.75rem 0.75rem 0 0.75rem;">
@@ -530,6 +577,18 @@
                 <div class="complaint-strip">
                   <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--warning);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   <span><strong>Chief Complaint:&nbsp;</strong><span id="panelComplaint">—</span></span>
+                </div>
+
+                <!-- Completed consultation banner -->
+                <div id="completedNotice" style="display:none;background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid var(--success);padding:0.75rem 1rem;border-radius:var(--radius-sm);margin-bottom:1.25rem;font-size:0.875rem;color:#065f46;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--success);width:1.2rem;height:1.2rem;flex-shrink:0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <span><strong>Consultation Completed:</strong> Viewing recorded findings, diagnosis, and prescription for this patient.</span>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="openPrintModal()">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    View Prescription
+                  </button>
                 </div>
 
                 <form id="consultationForm">
@@ -634,6 +693,10 @@
                     <svg class="icon" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5m4 0h4m6-5v5m0 0h-4m4 0h2"/></svg>
                     4. Diagnostic Lab Tests
                   </h4>
+
+                  <!-- Dynamic Banner: Displays verified lab results or in-progress status for current patient -->
+                  <div id="patientLabStatusBanner" style="display:none;margin-bottom:1rem;"></div>
+
                   <div style="background:var(--bg-main);padding:1rem;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:1.5rem;">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.65rem;margin-bottom:0.75rem;">
                       <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;"><input type="checkbox" name="labCheck" value="Complete Blood Count (CBC)"> Complete Blood Count (CBC)</label>
@@ -644,6 +707,13 @@
                       <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer;"><input type="checkbox" name="labCheck" value="Chest X-Ray PA View"> Chest X-Ray</label>
                     </div>
                     <input type="text" id="labRemarks" class="form-control" placeholder="Special instructions for lab technician (optional)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                      <span style="font-size:0.75rem;color:var(--text-muted);">Request will be queued directly into Lab Technician's pending queue.</span>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="sendLabRequestFromConsultation()">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                        Send Request to Lab Now
+                      </button>
+                    </div>
                   </div>
 
                   <div style="display:flex;justify-content:flex-end;gap:1rem;border-top:1px solid var(--border);padding-top:1rem;">
@@ -688,11 +758,15 @@
 
       <!-- ══ SECTION: LAB REQUESTS ══ -->
       <div id="sectionLabRequests" class="section">
-        <div class="page-header">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
           <div>
             <h1 class="page-title">Lab Requests</h1>
-            <p class="page-subtitle">Lab test orders sent to the laboratory team from your consultations.</p>
+            <p class="page-subtitle">Initiate diagnostic lab test requests and track orders sent to the laboratory team.</p>
           </div>
+          <button type="button" class="btn btn-primary" onclick="openNewLabRequestModal()">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Request Lab Test
+          </button>
         </div>
 
         <div class="section-search">
@@ -831,6 +905,158 @@
     <!-- Modal footer — Close only -->
     <div class="no-print" style="padding:1rem 1.5rem;background:#f1f5f9;display:flex;justify-content:flex-end;border-top:1px solid var(--border);">
       <button type="button" class="btn btn-primary" onclick="closePrintModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     NEW LAB REQUEST MODAL
+══════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="newLabRequestModal">
+  <div class="modal-content" style="max-width: 620px;">
+    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <div style="width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center;">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5m4 0h4m6-5v5m0 0h-4m4 0h2"/></svg>
+        </div>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">Request Diagnostic Lab Test</h3>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeNewLabRequestModal()">✕</button>
+    </div>
+
+    <form id="newLabRequestForm" onsubmit="handleNewLabRequestSubmit(event)" style="padding: 1.5rem;">
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Select Patient *</label>
+        <select id="labReqPatientSelect" class="form-control" required>
+          <option value="">-- Choose Patient --</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Select Required Tests *</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; background: var(--bg-main); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Complete Blood Count (CBC)"> Complete Blood Count (CBC)
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Fasting Blood Sugar (FBS)"> Fasting Blood Sugar (FBS)
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Lipid Profile"> Lipid Profile
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Urine Routine Examination"> Urine Routine Examination
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Thyroid Profile (T3, T4, TSH)"> Thyroid Profile
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer;">
+            <input type="checkbox" name="modalLabTest" value="Chest X-Ray PA View"> Chest X-Ray
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Other Custom Test Name (optional)</label>
+        <input type="text" id="labReqCustomTest" class="form-control" placeholder="e.g. Serum Creatinine, Liver Function Test (LFT)">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label">Clinical Remarks / Instructions for Lab Technician</label>
+        <textarea id="labReqRemarks" class="form-control" rows="2" placeholder="e.g. Fasting sample required, check baseline glucose, urgent evaluation..."></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button type="button" class="btn btn-outline" onclick="closeNewLabRequestModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          Send Request to Lab Technician
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     OFFICIAL LAB REPORT VIEW MODAL (VIEWING ONLY - READ ONLY)
+══════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="viewLabReportModal">
+  <div class="modal-content" style="max-width: 680px;">
+    <div style="padding: 1.75rem 2rem;">
+
+      <!-- Lab Header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--primary); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.2rem;">
+            <svg style="width: 24px; height: 24px; stroke: var(--primary); fill: none; stroke-width: 2;" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>
+            <h2 style="color: var(--primary); font-size: 1.35rem; font-weight: 800; margin: 0;">CarePoint Diagnostic Laboratory</h2>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0; padding-left: 30px;">Central Clinical Laboratory &amp; Pathology Services</p>
+        </div>
+        <div style="text-align: right;">
+          <span class="badge badge-completed" style="font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase;">
+            Verified &amp; Final
+          </span>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem;">VIEW ONLY · NO EDIT</div>
+        </div>
+      </div>
+
+      <!-- Patient & Doctor Info Strip -->
+      <div style="background: #f8fafb; border: 1px solid var(--border); padding: 0.85rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <div style="color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Patient Information</div>
+          <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;" id="reportViewPatName">—</div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;" id="reportViewPatMeta">—</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Prescribing Physician</div>
+          <div style="font-weight: 700; color: var(--text-main);" id="reportViewDocName">—</div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+            Report Date: <strong id="reportViewDate">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Test Findings Table (Read Only) -->
+      <div style="margin-bottom: 1.25rem;">
+        <h4 style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.5rem;">
+          Investigation Parameters &amp; Observed Findings
+        </h4>
+        <div class="table-responsive">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <thead>
+              <tr style="background: var(--bg-main); text-align: left; border-bottom: 1px solid var(--border);">
+                <th style="padding: 0.55rem 0.75rem; font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted);">Test Name</th>
+                <th style="padding: 0.55rem 0.75rem; font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted);">Specimen</th>
+                <th style="padding: 0.55rem 0.75rem; font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted);">Normal Reference</th>
+                <th style="padding: 0.55rem 0.75rem; font-size: 0.72rem; text-transform: uppercase; color: var(--primary);">Actual Reading</th>
+              </tr>
+            </thead>
+            <tbody id="reportViewTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Remarks / Technician Interpretation -->
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; margin-bottom: 0.25rem;">
+          Technician Remarks &amp; Clinical Notes
+        </div>
+        <div id="reportViewRemarks" style="font-size: 0.88rem; color: #14532d; font-weight: 500;">—</div>
+        <div style="font-size: 0.75rem; color: #15803d; margin-top: 0.4rem;">
+          Reported by: <span id="reportViewTechName">David Lee (Certified Lab Technologist)</span>
+        </div>
+      </div>
+
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-style: italic; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+        Notice: This report is securely transmitted from the laboratory for physician review only. Modifications are disabled to preserve medical audit integrity.
+      </div>
+
+    </div>
+
+    <!-- Modal footer — Close only (no edit) -->
+    <div style="padding: 0.9rem 1.5rem; background: #f8fafb; display: flex; justify-content: flex-end; border-top: 1px solid var(--border);">
+      <button type="button" class="btn btn-primary" onclick="closeLabReportModal()">Close Report</button>
     </div>
   </div>
 </div>

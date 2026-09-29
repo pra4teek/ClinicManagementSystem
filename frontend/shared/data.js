@@ -77,31 +77,142 @@ const DEFAULT_APPOINTMENTS = [
     doctorName: 'Dr. Jane Smith',
     tokenNumber: 4,
     time: '11:30 AM',
-    status: 'Completed',
+    status: 'Scheduled',
     reason: 'Acidity and stomach discomfort'
+  }
+];
+
+const DEFAULT_CONSULTATIONS = [
+  {
+    consultationId: 'CNS-DEMO1',
+    appointmentId:  'APT-2004',
+    patientId:      'PAT-1004',
+    patientName:    'Sophia Martinez',
+    doctorName:     'Dr. Jane Smith',
+    date:           '2026-09-29',
+    vitals: { bp: '118/76', pulse: '78', temp: '98.4', weight: '62' },
+    symptoms:  'Burning sensation in stomach, bloating after meals, mild nausea in the morning.',
+    diagnosis: 'Gastroesophageal Reflux Disease (GERD)',
+    remarks:   'Avoid spicy and oily food. Take medications 30 min before meals. Follow up in 2 weeks.',
+    status:    'Completed'
+  }
+];
+
+const DEFAULT_PRESCRIPTIONS = [
+  {
+    prescriptionId: 'RX-DEMO1',
+    consultationId: 'CNS-DEMO1',
+    appointmentId:  'APT-2004',
+    patientId:      'PAT-1004',
+    patientName:    'Sophia Martinez',
+    doctorName:     'Dr. Jane Smith',
+    date:           '2026-09-29',
+    items: [
+      { medicineName: 'Omeprazole',   dosage: '20mg',  frequency: '1-0-0', duration: '14 Days', instructions: 'Before Food' },
+      { medicineName: 'Metformin',    dosage: '500mg', frequency: '1-0-1', duration: '30 Days', instructions: 'After Food'  },
+      { medicineName: 'Paracetamol',  dosage: '500mg', frequency: 'SOS',   duration: '5 Days',  instructions: 'After Food'  }
+    ],
+    status: 'Pending'
+  }
+];
+
+const DEFAULT_LAB_ORDERS = [
+  {
+    labOrderId:    'LAB-DEMO1',
+    consultationId:'CNS-DEMO1',
+    appointmentId: 'APT-2004',
+    patientId:     'PAT-1004',
+    patientName:   'Sophia Martinez',
+    doctorName:    'Dr. Jane Smith',
+    date:          '2026-09-29',
+    tests:         ['Complete Blood Count (CBC)', 'Fasting Blood Sugar (FBS)'],
+    remarks:       'Check for anaemia and fasting glucose baseline.',
+    status:        'Pending'
   }
 ];
 
 // Initialize storage automatically
 function initCMSStorage() {
-  if (!localStorage.getItem(CMS_KEYS.USERS)) localStorage.setItem(CMS_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
-  if (!localStorage.getItem(CMS_KEYS.MEDICINES)) localStorage.setItem(CMS_KEYS.MEDICINES, JSON.stringify(DEFAULT_MEDICINES));
-  if (!localStorage.getItem(CMS_KEYS.PATIENTS)) localStorage.setItem(CMS_KEYS.PATIENTS, JSON.stringify(DEFAULT_PATIENTS));
+  if (!localStorage.getItem(CMS_KEYS.USERS))        localStorage.setItem(CMS_KEYS.USERS,        JSON.stringify(DEFAULT_USERS));
+  if (!localStorage.getItem(CMS_KEYS.MEDICINES))    localStorage.setItem(CMS_KEYS.MEDICINES,    JSON.stringify(DEFAULT_MEDICINES));
+  if (!localStorage.getItem(CMS_KEYS.PATIENTS))     localStorage.setItem(CMS_KEYS.PATIENTS,     JSON.stringify(DEFAULT_PATIENTS));
   if (!localStorage.getItem(CMS_KEYS.APPOINTMENTS)) localStorage.setItem(CMS_KEYS.APPOINTMENTS, JSON.stringify(DEFAULT_APPOINTMENTS));
-  if (!localStorage.getItem(CMS_KEYS.CONSULTATIONS)) localStorage.setItem(CMS_KEYS.CONSULTATIONS, JSON.stringify([]));
-  if (!localStorage.getItem(CMS_KEYS.PRESCRIPTIONS)) localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify([]));
-  if (!localStorage.getItem(CMS_KEYS.LAB_ORDERS)) localStorage.setItem(CMS_KEYS.LAB_ORDERS, JSON.stringify([]));
-  if (!localStorage.getItem(CMS_KEYS.LAB_REPORTS)) localStorage.setItem(CMS_KEYS.LAB_REPORTS, JSON.stringify([]));
+
+  // If consultations array doesn't exist or is empty, seed defaults
+  const currentCons = getStorage(CMS_KEYS.CONSULTATIONS, null);
+  if (!currentCons || currentCons.length === 0) {
+    localStorage.setItem(CMS_KEYS.CONSULTATIONS, JSON.stringify(DEFAULT_CONSULTATIONS));
+  }
+
+  // If prescriptions array doesn't exist or is empty, seed defaults
+  const currentRx = getStorage(CMS_KEYS.PRESCRIPTIONS, null);
+  if (!currentRx || currentRx.length === 0) {
+    localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify(DEFAULT_PRESCRIPTIONS));
+  }
+
+  // If lab orders array doesn't exist or is empty, seed defaults
+  const currentLabs = getStorage(CMS_KEYS.LAB_ORDERS, null);
+  if (!currentLabs || currentLabs.length === 0) {
+    localStorage.setItem(CMS_KEYS.LAB_ORDERS, JSON.stringify(DEFAULT_LAB_ORDERS));
+  }
+
+  if (!localStorage.getItem(CMS_KEYS.LAB_REPORTS))  localStorage.setItem(CMS_KEYS.LAB_REPORTS,  JSON.stringify([]));
+
+  // Sync any Completed appointment without a consultation record
+  const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+  const consList = getStorage(CMS_KEYS.CONSULTATIONS, []);
+  let consUpdated = false;
+
+  appts.filter(a => a.status === 'Completed').forEach(completedAppt => {
+    const found = consList.find(c => c.appointmentId === completedAppt.appointmentId);
+    if (!found) {
+      consList.push({
+        consultationId: `CNS-${completedAppt.appointmentId || Date.now()}`,
+        appointmentId: completedAppt.appointmentId,
+        patientId: completedAppt.patientId,
+        patientName: completedAppt.patientName,
+        doctorName: completedAppt.doctorName || 'Dr. Jane Smith',
+        date: new Date().toISOString().split('T')[0],
+        vitals: { bp: '120/80', pulse: '72', temp: '98.6', weight: '65' },
+        symptoms: completedAppt.reason || 'General health consultation',
+        diagnosis: completedAppt.reason || 'Health Checkup Completed',
+        remarks: 'Consultation completed. Advised lifestyle management and routine review.',
+        status: 'Completed'
+      });
+      consUpdated = true;
+    }
+  });
+
+  if (consUpdated) {
+    setStorage(CMS_KEYS.CONSULTATIONS, consList);
+  }
+
+  // Set all appointments to Scheduled if requested or not yet run
+  if (!localStorage.getItem('cms_scheduled_reset_v3')) {
+    setAllAppointmentsScheduled();
+    localStorage.setItem('cms_scheduled_reset_v3', 'true');
+  }
+}
+
+function setAllAppointmentsScheduled() {
+  const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+  if (appts && appts.length > 0) {
+    appts.forEach(a => {
+      a.status = 'Scheduled';
+    });
+    setStorage(CMS_KEYS.APPOINTMENTS, appts);
+  }
 }
 
 function resetAllDemoData() {
   localStorage.setItem(CMS_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
-  localStorage.setItem(CMS_KEYS.MEDICINES, JSON.stringify(DEFAULT_MEDICINES));
-  localStorage.setItem(CMS_KEYS.PATIENTS, JSON.stringify(DEFAULT_PATIENTS));
-  localStorage.setItem(CMS_KEYS.APPOINTMENTS, JSON.stringify(DEFAULT_APPOINTMENTS));
-  localStorage.setItem(CMS_KEYS.CONSULTATIONS, JSON.stringify([]));
-  localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify([]));
-  localStorage.setItem(CMS_KEYS.LAB_ORDERS, JSON.stringify([]));
+  localStorage.setItem(CMS_KEYS.MEDICINES,     JSON.stringify(DEFAULT_MEDICINES));
+  localStorage.setItem(CMS_KEYS.PATIENTS,      JSON.stringify(DEFAULT_PATIENTS));
+  localStorage.setItem(CMS_KEYS.APPOINTMENTS,  JSON.stringify(DEFAULT_APPOINTMENTS));
+  localStorage.setItem(CMS_KEYS.CONSULTATIONS, JSON.stringify(DEFAULT_CONSULTATIONS));
+  localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify(DEFAULT_PRESCRIPTIONS));
+  localStorage.setItem(CMS_KEYS.LAB_ORDERS,    JSON.stringify(DEFAULT_LAB_ORDERS));
+  localStorage.setItem(CMS_KEYS.LAB_REPORTS,   JSON.stringify([]));
   alert('Demo data has been reset to defaults!');
   window.location.reload();
 }

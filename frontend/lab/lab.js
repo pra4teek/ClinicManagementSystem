@@ -207,18 +207,48 @@ function loadTestMaster(){
         testMaster=JSON.parse(
             JSON.stringify(defaultTestMaster)
         );
-
         localStorage.setItem(
             TEST_MASTER_KEY,
             JSON.stringify(testMaster)
         );
     }
+
+    // Auto-upgrade any old generic "Reference Normal" placeholders to realistic medical ranges
+    let upgraded = false;
+    testMaster.forEach(t => {
+        if (!t.normalValue || t.normalValue.includes("Reference Normal") || t.normalValue === "Standard Reference Range") {
+            const meta = getStandardTestMeta(t.testName);
+            t.normalValue = meta.normalValue;
+            if (!t.sampleType || t.sampleType === "Blood") {
+                t.sampleType = meta.sampleType;
+            }
+            upgraded = true;
+        }
+    });
+    if (upgraded) {
+        localStorage.setItem(TEST_MASTER_KEY, JSON.stringify(testMaster));
+    }
 }
 
 function getTestDetails(testId){
-    return testMaster.find(
+    let match = testMaster.find(
         test=>String(test.testId)===String(testId)
     );
+    if(!match && testId){
+        match = testMaster.find(
+            test=>test.testName.toLowerCase()===String(testId).toLowerCase()
+        );
+    }
+    if(!match){
+        match = {
+            testId: testId || "LT-GEN",
+            testName: typeof testId === "string" && isNaN(testId) ? testId : "Diagnostic Lab Test",
+            sampleType: "Blood / Diagnostic Specimen",
+            normalValue: "Standard Reference Range",
+            charge: 250
+        };
+    }
+    return match;
 }
 
 function getAvailableDoctorName(){
@@ -252,6 +282,454 @@ function getAvailableDoctorName(){
     return "Dr. Jane Smith";
 }
 
+function getStandardTestMeta(testName){
+    const name=String(testName||"").toLowerCase();
+
+    if(name.includes("cbc")||name.includes("complete blood count")||name.includes("blood count")){
+        return {
+            sampleType:"Whole Blood (EDTA)",
+            normalValue:"WBC: 4.5-11.0 ×10³/µL, RBC: 4.5-5.5 ×10⁶/µL, Platelets: 150-450 ×10³/µL",
+            charge:300
+        };
+    }
+    if(name.includes("fbs")||name.includes("fasting blood sugar")||name.includes("fasting glucose")||name.includes("glucose")){
+        return {
+            sampleType:"Fluoride Plasma",
+            normalValue:"70 - 99 mg/dL (Normal Fasting)",
+            charge:150
+        };
+    }
+    if(name.includes("ppbs")||name.includes("post prandial")){
+        return {
+            sampleType:"Fluoride Plasma",
+            normalValue:"< 140 mg/dL",
+            charge:150
+        };
+    }
+    if(name.includes("hba1c")||name.includes("glycated")){
+        return {
+            sampleType:"Whole Blood (EDTA)",
+            normalValue:"< 5.7% (Normal), 5.7-6.4% (Prediabetic)",
+            charge:450
+        };
+    }
+    if(name.includes("lipid")||name.includes("cholesterol")){
+        return {
+            sampleType:"Serum",
+            normalValue:"Total Chol: < 200 mg/dL, Triglycerides: < 150 mg/dL, HDL: > 40 mg/dL",
+            charge:400
+        };
+    }
+    if(name.includes("urine")){
+        return {
+            sampleType:"Clean Catch Midstream Urine",
+            normalValue:"Color: Pale Yellow, pH: 5.0-7.0, Protein: Nil, Sugar: Nil",
+            charge:200
+        };
+    }
+    if(name.includes("thyroid")||name.includes("tsh")||name.includes("t3")||name.includes("t4")){
+        return {
+            sampleType:"Serum",
+            normalValue:"TSH: 0.4 - 4.2 µIU/mL, Free T4: 0.8 - 1.8 ng/dL",
+            charge:500
+        };
+    }
+    if(name.includes("lft")||name.includes("liver")){
+        return {
+            sampleType:"Serum",
+            normalValue:"Total Bilirubin: 0.2-1.2 mg/dL, SGOT/AST: 8-40 U/L, SGPT/ALT: 7-56 U/L",
+            charge:450
+        };
+    }
+    if(name.includes("kft")||name.includes("kidney")||name.includes("renal")||name.includes("creatinine")){
+        return {
+            sampleType:"Serum",
+            normalValue:"Serum Creatinine: 0.6-1.2 mg/dL, Blood Urea: 15-40 mg/dL",
+            charge:400
+        };
+    }
+    if(name.includes("x-ray")||name.includes("chest")||name.includes("radiology")){
+        return {
+            sampleType:"Radiology / Imaging",
+            normalValue:"Clear lung fields, normal cardiothoracic ratio (<0.5), no active lesion",
+            charge:350
+        };
+    }
+    if(name.includes("hemoglobin")||name.includes("hb")){
+        return {
+            sampleType:"Whole Blood (EDTA)",
+            normalValue:"Male: 13.5-17.5 g/dL, Female: 12.0-15.5 g/dL",
+            charge:180
+        };
+    }
+    if(name.includes("electrolyte")||name.includes("sodium")||name.includes("potassium")){
+        return {
+            sampleType:"Serum",
+            normalValue:"Sodium: 135-145 mEq/L, Potassium: 3.5-5.0 mEq/L",
+            charge:350
+        };
+    }
+
+    return {
+        sampleType:"Diagnostic Specimen",
+        normalValue:"Standard Reference Range",
+        charge:250
+    };
+}
+
+/* ──────────────────────────────────────────────────────────
+   STRUCTURED TEST PARAMETER SCHEMAS & CLINICAL VALIDATION
+────────────────────────────────────────────────────────── */
+const TEST_PARAM_SCHEMAS = {
+    "lipid": {
+        title: "Lipid Profile Panel",
+        params: [
+            { id: "totalChol", name: "Total Cholesterol", unit: "mg/dL", ref: "< 200 mg/dL", normalVal: 175, highVal: 245, min: 40, max: 1000 },
+            { id: "triglycerides", name: "Triglycerides", unit: "mg/dL", ref: "< 150 mg/dL", normalVal: 125, highVal: 220, min: 20, max: 2000 },
+            { id: "hdl", name: "HDL Cholesterol", unit: "mg/dL", ref: "> 40 mg/dL", normalVal: 48, highVal: 32, min: 10, max: 200 },
+            { id: "ldl", name: "LDL Cholesterol", unit: "mg/dL", ref: "< 100 mg/dL", normalVal: 102, highVal: 168, min: 20, max: 800 }
+        ]
+    },
+    "cbc": {
+        title: "Complete Blood Count (CBC)",
+        params: [
+            { id: "hb", name: "Hemoglobin (Hb)", unit: "g/dL", ref: "12.0 - 16.0 g/dL", normalVal: 14.2, highVal: 8.5, min: 2.5, max: 25.0 },
+            { id: "wbc", name: "Total WBC Count", unit: "×10³/µL", ref: "4.5 - 11.0 ×10³/µL", normalVal: 7.2, highVal: 15.8, min: 0.5, max: 100.0 },
+            { id: "platelets", name: "Platelet Count", unit: "×10³/µL", ref: "150 - 450 ×10³/µL", normalVal: 260, highVal: 95, min: 10, max: 2000 },
+            { id: "rbc", name: "RBC Count", unit: "×10⁶/µL", ref: "4.5 - 5.5 ×10⁶/µL", normalVal: 4.8, highVal: 3.2, min: 1.0, max: 10.0 }
+        ]
+    },
+    "glucose": {
+        title: "Fasting Blood Sugar / Glucose",
+        params: [
+            { id: "fbs", name: "Blood Glucose (Fasting)", unit: "mg/dL", ref: "70 - 99 mg/dL", normalVal: 88, highVal: 172, min: 30, max: 1000 }
+        ]
+    },
+    "ppbs": {
+        title: "Post Prandial Blood Sugar",
+        params: [
+            { id: "ppbs", name: "Blood Glucose (PP)", unit: "mg/dL", ref: "< 140 mg/dL", normalVal: 115, highVal: 220, min: 30, max: 1000 }
+        ]
+    },
+    "hba1c": {
+        title: "Glycated Hemoglobin (HbA1c)",
+        params: [
+            { id: "hba1c", name: "HbA1c", unit: "%", ref: "< 5.7%", normalVal: 5.2, highVal: 8.4, min: 3.0, max: 20.0 }
+        ]
+    },
+    "urine": {
+        title: "Urine Routine Examination",
+        params: [
+            { id: "urineColor", name: "Color & Appearance", unit: "Visual", ref: "Pale Yellow, Clear", normalVal: "Pale Yellow / Clear", highVal: "Turbid Amber", isText: true },
+            { id: "urinePH", name: "pH", unit: "pH", ref: "5.0 - 7.0", normalVal: 6.0, highVal: 8.5, min: 4.0, max: 9.0 },
+            { id: "urineProtein", name: "Protein / Albumin", unit: "Semi-quant", ref: "Nil", normalVal: "Nil", highVal: "2+ (Positive)", isText: true },
+            { id: "urineSugar", name: "Sugar / Glucose", unit: "Semi-quant", ref: "Nil", normalVal: "Nil", highVal: "1+ (Positive)", isText: true },
+            { id: "urinePus", name: "Pus Cells / WBC", unit: "/HPF", ref: "0 - 2 /HPF", normalVal: "1-2 /HPF", highVal: "15-20 /HPF", isText: true }
+        ]
+    },
+    "thyroid": {
+        title: "Thyroid Profile (TFT)",
+        params: [
+            { id: "tsh", name: "TSH", unit: "µIU/mL", ref: "0.4 - 4.2 µIU/mL", normalVal: 2.1, highVal: 8.6, min: 0.01, max: 150.0 },
+            { id: "ft4", name: "Free T4", unit: "ng/dL", ref: "0.8 - 1.8 ng/dL", normalVal: 1.2, highVal: 0.5, min: 0.1, max: 20.0 }
+        ]
+    },
+    "lft": {
+        title: "Liver Function Test (LFT)",
+        params: [
+            { id: "bilirubin", name: "Total Bilirubin", unit: "mg/dL", ref: "0.2 - 1.2 mg/dL", normalVal: 0.7, highVal: 3.2, min: 0.1, max: 50.0 },
+            { id: "sgot", name: "SGOT / AST", unit: "U/L", ref: "8 - 40 U/L", normalVal: 24, highVal: 110, min: 1, max: 2000 },
+            { id: "sgpt", name: "SGPT / ALT", unit: "U/L", ref: "7 - 56 U/L", normalVal: 28, highVal: 145, min: 1, max: 2000 }
+        ]
+    },
+    "kft": {
+        title: "Kidney Function Test (KFT)",
+        params: [
+            { id: "creatinine", name: "Serum Creatinine", unit: "mg/dL", ref: "0.6 - 1.2 mg/dL", normalVal: 0.9, highVal: 2.8, min: 0.2, max: 30.0 },
+            { id: "urea", name: "Blood Urea", unit: "mg/dL", ref: "15 - 40 mg/dL", normalVal: 26, highVal: 85, min: 2, max: 400 }
+        ]
+    },
+    "hemoglobin": {
+        title: "Hemoglobin (Hb)",
+        params: [
+            { id: "hb_single", name: "Hemoglobin", unit: "g/dL", ref: "12.0 - 16.0 g/dL", normalVal: 14.0, highVal: 8.2, min: 2.5, max: 25.0 }
+        ]
+    }
+};
+
+let currentActiveSchema = null;
+
+function getTestSchema(testName) {
+    const name = String(testName || "").toLowerCase();
+    if (name.includes("lipid") || name.includes("cholesterol")) return TEST_PARAM_SCHEMAS["lipid"];
+    if (name.includes("cbc") || name.includes("complete blood count") || name.includes("blood count")) return TEST_PARAM_SCHEMAS["cbc"];
+    if (name.includes("ppbs") || name.includes("post prandial")) return TEST_PARAM_SCHEMAS["ppbs"];
+    if (name.includes("fbs") || name.includes("fasting") || name.includes("glucose") || name.includes("sugar")) return TEST_PARAM_SCHEMAS["glucose"];
+    if (name.includes("hba1c") || name.includes("glycated")) return TEST_PARAM_SCHEMAS["hba1c"];
+    if (name.includes("urine")) return TEST_PARAM_SCHEMAS["urine"];
+    if (name.includes("thyroid") || name.includes("tsh") || name.includes("t3") || name.includes("t4")) return TEST_PARAM_SCHEMAS["thyroid"];
+    if (name.includes("lft") || name.includes("liver")) return TEST_PARAM_SCHEMAS["lft"];
+    if (name.includes("kft") || name.includes("kidney") || name.includes("renal") || name.includes("creatinine")) return TEST_PARAM_SCHEMAS["kft"];
+    if (name.includes("hemoglobin") || name.includes("hb")) return TEST_PARAM_SCHEMAS["hemoglobin"];
+    return null;
+}
+
+function renderStructuredTestParams(testName) {
+    const card = document.getElementById("structuredParamsCard");
+    const list = document.getElementById("dynamicParamsList");
+    const rawGroup = document.getElementById("rawActualReadingGroup");
+    const actualReadingInput = document.getElementById("actualReading");
+
+    clearValidationAlert();
+
+    const schema = getTestSchema(testName);
+    currentActiveSchema = schema;
+
+    if (!card || !list) return;
+
+    if (!schema) {
+        card.style.display = "none";
+        list.innerHTML = "";
+        if (rawGroup) rawGroup.style.display = "block";
+        if (actualReadingInput) {
+            actualReadingInput.readOnly = false;
+            actualReadingInput.placeholder = "Enter analyzer reading with units";
+        }
+        const label = document.getElementById("actualReadingLabel");
+        if (label) label.textContent = "Actual Reading";
+        return;
+    }
+
+    card.style.display = "block";
+    if (rawGroup && actualReadingInput) {
+        actualReadingInput.readOnly = true;
+        actualReadingInput.placeholder = "Auto-compiled from component parameters above";
+        const label = document.getElementById("actualReadingLabel");
+        if (label) label.textContent = "Compiled Reading Summary";
+    }
+
+    list.innerHTML = schema.params.map(p => `
+        <div class="param-row">
+            <div class="param-meta">
+                <span class="param-name">${escapeHtml(p.name)}</span>
+                <span class="param-ref">Ref: ${escapeHtml(p.ref)}</span>
+            </div>
+            <div>
+                <input
+                    type="${p.isText ? 'text' : 'number'}"
+                    step="any"
+                    id="param_${p.id}"
+                    class="param-input"
+                    data-param-id="${p.id}"
+                    placeholder="${p.isText ? p.ref : 'e.g. ' + p.normalVal}"
+                    oninput="onParamInputChange()"
+                >
+            </div>
+            <div>
+                <span class="param-unit-badge">${escapeHtml(p.unit)}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+function onParamInputChange() {
+    clearValidationAlert();
+    syncParamsToActualReading();
+}
+
+function syncParamsToActualReading() {
+    if (!currentActiveSchema) return;
+    const parts = [];
+    currentActiveSchema.params.forEach(p => {
+        const input = document.getElementById(`param_${p.id}`);
+        const val = input ? input.value.trim() : "";
+        if (val) {
+            parts.push(`${p.name}: ${val} ${p.unit}`);
+        }
+    });
+    const actualReadingInput = document.getElementById("actualReading");
+    if (actualReadingInput) {
+        actualReadingInput.value = parts.join(", ");
+    }
+}
+
+function fillTestPreset(type) {
+    if (!currentActiveSchema) return;
+    clearValidationAlert();
+    currentActiveSchema.params.forEach(p => {
+        const input = document.getElementById(`param_${p.id}`);
+        if (input) {
+            input.value = (type === 'high') ? p.highVal : p.normalVal;
+        }
+    });
+    syncParamsToActualReading();
+
+    const remarksArea = document.getElementById("remarks");
+    if (remarksArea) {
+        if (type === 'normal') {
+            remarksArea.value = "All measured parameters are within healthy biological reference intervals.";
+        } else {
+            remarksArea.value = "Elevated/abnormal parameters noted. Clinical correlation and follow-up recommended.";
+        }
+    }
+}
+
+function clearTestParams() {
+    clearValidationAlert();
+    if (currentActiveSchema) {
+        currentActiveSchema.params.forEach(p => {
+            const input = document.getElementById(`param_${p.id}`);
+            if (input) input.value = "";
+        });
+    }
+    const actualReadingInput = document.getElementById("actualReading");
+    if (actualReadingInput) actualReadingInput.value = "";
+    const remarksArea = document.getElementById("remarks");
+    if (remarksArea) remarksArea.value = "";
+}
+
+function showValidationAlert(message, inputElement) {
+    const banner = document.getElementById("validationAlertBanner");
+    const msgSpan = document.getElementById("validationAlertMessage");
+    if (banner && msgSpan) {
+        msgSpan.textContent = message;
+        banner.style.display = "block";
+        banner.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+        alert(message);
+    }
+    if (inputElement) {
+        inputElement.classList.add("is-invalid");
+        inputElement.focus();
+    }
+}
+
+function clearValidationAlert() {
+    const banner = document.getElementById("validationAlertBanner");
+    if (banner) banner.style.display = "none";
+    document.querySelectorAll(".param-input, #actualReading").forEach(el => el.classList.remove("is-invalid"));
+}
+
+function validateTestReadings(testName) {
+    clearValidationAlert();
+    const schema = currentActiveSchema || getTestSchema(testName);
+
+    if (schema) {
+        for (const p of schema.params) {
+            const input = document.getElementById(`param_${p.id}`);
+            if (!input) continue;
+            const val = input.value.trim();
+
+            if (!val) {
+                showValidationAlert(`Please enter a measured value for "${p.name}".`, input);
+                return false;
+            }
+
+            if (!p.isText) {
+                const num = parseFloat(val);
+                if (isNaN(num)) {
+                    showValidationAlert(`"${p.name}" must be a valid numeric measurement.`, input);
+                    return false;
+                }
+                // STRICT CHECK: 0 is completely invalid for clinical analyzer readings
+                if (num <= 0) {
+                    showValidationAlert(`Validation Error: "${p.name}" cannot be 0 or negative. An analyzer reading must be greater than 0 ${p.unit}.`, input);
+                    return false;
+                }
+                if (p.min !== undefined && num < p.min) {
+                    showValidationAlert(`Value for "${p.name}" (${num}) is implausibly low. Minimum clinical threshold is ${p.min} ${p.unit}.`, input);
+                    return false;
+                }
+                if (p.max !== undefined && num > p.max) {
+                    showValidationAlert(`Value for "${p.name}" (${num}) is implausibly high. Maximum clinical threshold is ${p.max} ${p.unit}.`, input);
+                    return false;
+                }
+            }
+        }
+        return true;
+    } else {
+        // Freeform / raw actual reading validation
+        const input = document.getElementById("actualReading");
+        const val = input ? input.value.trim() : "";
+
+        if (!val) {
+            showValidationAlert("Please enter the actual reading.", input);
+            return false;
+        }
+
+        // Strict 0 check
+        if (val === "0" || val === "0.0" || (!isNaN(val) && Number(val) === 0)) {
+            showValidationAlert("Validation Error: Actual reading cannot be 0. A valid clinical reading must be greater than 0.", input);
+            return false;
+        }
+
+        if (!isNaN(val) && Number(val) < 0) {
+            showValidationAlert("Validation Error: Actual reading cannot be negative.", input);
+            return false;
+        }
+
+        return true;
+    }
+}
+
+function syncWithDoctorOrders(){
+    try{
+        const sharedOrders=JSON.parse(localStorage.getItem("cms_lab_orders")||"[]");
+        if(!Array.isArray(sharedOrders)||sharedOrders.length===0){
+            return;
+        }
+
+        sharedOrders.forEach(shared=>{
+            const orderId=shared.labOrderId||shared.id;
+            const testNames=Array.isArray(shared.tests)?shared.tests:[shared.testName||"Clinical Diagnostic Test"];
+
+            testNames.forEach((tName,idx)=>{
+                let masterMatch=testMaster.find(t=>t.testName.toLowerCase()===tName.toLowerCase());
+                const standardMeta=getStandardTestMeta(tName);
+
+                if(!masterMatch){
+                    const newId="LT"+(100+testMaster.length+1);
+                    masterMatch={
+                        testId:newId,
+                        testName:tName,
+                        sampleType:standardMeta.sampleType,
+                        normalValue:standardMeta.normalValue,
+                        charge:standardMeta.charge
+                    };
+                    testMaster.push(masterMatch);
+                    localStorage.setItem(TEST_MASTER_KEY,JSON.stringify(testMaster));
+                }else if(!masterMatch.normalValue||masterMatch.normalValue.includes("Reference Normal")||masterMatch.normalValue==="Standard Reference Range"){
+                    masterMatch.normalValue=standardMeta.normalValue;
+                    masterMatch.sampleType=standardMeta.sampleType;
+                    localStorage.setItem(TEST_MASTER_KEY,JSON.stringify(testMaster));
+                }
+
+                const subOrderId=testNames.length>1?`${orderId}-${idx+1}`:orderId;
+                const existing=orders.find(o=>String(o.id)===String(subOrderId));
+
+                if(!existing){
+                    orders.unshift({
+                        id:subOrderId,
+                        labOrderId:orderId,
+                        patientId:shared.patientId||"PAT-1001",
+                        patient:shared.patientName||"Patient",
+                        doctorId:"DOC-101",
+                        doctorName:shared.doctorName||"Dr. Jane Smith",
+                        testId:masterMatch.testId,
+                        status:shared.status||"Pending",
+                        date:shared.date||new Date().toLocaleDateString(),
+                        remarks:shared.remarks||""
+                    });
+                }else if(shared.status&&existing.status!==shared.status){
+                    existing.status=shared.status;
+                }
+            });
+        });
+    }catch(err){
+        console.error("Error syncing doctor orders into lab:",err);
+    }
+}
+
 function loadData(){
     const savedData=localStorage.getItem(STORAGE_KEY);
 
@@ -274,6 +752,8 @@ function loadData(){
 
         saveData();
     }
+
+    syncWithDoctorOrders();
 
     const doctorName=getAvailableDoctorName();
 
@@ -391,13 +871,13 @@ function renderOrders(){
                         ?
                         `<button
                             class="btn btn-outline btn-sm"
-                            onclick="viewReport(${order.id})">
+                            onclick="viewReport('${order.id}')">
                             View Report
                         </button>`
                         :
                         `<button
                             class="btn btn-primary btn-sm"
-                            onclick="processTest(${order.id})">
+                            onclick="processTest('${order.id}')">
                             ${
                                 order.status==="Pending"
                                 ?"Process"
@@ -454,7 +934,7 @@ function renderQueues(){
                     <td>
                         <button
                             class="btn btn-primary btn-sm"
-                            onclick="processTest(${order.id})">
+                            onclick="processTest('${order.id}')">
                             Process
                         </button>
                     </td>
@@ -485,7 +965,7 @@ function renderQueues(){
                     <td>
                         <button
                             class="btn btn-primary btn-sm"
-                            onclick="processTest(${order.id})">
+                            onclick="processTest('${order.id}')">
                             Continue
                         </button>
                     </td>
@@ -516,7 +996,7 @@ function renderQueues(){
                     <td>
                         <button
                             class="btn btn-outline btn-sm"
-                            onclick="viewReport(${order.id})">
+                            onclick="viewReport('${order.id}')">
                             View Report
                         </button>
                     </td>
@@ -528,7 +1008,7 @@ function renderQueues(){
 
 function processTest(id){
     const order=orders.find(
-        item=>Number(item.id)===Number(id)
+        item=>String(item.id)===String(id)
     );
 
     if(!order){
@@ -546,25 +1026,40 @@ function processTest(id){
     document.getElementById("testId").value=order.id;
     document.getElementById("patientId").value=order.patientId;
     document.getElementById("patientName").value=order.patient;
-    document.getElementById("doctorId").value=order.doctorId;
-    document.getElementById("doctorName").value=order.doctorName;
+    document.getElementById("doctorId").value=order.doctorId||"DOC-101";
+    document.getElementById("doctorName").value=order.doctorName||"Dr. Jane Smith";
     document.getElementById("testName").value=test.testName;
     document.getElementById("sampleType").value=test.sampleType;
     document.getElementById("normalValue").value=test.normalValue;
 
+    renderStructuredTestParams(test.testName);
+
     const existingReport=reports.find(
-        report=>Number(report.testId)===Number(order.id)
+        report=>String(report.testId)===String(order.id)
     );
 
     if(existingReport){
-        document.getElementById("actualReading").value=
-            existingReport.actualReading||"";
+        if(currentActiveSchema && existingReport.results && existingReport.results.length > 0){
+            existingReport.results.forEach(r => {
+                const matched = currentActiveSchema.params.find(p => p.name.toLowerCase() === (r.test||"").toLowerCase());
+                if(matched){
+                    const el = document.getElementById(`param_${matched.id}`);
+                    if(el){
+                        const clean = String(r.reading).replace(/[^\d.-]/g, '');
+                        el.value = clean || r.reading;
+                    }
+                }
+            });
+            syncParamsToActualReading();
+        } else {
+            const rawInp = document.getElementById("actualReading");
+            if(rawInp) rawInp.value = existingReport.actualReading||"";
+        }
 
-        document.getElementById("remarks").value=
-            existingReport.remarks||"";
+        const remarksArea = document.getElementById("remarks");
+        if(remarksArea) remarksArea.value = existingReport.remarks||"";
     }else{
-        document.getElementById("actualReading").value="";
-        document.getElementById("remarks").value="";
+        clearTestParams();
     }
 
     if(order.status==="Pending"){
@@ -585,11 +1080,21 @@ function processTest(id){
         processFormCard.style.display="block";
     }
 
-    processFormCard
-        .scrollIntoView({
-            behavior:"smooth",
-            block:"start"
-        });
+    setTimeout(()=>{
+        if(processFormCard){
+            processFormCard.scrollIntoView({
+                behavior:"smooth",
+                block:"start"
+            });
+        }
+        if(currentActiveSchema && currentActiveSchema.params.length > 0){
+            const firstParam = document.getElementById(`param_${currentActiveSchema.params[0].id}`);
+            if(firstParam) firstParam.focus();
+        } else {
+            const input = document.getElementById("actualReading");
+            if(input) input.focus();
+        }
+    }, 120);
 }
 
 document.getElementById("patientForm")
@@ -597,12 +1102,10 @@ document.getElementById("patientForm")
 
     event.preventDefault();
 
-    const testId=Number(
-        document.getElementById("testId").value
-    );
+    const testId=document.getElementById("testId").value.trim();
 
     const order=orders.find(
-        item=>Number(item.id)===testId
+        item=>String(item.id)===String(testId)
     );
 
     if(!order){
@@ -617,39 +1120,66 @@ document.getElementById("patientForm")
         return;
     }
 
-    const actualReading=
-        document.getElementById("actualReading")
-        .value
-        .trim();
-
-    if(actualReading===""){
-        alert("Please enter the actual reading.");
+    // STRICT CLINICAL VALIDATION (Cannot be 0, blank, negative, or implausible)
+    if(!validateTestReadings(test.testName)){
         return;
     }
 
+    let actualReading = document.getElementById("actualReading").value.trim();
+    let detailedResults = [];
+
+    const schema = currentActiveSchema || getTestSchema(test.testName);
+    if(schema){
+        detailedResults = schema.params.map(p => {
+            const input = document.getElementById(`param_${p.id}`);
+            const val = input ? input.value.trim() : "";
+            return {
+                test: p.name,
+                sampleType: test.sampleType,
+                normalValue: p.ref,
+                reading: p.isText ? val : `${val} ${p.unit}`
+            };
+        });
+        actualReading = detailedResults.map(r => `${r.test}: ${r.reading}`).join(", ");
+    }
+
     const now=new Date();
+    const editedNormal=document.getElementById("normalValue") ? document.getElementById("normalValue").value.trim() : "";
+    const effectiveNormal=editedNormal || test.normalValue || "Standard Reference Range";
+
+    // Update master test normalValue if technician edited it
+    if(editedNormal && editedNormal !== test.normalValue){
+        test.normalValue = editedNormal;
+        try {
+            localStorage.setItem(TEST_MASTER_KEY, JSON.stringify(testMaster));
+        } catch(e){}
+    }
 
     const report={
         reportId:Date.now(),
+        completedAt:Date.now(),
         testId:order.id,
+        labOrderId:order.labOrderId||order.id,
         patientId:order.patientId,
         patientName:order.patient,
-        doctorId:order.doctorId,
-        doctorName:order.doctorName,
+        doctorId:order.doctorId||"DOC-101",
+        doctorName:order.doctorName||"Dr. Jane Smith",
         testName:test.testName,
         sampleType:test.sampleType,
-        normalValue:test.normalValue,
+        normalValue:effectiveNormal,
         actualReading:actualReading,
+        results:detailedResults.length > 0 ? detailedResults : null,
         remarks:
             document.getElementById("remarks")
             .value
             .trim(),
         date:now.toLocaleDateString(),
-        time:now.toLocaleTimeString()
+        time:now.toLocaleTimeString(),
+        technicianName:"David Lee (Lab Technician)"
     };
 
     const existingReport=reports.find(
-        item=>Number(item.testId)===testId
+        item=>String(item.testId)===String(testId)
     );
 
     if(existingReport){
@@ -658,10 +1188,65 @@ document.getElementById("patientForm")
             report
         );
     }else{
-        reports.push(report);
+        reports.unshift(report);
     }
 
     order.status="Completed";
+
+    // Sync completion and report to cms_lab_orders and cms_lab_reports for Doctor Portal
+    try {
+        const sharedOrders = JSON.parse(localStorage.getItem("cms_lab_orders") || "[]");
+        const targetLabOrderId = String(order.labOrderId || order.id);
+        let match = sharedOrders.find(o =>
+            String(o.labOrderId) === targetLabOrderId ||
+            (o.patientId && String(o.patientId) === String(order.patientId) && o.status !== "Completed") ||
+            (order.labOrderId && String(o.labOrderId) === String(order.labOrderId))
+        );
+
+        if (match) {
+            match.status = "Completed";
+            match.actualReading = actualReading;
+            match.results = detailedResults.length > 0 ? detailedResults : null;
+            match.reportRemarks = report.remarks;
+            match.reportDate = now.toISOString().split("T")[0];
+            match.completedAt = Date.now();
+            match.time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            match = {
+                labOrderId: targetLabOrderId,
+                appointmentId: null,
+                patientId: order.patientId,
+                patientName: order.patient,
+                doctorName: order.doctorName || "Dr. Jane Smith",
+                date: now.toISOString().split("T")[0],
+                tests: [test.testName],
+                remarks: report.remarks,
+                status: "Completed",
+                actualReading: actualReading,
+                results: detailedResults.length > 0 ? detailedResults : null,
+                reportRemarks: report.remarks,
+                reportDate: now.toISOString().split("T")[0]
+            };
+            sharedOrders.unshift(match);
+        }
+        localStorage.setItem("cms_lab_orders", JSON.stringify(sharedOrders));
+
+        const sharedReports = JSON.parse(localStorage.getItem("cms_lab_reports") || "[]");
+        const repMatchIndex = sharedReports.findIndex(r =>
+            String(r.labOrderId) === targetLabOrderId ||
+            String(r.testId) === String(order.id) ||
+            String(r.reportId) === String(report.reportId)
+        );
+
+        if (repMatchIndex >= 0) {
+            sharedReports[repMatchIndex] = report;
+        } else {
+            sharedReports.unshift(report);
+        }
+        localStorage.setItem("cms_lab_reports", JSON.stringify(sharedReports));
+    } catch(err) {
+        console.error("Error syncing completed report:", err);
+    }
 
     saveData();
 
@@ -670,7 +1255,7 @@ document.getElementById("patientForm")
     renderReports();
     updateDashboard();
 
-    alert("Lab report saved and sent to the doctor.");
+    alert("Lab report completed and sent to Doctor for viewing.");
 
     clearProcessForm();
 
@@ -683,6 +1268,8 @@ document.getElementById("patientForm")
 function clearProcessForm(){
     document.getElementById("patientForm").reset();
     document.getElementById("testId").value="";
+    clearValidationAlert();
+    clearTestParams();
 }
 
 function renderReports(){
@@ -700,8 +1287,14 @@ function renderReports(){
         return;
     }
 
+    const sortedReports = [...reports].sort((a, b) => {
+        const timeA = Number(a.completedAt || a.reportId) || 0;
+        const timeB = Number(b.completedAt || b.reportId) || 0;
+        return timeB - timeA;
+    });
+
     container.innerHTML=
-        reports.map(report=>`
+        sortedReports.map(report=>`
 
         <div class="card">
 
@@ -803,21 +1396,19 @@ function renderReports(){
 
                         <tbody>
 
-                            <tr>
-
-                                <td>
-                                    ${escapeHtml(report.testName)}
-                                </td>
-
-                                <td>
-                                    ${escapeHtml(report.normalValue)}
-                                </td>
-
-                                <td>
-                                    ${escapeHtml(report.actualReading)}
-                                </td>
-
-                            </tr>
+                            ${report.results && report.results.length > 0 ? report.results.map(r => `
+                                <tr>
+                                    <td><strong>${escapeHtml(r.test || report.testName)}</strong></td>
+                                    <td>${escapeHtml(r.normalValue || report.normalValue)}</td>
+                                    <td style="font-weight:700;color:var(--primary);">${escapeHtml(r.reading)}</td>
+                                </tr>
+                            `).join("") : `
+                                <tr>
+                                    <td>${escapeHtml(report.testName)}</td>
+                                    <td>${escapeHtml(report.normalValue)}</td>
+                                    <td style="font-weight:700;">${escapeHtml(report.actualReading)}</td>
+                                </tr>
+                            `}
 
                         </tbody>
 
@@ -849,7 +1440,7 @@ function renderReports(){
 function viewReport(testId){
 
     const report=reports.find(
-        item=>Number(item.testId)===Number(testId)
+        item=>String(item.testId)===String(testId)
     );
 
     if(!report){
@@ -867,7 +1458,7 @@ function viewReport(testId){
             );
 
         const index=reports.findIndex(
-            item=>Number(item.testId)===Number(testId)
+            item=>String(item.testId)===String(testId)
         );
 
         if(reportCards[index]){
@@ -905,8 +1496,8 @@ function loadBillingTests(selectedTestId=null){
         const alreadyBilled=
             bills.some(
                 bill=>
-                    Number(bill.testId)===
-                    Number(order.id)
+                    String(bill.testId)===
+                    String(order.id)
             );
 
         if(!alreadyBilled){
@@ -935,9 +1526,7 @@ function loadBillingTests(selectedTestId=null){
 
 function loadBillingDetails(){
 
-    const testId=Number(
-        document.getElementById("billingTestId").value
-    );
+    const testId=document.getElementById("billingTestId").value.trim();
 
     if(!testId){
 
@@ -961,7 +1550,7 @@ function loadBillingDetails(){
     }
 
     const order=orders.find(
-        item=>Number(item.id)===testId
+        item=>String(item.id)===String(testId)
     );
 
     if(!order){
@@ -988,7 +1577,7 @@ function loadBillingDetails(){
     ).value="₹"+test.charge;
 
     const existingBill=bills.find(
-        bill=>Number(bill.testId)===testId
+        bill=>String(bill.testId)===String(testId)
     );
 
     document.getElementById(
@@ -1001,9 +1590,7 @@ function loadBillingDetails(){
 
 function createBill(){
 
-    const testId=Number(
-        document.getElementById("billingTestId").value
-    );
+    const testId=document.getElementById("billingTestId").value.trim();
 
     if(!testId){
         alert("Please select a completed test.");
@@ -1011,7 +1598,7 @@ function createBill(){
     }
 
     const order=orders.find(
-        item=>Number(item.id)===testId
+        item=>String(item.id)===String(testId)
     );
 
     if(!order){
@@ -1028,7 +1615,7 @@ function createBill(){
     }
 
     const existingBill=bills.find(
-        bill=>Number(bill.testId)===testId
+        bill=>String(bill.testId)===String(testId)
     );
 
     if(existingBill){

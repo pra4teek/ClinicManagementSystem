@@ -73,6 +73,139 @@
             .lab-main { margin-left: 0; }
             .lab-content { padding: 1.25rem 1rem 2rem; }
         }
+
+        /* Parameter Builder & Validation Styles */
+        .param-builder-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .param-builder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.85rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .param-builder-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .preset-btn-group {
+            display: flex;
+            gap: 0.4rem;
+        }
+        .param-btn {
+            padding: 0.28rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: var(--text-body);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .param-btn:hover {
+            background: #f1f5f9;
+            color: var(--text-main);
+            border-color: #94a3b8;
+        }
+        .param-btn.btn-normal-preset {
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+            color: #065f46;
+        }
+        .param-btn.btn-normal-preset:hover {
+            background: #d1fae5;
+            border-color: #6ee7b7;
+        }
+        .param-btn.btn-high-preset {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        .param-btn.btn-high-preset:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+        .param-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .param-row:last-child {
+            border-bottom: none;
+        }
+        .param-meta {
+            display: flex;
+            flex-direction: column;
+        }
+        .param-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .param-ref {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .param-input {
+            width: 100%;
+            padding: 0.45rem 0.65rem;
+            border: 1px solid #cbd5e1;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            background: #fff;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .param-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+        }
+        .param-input.is-invalid {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+        }
+        .param-unit-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            background: #e2e8f0;
+            border-radius: 4px;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .validation-alert-banner {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            animation: fadeIn 0.2s ease-in;
+        }
+        .validation-alert-banner strong {
+            font-weight: 700;
+        }
     </style>
 </head>
 
@@ -489,21 +622,61 @@
                     <div class="form-group">
 
                         <label class="form-label">
-                            Normal Value
+                            Normal Reference Value / Range (Editable)
                         </label>
 
                         <input
                             type="text"
                             id="normalValue"
                             class="form-control"
-                            readonly
+                            placeholder="e.g. 70-99 mg/dL or 12.0-16.0 g/dL"
                         >
+
+                        <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.25rem;display:block;">
+                            Established healthy clinical reference interval. You can edit this to match your lab analyzer standards.
+                        </small>
 
                     </div>
 
-                    <div class="form-group">
+                    <!-- Validation Error Alert Banner -->
+                    <div id="validationAlertBanner" class="validation-alert-banner" role="alert">
+                        <strong>Invalid Clinical Reading:</strong>
+                        <span id="validationAlertMessage">Please enter a valid laboratory measurement.</span>
+                    </div>
 
-                        <label class="form-label">
+                    <!-- Dynamic Structured Parameters Card (Auto-generated for panels like Lipid Profile, CBC, etc.) -->
+                    <div id="structuredParamsCard" class="param-builder-card" style="display:none;">
+                        <div class="param-builder-header">
+                            <div class="param-builder-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                <span>Test Component Parameters</span>
+                            </div>
+                            <div class="preset-btn-group">
+                                <button type="button" class="param-btn btn-normal-preset" onclick="fillTestPreset('normal')">
+                                    Fill Normal Preset
+                                </button>
+                                <button type="button" class="param-btn btn-high-preset" onclick="fillTestPreset('high')">
+                                    Fill High / Abnormal
+                                </button>
+                                <button type="button" class="param-btn" onclick="clearTestParams()">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="dynamicParamsList">
+                            <!-- Dynamic parameter rows rendered via JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="rawActualReadingGroup">
+
+                        <label class="form-label" id="actualReadingLabel">
                             Actual Reading
                         </label>
 
@@ -512,8 +685,11 @@
                             id="actualReading"
                             class="form-control"
                             placeholder="Enter actual reading"
-                            required
                         >
+
+                        <small id="readingHelpText" style="color:var(--text-muted);font-size:0.75rem;margin-top:0.25rem;display:block;">
+                            Enter measured value from analyzer. Standalone "0" or blank entries are not accepted.
+                        </small>
 
                     </div>
 
@@ -712,6 +888,7 @@
     </main>
 </div>
 
+<script src="../shared/data.js"></script>
 <script src="lab.js?v=4"></script>
 
 </body>
