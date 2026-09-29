@@ -56,6 +56,43 @@ function setFilter(f) {
   renderQueueAndStats();
 }
 
+/* ──────────────────────────────────────────────────────────
+   SIDEBAR NAVIGATION
+────────────────────────────────────────────────────────── */
+var SECTION_MAP = {
+  dashboard:   'sectionDashboard',
+  history:     'sectionHistory',
+  labrequests: 'sectionLabRequests',
+  labresults:  'sectionLabResults'
+};
+
+function activateSection(sectionId) {
+  // 1. Update nav button highlights
+  document.querySelectorAll('.nav-item[data-section]').forEach(function(btn) {
+    if (btn.dataset.section === sectionId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // 2. Show the target section, hide all others
+  var targetId = SECTION_MAP[sectionId];
+  document.querySelectorAll('.section').forEach(function(sec) {
+    if (sec.id === targetId) {
+      sec.classList.add('active');
+    } else {
+      sec.classList.remove('active');
+    }
+  });
+
+  // 3. Lazy-render content
+  if (sectionId === 'history')     renderHistory();
+  if (sectionId === 'labrequests') renderLabRequests();
+  if (sectionId === 'labresults')  renderLabResults();
+}
+
+
 function renderQueueAndStats() {
   const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
   const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
