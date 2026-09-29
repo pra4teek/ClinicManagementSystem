@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f8fafc">
-  <meta name="description" content="CarePoint Clinic – Receptionist portal for patient registration, appointment booking, and today's queue management.">
+  <meta name="description" content="CarePoint Clinic">
   <title>Receptionist | CarePoint Clinic</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
@@ -23,7 +23,7 @@
       margin-bottom: 1.5rem;
     }
 
-    .eyebrow {
+    .front {
       margin: 0 0 .25rem;
       color: var(--secondary);
       font-size: .75rem;
@@ -340,7 +340,7 @@
     <!-- ── Page heading ── -->
     <section class="page-heading" aria-labelledby="page-title">
       <div>
-        <p class="eyebrow">Reception</p>
+        <p class="front">Reception</p>
         <h1 class="page-title" id="page-title">Patient &amp; appointment management</h1>
         <p class="intro">Register patients, book appointments, and manage today's queue.</p>
       </div>
@@ -502,13 +502,14 @@
             <div class="field form-group">
               <label class="form-label" for="reg-name">Full name</label>
               <input class="form-control" id="reg-name" type="text"
-                     placeholder="e.g. John Doe" autocomplete="name" required>
+                placeholder="e.g. John Doe" autocomplete="name"
+                minlength="3" maxlength="100" required>
             </div>
             <div class="form-2col">
               <div class="field form-group">
-                <label class="form-label" for="reg-age">Age</label>
-                <input class="form-control" id="reg-age" type="number"
-                       min="0" max="120" placeholder="Years" required>
+                  <label class="form-label" for="reg-age">Age</label>
+                  <input class="form-control" id="reg-age" type="number"
+                    min="0" max="120" placeholder="Years" required>
               </div>
               <div class="field form-group">
                 <label class="form-label" for="reg-gender">Gender</label>
@@ -524,7 +525,8 @@
               <div class="field form-group">
                 <label class="form-label" for="reg-phone">Phone</label>
                 <input class="form-control" id="reg-phone" type="tel"
-                       placeholder="10-digit number" autocomplete="tel" required>
+                    placeholder="10-digit number" autocomplete="tel"
+                    minlength="10" maxlength="10" required>
               </div>
               <div class="field form-group">
                 <label class="form-label" for="reg-blood">Blood group</label>
@@ -586,7 +588,8 @@
             <div class="field form-group">
               <label class="form-label" for="apt-doctor">Doctor</label>
               <input class="form-control" id="apt-doctor" type="text"
-                     value="Dr. Jane Smith" placeholder="Doctor's name" required>
+                value="Dr. Jane Smith" placeholder="Doctor's name"
+                minlength="3" maxlength="30" required>
             </div>
 
             <div class="form-2col">
@@ -612,6 +615,8 @@
                 <label class="form-label" for="apt-status-init">Initial status</label>
                 <select class="form-control" id="apt-status-init">
                   <option value="Scheduled">Scheduled</option>
+                  <option value="Waiting">Waiting</option>
+                  <option value="Consulting">Consulting</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
@@ -621,7 +626,8 @@
             <div class="field form-group">
               <label class="form-label" for="apt-reason">Reason for visit</label>
               <textarea class="form-control" id="apt-reason" rows="3"
-                        placeholder="Describe the patient's complaint" required></textarea>
+                        placeholder="Describe the patient's complaint"
+                        minlength="3" maxlength="200" required></textarea>
             </div>
 
             <p class="form-message" id="apt-message" role="status" aria-live="polite"></p>
@@ -648,6 +654,8 @@
               <label class="form-label" for="status-new">New status</label>
               <select class="form-control" id="status-new" required>
                 <option value="Scheduled">Scheduled</option>
+                <option value="Waiting">Waiting</option>
+                <option value="Consulting">Consulting</option>
                 <option value="Completed">Completed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
@@ -664,7 +672,8 @@
   <footer>CarePoint Clinic &middot; Reception Portal</footer>
 
   <script src="../shared/data.js"></script>
-  <script>
+  <script src="receptionist.js"></script>
+  <script type="text/plain">
     /* ============================================================
        RECEPTIONIST MODULE
        Manages patients and appointments via localStorage helpers
