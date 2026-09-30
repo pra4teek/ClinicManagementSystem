@@ -54,22 +54,19 @@ const CMS_PHARMACY_DATA = {
     role: SHARED.currentUser.role || "Pharmacist",
     initials: initialsFor(SHARED.currentUser.name),
     licenseNumber: "PH-78921-CMS",
-    avatarUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=120&h=120&q=80",
     hasAlerts: true,
     alertCount: 3
   },
 
   dateInfo: {
-    formattedDate: "Tuesday, September 29, 2026",
+    formattedDate: "Thursday, October 01, 2026",
     rawTimestamp: "2026-09-29T08:30:00Z"
   },
-
   navigation: [
     {
       section: "MENU",
       items: [
-        { id: "dashboard", label: "Dashboard", icon: "dashboard", active: true },
-        { id: "prescriptions", label: "Prescriptions", icon: "file-text", active: false },
+        { id: "prescriptions", label: "Prescriptions", icon: "file-text", active: true },
         { id: "inventory", label: "Inventory", icon: "box", active: false },
         { id: "billing", label: "Billing", icon: "file-check", active: false },
         { id: "reports", label: "Reports", icon: "clipboard-list", active: false },
@@ -82,13 +79,6 @@ const CMS_PHARMACY_DATA = {
         { id: "dispense-log", label: "Dispense Log", icon: "clipboard-list", active: false },
         { id: "stock-orders", label: "Stock Orders", icon: "shopping-cart", active: false },
         { id: "returns", label: "Returns", icon: "rotate-ccw", active: false }
-      ]
-    },
-    {
-      section: "TOOLS",
-      items: [
-        { id: "settings", label: "Settings", icon: "settings", active: false },
-        { id: "help", label: "Help & Support", icon: "help-circle", active: false }
       ]
     }
   ],
@@ -318,8 +308,29 @@ if (typeof module !== "undefined" && module.exports) {
     selectedDoctorsPeriod: data.topPrescribingDoctors.currentPeriod,
     sidebarOpen: false,
     chartInstance: null,
-    currentPage: "dashboard"
+    currentPage: "prescriptions"
   };
+
+  /* ------------------------------------------------------------------------
+     localStorage Persistence Layer
+     All pharmacyUI mutations call savePUI() to persist across reloads.
+     ------------------------------------------------------------------------ */
+  const PUI_KEY = "cms_pharmacy_ui";
+  function savePUI() {
+    try { localStorage.setItem(PUI_KEY, JSON.stringify(pharmacyUI)); } catch(e) {}
+  }
+  function loadPUI() {
+    try {
+      const raw = localStorage.getItem(PUI_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        // Merge saved data back into pharmacyUI (only valid keys)
+        ["inventory","prescriptions","dispenseLog","stockOrders","returns","suppliers","bills"].forEach(k => {
+          if (Array.isArray(saved[k])) pharmacyUI[k] = saved[k];
+        });
+      }
+    } catch(e) {}
+  }
 
   /* ------------------------------------------------------------------------
      Build pharmacy-only demo data FROM the shared medicine/patient/doctor
@@ -415,7 +426,6 @@ if (typeof module !== "undefined" && module.exports) {
      ------------------------------------------------------------------------ */
   function getIconSvg(iconName) {
     const icons = {
-      dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>`,
       "file-text": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
       box: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
       users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
@@ -453,15 +463,15 @@ if (typeof module !== "undefined" && module.exports) {
       badgeEl.style.display = data.currentUser.hasAlerts ? "block" : "none";
     }
 
-    const userContainer = document.getElementById("user-profile-container");
-    if (userContainer) {
-      userContainer.innerHTML = `
-        <img src="${data.currentUser.avatarUrl}" alt="${data.currentUser.name}" class="user-avatar" loading="lazy">
-        <div class="user-details">
-          <span class="user-name">${data.currentUser.name}</span>
-          <span class="user-role">${data.currentUser.role}</span>
-        </div>
-      `;
+
+    // Populate the new dark sidebar user footer
+    const sidebarAvatar = document.getElementById("pharm-sidebar-avatar");
+    if (sidebarAvatar) {
+      sidebarAvatar.textContent = data.currentUser.initials || "PH";
+    }
+    const sidebarName = document.getElementById("pharm-sidebar-name");
+    if (sidebarName) {
+      sidebarName.textContent = data.currentUser.name;
     }
   }
 
@@ -746,9 +756,6 @@ if (typeof module !== "undefined" && module.exports) {
 
         tooltipEl.innerHTML = innerHtml;
       }
-
-      const position = context.chart.canvas.getBoundingClientRect();
-      const parentPosition = context.chart.canvas.parentElement.getBoundingClientRect();
 
       tooltipEl.style.opacity = "1";
       tooltipEl.style.left = tooltipModel.caretX + "px";
@@ -1044,10 +1051,9 @@ if (typeof module !== "undefined" && module.exports) {
   function showPage(id){
     const dash=document.getElementById("dashboard-page"), box=document.getElementById("dynamic-page-content");
     if(!dash||!box)return; state.currentPage=id;
-    if(id==="dashboard"){dash.style.display="";box.style.display="none";box.innerHTML="";title("Pharmacist Dashboard");return;}
     dash.style.display="none";box.style.display="block";
-    const names={inventory:"Inventory Management",prescriptions:"Prescriptions",billing:"Pharmacy Billing",reports:"Pharmacy Reports",suppliers:"Suppliers","dispense-log":"Dispense Log","stock-orders":"Stock Orders",returns:"Returns",settings:"Settings",help:"Help & Support"}; title(names[id]||"Pharmacist Module");
-    const renderers={inventory:renderInventory,prescriptions:renderPrescriptions,billing:renderBilling,reports:renderReports,suppliers:renderSuppliers,"dispense-log":renderDispenseLog,"stock-orders":renderOrders,returns:renderReturns,settings:renderSettings,help:renderHelp};
+    const names={inventory:"Inventory Management",prescriptions:"Prescriptions",billing:"Pharmacy Billing",reports:"Pharmacy Reports",suppliers:"Suppliers","dispense-log":"Dispense Log","stock-orders":"Stock Orders",returns:"Returns"}; title(names[id]||"Pharmacist Module");
+    const renderers={inventory:renderInventory,prescriptions:renderPrescriptions,billing:renderBilling,reports:renderReports,suppliers:renderSuppliers,"dispense-log":renderDispenseLog,"stock-orders":renderOrders,returns:renderReturns};
     if(renderers[id]) renderers[id](); else box.innerHTML='<div class="page-card"><h3>Page not available</h3></div>';
   }
 
@@ -1061,22 +1067,22 @@ if (typeof module !== "undefined" && module.exports) {
     document.getElementById("low-stock").onclick=()=>rows(pharmacyUI.inventory.filter(x=>x.quantity<=x.reorderLevel));
     document.getElementById("add-stock").onclick=()=>stockForm();
     b.querySelectorAll("[data-edit]").forEach(e=>e.onclick=()=>stockForm(+e.dataset.edit));
-    b.querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{const id=+e.dataset.del;if(confirm("Delete this demo stock item?")){pharmacyUI.inventory=pharmacyUI.inventory.filter(x=>x.id!==id);renderInventory();toast("Stock deleted.");}});
+    b.querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{const id=+e.dataset.del;if(confirm("Delete this demo stock item?")){pharmacyUI.inventory=pharmacyUI.inventory.filter(x=>x.id!==id);savePUI();renderInventory();toast("Stock deleted.");}});
   }
   function stockForm(id=null){
     const b=document.getElementById("dynamic-page-content"),x=id?pharmacyUI.inventory.find(a=>a.id===id):null;
     b.innerHTML=pageHead(x?"Edit Stock":"Add Stock","Frontend demo form; medicine master data will later come from Admin.")+`<div class="page-card"><form id="stock-form"><div class="form-grid"><div class="form-group"><label>Medicine Name</label><input id="sm" required value="${escapeHtml(x?.medicine||"")}"></div><div class="form-group"><label>Category</label><input id="sc" required value="${escapeHtml(x?.category||"")}"></div><div class="form-group"><label>Quantity</label><input id="sq" type="number" min="0" required value="${x?.quantity??""}"></div><div class="form-group"><label>Reorder Level</label><input id="sr" type="number" min="0" required value="${x?.reorderLevel??10}"></div><div class="form-group"><label>Unit Price</label><input id="su" type="number" step="0.01" min="0" required value="${x?.unitPrice??""}"></div><div class="form-group"><label>Selling Price</label><input id="ss" type="number" step="0.01" min="0" required value="${x?.sellingPrice??""}"></div></div><div class="form-actions"><button type="button" class="btn-secondary" id="cancel-stock">Cancel</button><button class="btn-primary">${x?"Update":"Save"} Stock</button></div></form></div>`;
     document.getElementById("cancel-stock").onclick=renderInventory;
-    document.getElementById("stock-form").onsubmit=e=>{e.preventDefault();const medicine=sm.value.trim(),category=sc.value.trim(),quantity=+sq.value,reorderLevel=+sr.value,unitPrice=+su.value,sellingPrice=+ss.value;if(!medicine||!category||quantity<0||reorderLevel<0||sellingPrice<unitPrice){toast("Enter valid stock details.");return}if(x)Object.assign(x,{medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});else pharmacyUI.inventory.push({id:Math.max(0,...pharmacyUI.inventory.map(a=>a.id))+1,medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});renderInventory();toast(x?"Stock updated.":"Stock added.");};
+    document.getElementById("stock-form").onsubmit=e=>{e.preventDefault();const medicine=sm.value.trim(),category=sc.value.trim(),quantity=+sq.value,reorderLevel=+sr.value,unitPrice=+su.value,sellingPrice=+ss.value;if(!medicine||!category||quantity<0||reorderLevel<0||sellingPrice<unitPrice){toast("Enter valid stock details.");return}if(x)Object.assign(x,{medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});else pharmacyUI.inventory.push({id:Math.max(0,...pharmacyUI.inventory.map(a=>a.id))+1,medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});savePUI();renderInventory();toast(x?"Stock updated.":"Stock added.");};
   }
   function renderPrescriptions(){
     const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Prescription Queue","Review finalized prescriptions and dispense medicines.")+`<div class="page-card"><div class="toolbar"><div class="search-box"><span>⌕</span><input id="rx-search" placeholder="Search patient, prescription or doctor..."></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Prescription</th><th>Patient</th><th>Patient ID</th><th>Doctor</th><th>Date</th><th>Medicines</th><th>Status</th><th>Action</th></tr></thead><tbody id="rx-body"></tbody></table></div></div>`;
     const rows=items=>document.getElementById("rx-body").innerHTML=items.map(x=>`<tr><td><strong>${x.id}</strong></td><td>${escapeHtml(x.patient)}</td><td>${x.patientId}</td><td>${escapeHtml(x.doctor)}</td><td>${x.date}</td><td>${escapeHtml(x.medicines)}</td><td><span class="status-badge ${x.status==="Ready"?"status-info":"status-good"}">${x.status}</span></td><td>${x.status==="Ready"?`<button class="btn-small" data-rx="${x.id}">Dispense</button>`:`<button class="btn-small">View</button>`}</td></tr>`).join("");rows(pharmacyUI.prescriptions);document.getElementById("rx-search").oninput=e=>{const q=e.target.value.toLowerCase();rows(pharmacyUI.prescriptions.filter(x=>(x.id+" "+x.patient+" "+x.doctor).toLowerCase().includes(q)));};b.querySelectorAll("[data-rx]").forEach(e=>e.onclick=()=>dispense(e.dataset.rx));
   }
-  function dispense(id){const r=pharmacyUI.prescriptions.find(x=>x.id===id);if(!r||!confirm(`Dispense ${r.id} for ${r.patient}?`))return;const [name,qstr]=r.medicines.split(" × "),q=+(qstr||1),stock=pharmacyUI.inventory.find(x=>x.medicine===name);if(stock&&stock.quantity<q){toast("Insufficient stock.");return}if(stock)stock.quantity-=q;r.status="Dispensed";pharmacyUI.dispenseLog.unshift({id:"D-"+(502+pharmacyUI.dispenseLog.length),patient:r.patient,medicine:name,quantity:q,date:"29 Sep 2026",pharmacist:data.currentUser.name});const c=data.statCards.find(x=>x.id==="prescriptions-filled");if(c)c.value++;renderPrescriptions();toast("Prescription dispensed successfully.");}
+  function dispense(id){const r=pharmacyUI.prescriptions.find(x=>x.id===id);if(!r||!confirm(`Dispense ${r.id} for ${r.patient}?`))return;const [name,qstr]=r.medicines.split(" × "),q=+(qstr||1),stock=pharmacyUI.inventory.find(x=>x.medicine===name);if(stock&&stock.quantity<q){toast("Insufficient stock.");return}if(stock)stock.quantity-=q;r.status="Dispensed";pharmacyUI.dispenseLog.unshift({id:"D-"+(502+pharmacyUI.dispenseLog.length),patient:r.patient,medicine:name,quantity:q,date:"29 Sep 2026",pharmacist:data.currentUser.name});const c=data.statCards.find(x=>x.id==="prescriptions-filled");if(c)c.value++;savePUI();renderPrescriptions();toast("Prescription dispensed successfully.");}
   function renderBilling(){
     const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Pharmacy Billing","Create a bill for a prescription or OTC purchase.")+`<div class="page-card"><form id="bill-form"><div class="form-grid"><div class="form-group"><label>Patient Name</label><input id="bp" required></div><div class="form-group"><label>Medicine</label><select id="bm" required><option value="">Select medicine</option>${pharmacyUI.inventory.map(x=>`<option value="${x.id}">${escapeHtml(x.medicine)} — ${money(x.sellingPrice)}</option>`).join("")}</select></div><div class="form-group"><label>Quantity</label><input id="bq" type="number" min="1" value="1" required></div><div class="form-group"><label>Prescription ID (optional)</label><input id="br" placeholder="RX-1001"></div></div><div class="bill-summary"><div class="bill-total"><span>Total Amount</span><strong id="bt">₹0.00</strong></div></div><div class="form-actions"><button type="reset" class="btn-secondary">Clear</button><button class="btn-primary">Generate Bill</button></div></form></div><div class="page-card"><h3>Recent Bills</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Bill ID</th><th>Patient</th><th>Medicine</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead><tbody>${pharmacyUI.bills.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${money(x.unitPrice)}</td><td><strong>${money(x.total)}</strong></td><td>${x.date}</td></tr>`).join("")}</tbody></table></div></div>`;
-    const update=()=>{const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value);bt.textContent=money(x?(x.sellingPrice*(+bq.value||0)):0)};bm.onchange=update;bq.oninput=update;document.getElementById("bill-form").onsubmit=e=>{e.preventDefault();const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value),q=+bq.value,patient=bp.value.trim();if(!x||!patient||q<1){toast("Complete the billing form.");return}if(q>x.quantity){toast("Insufficient stock.");return}const total=x.sellingPrice*q;x.quantity-=q;pharmacyUI.bills.unshift({id:"PB-"+(7001+pharmacyUI.bills.length),patient,medicine:x.medicine,quantity:q,unitPrice:x.sellingPrice,total,date:"29 Sep 2026"});renderBilling();toast("Bill generated successfully.");};
+    const update=()=>{const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value);bt.textContent=money(x?(x.sellingPrice*(+bq.value||0)):0)};bm.onchange=update;bq.oninput=update;document.getElementById("bill-form").onsubmit=e=>{e.preventDefault();const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value),q=+bq.value,patient=bp.value.trim();if(!x||!patient||q<1){toast("Complete the billing form.");return}if(q>x.quantity){toast("Insufficient stock.");return}const total=x.sellingPrice*q;x.quantity-=q;pharmacyUI.bills.unshift({id:"PB-"+(7001+pharmacyUI.bills.length),patient,medicine:x.medicine,quantity:q,unitPrice:x.sellingPrice,total,date:"29 Sep 2026"});savePUI();renderBilling();toast("Bill generated successfully.");};
   }
   function renderReports(){const b=document.getElementById("dynamic-page-content"),revenue=pharmacyUI.bills.reduce((a,x)=>a+x.total,0),low=pharmacyUI.inventory.filter(x=>x.quantity<=x.reorderLevel);b.innerHTML=pageHead("Pharmacy Reports","Review revenue and medicines below reorder level.")+`<div class="metric-grid"><div class="metric-card"><span>Total Revenue</span><strong>${money(revenue)}</strong></div><div class="metric-card"><span>Total Bills</span><strong>${pharmacyUI.bills.length}</strong></div><div class="metric-card"><span>Units Dispensed</span><strong>${pharmacyUI.dispenseLog.reduce((a,x)=>a+x.quantity,0)}</strong></div><div class="metric-card"><span>Reorder Alerts</span><strong>${low.length}</strong></div></div><div class="page-card"><h3>Medicines Below Reorder Level</h3><p class="muted">Current quantity is less than or equal to reorder level.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Medicine</th><th>Category</th><th>Current</th><th>Reorder Level</th><th>Action</th></tr></thead><tbody>${low.length?low.map(x=>`<tr><td><strong>${escapeHtml(x.medicine)}</strong></td><td>${escapeHtml(x.category)}</td><td>${x.quantity}</td><td>${x.reorderLevel}</td><td><span class="status-badge status-low">Reorder</span></td></tr>`).join(""):"<tr><td colspan=5 class=empty-state>No reorder alerts.</td></tr>"}</tbody></table></div></div>`;}
   function simpleTable(titleText,subtitle,headers,rows){const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead(titleText,subtitle)+`<div class="page-card"><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div></div>`;}
@@ -1084,106 +1090,7 @@ if (typeof module !== "undefined" && module.exports) {
   function renderOrders(){simpleTable("Stock Orders","Track medicines ordered from suppliers.",["Order ID","Supplier","Medicine","Quantity","Date","Status"],pharmacyUI.stockOrders.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.supplier)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${x.date}</td><td><span class="status-badge ${x.status==="Pending"?"status-low":"status-info"}">${x.status}</span></td></tr>`).join(""));}
   function renderReturns(){simpleTable("Medicine Returns","Review returned or rejected pharmacy items.",["Return ID","Patient","Medicine","Quantity","Reason","Date","Status"],pharmacyUI.returns.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${escapeHtml(x.reason)}</td><td>${x.date}</td><td><span class="status-badge ${x.status==="Pending"?"status-low":"status-good"}">${x.status}</span></td></tr>`).join(""));}
   function renderSuppliers(){simpleTable("Suppliers","View pharmacy medicine suppliers.",["ID","Supplier","Contact","Email","Catalogue"],pharmacyUI.suppliers.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.contact)}</td><td>${escapeHtml(x.email)}</td><td>${x.medicines} medicines</td></tr>`).join(""));}
-  function renderSettings(){
-    const b = document.getElementById("dynamic-page-content");
 
-    b.innerHTML =
-        pageHead(
-            "Settings",
-            "Pharmacist profile and interface preferences."
-        ) +
-
-        `<div class="page-card">
-            <h3>Profile</h3>
-
-            <div class="info-grid">
-                <div class="info-item">
-                    <strong>Name</strong>
-                    <span>${escapeHtml(data.currentUser.name)}</span>
-                </div>
-
-                <div class="info-item">
-                    <strong>Role</strong>
-                    <span>${escapeHtml(data.currentUser.role)}</span>
-                </div>
-
-                <div class="info-item">
-                    <strong>License</strong>
-                    <span>${escapeHtml(data.currentUser.licenseNumber)}</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="page-card">
-            <h3>Preferences</h3>
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Theme</label>
-                    <select id="theme-setting">
-                        <option>Light</option>
-                        <option>System Default</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Low Stock Alerts</label>
-                    <select id="stock-alert-setting">
-                        <option>Enabled</option>
-                        <option>Disabled</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button class="btn-primary" id="save-pref">
-                    Save Preferences
-                </button>
-            </div>
-        </div>
-
-        <div class="page-card">
-            <h3>Account Session</h3>
-            <p class="muted">
-                Manage your current pharmacist session.
-            </p>
-
-            <div class="form-actions" style="justify-content: flex-start; margin-top: 16px;">
-                <button type="button" class="btn-danger" id="logout-btn">
-                    Logout
-                </button>
-            </div>
-        </div>`;
-
-    // Save Preferences
-    document.getElementById("save-pref").onclick = () => {
-        toast("Preferences saved for demo.");
-    };
-
-    // Logout
-    document.getElementById("logout-btn").onclick = () => {
-
-        const confirmed = confirm(
-            "Are you sure you want to logout?"
-        );
-
-        if (!confirmed) return;
-
-        // Clear frontend session data
-        sessionStorage.clear();
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-
-        toast("Logged out successfully.");
-
-        // Redirect to login page
-        setTimeout(() => {
-            window.location.href = "../index.html";
-        }, 800);
-    };
-}
-  function renderHelp(){const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Help & Support","Quick reference for the Pharmacist module.")+`<div class="page-card"><h3>Pharmacist Workflow</h3><div class="info-grid"><div class="info-item"><strong>1. Check Inventory</strong><span>Review quantity and reorder alerts.</span></div><div class="info-item"><strong>2. Review Prescription</strong><span>Open finalized prescriptions.</span></div><div class="info-item"><strong>3. Dispense</strong><span>Confirm quantity and reduce stock.</span></div><div class="info-item"><strong>4. Generate Bill</strong><span>Calculate the amount for medicines.</span></div><div class="info-item"><strong>5. Order Stock</strong><span>Raise orders at reorder level.</span></div><div class="info-item"><strong>6. Reports</strong><span>Review revenue and low stock.</span></div></div></div><div class="page-card"><h3>Backend Integration</h3><p class="muted">This evaluation version uses JavaScript mock data. During backend integration, these objects can be replaced with Django REST Framework fetch() requests.</p></div>`;}
 
   /* ------------------------------------------------------------------------
      9. Responsive Sidebar & Mobile Drawer Behavior
@@ -1338,6 +1245,7 @@ if (typeof module !== "undefined" && module.exports) {
      Initialize Everything on DOM Ready
      ------------------------------------------------------------------------ */
   function init() {
+    loadPUI();          // Restore persisted data before any render
     renderTopbar();
     renderSidebar();
     renderStatCards();
@@ -1346,7 +1254,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderTopPrescribingDoctors();
     setupResponsiveBehavior();
     setupQuickDispenseModal();
-    showPage("dashboard");
+    showPage("prescriptions");
   }
 
   if (document.readyState === "loading") {

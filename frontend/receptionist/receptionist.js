@@ -274,10 +274,22 @@ function bookAppointment(event) {
     };
     appointments.push(appointment);
     if (!setStorage(CMS_KEYS.APPOINTMENTS, appointments)) throw new Error("Appointment could not be saved in this browser.");
+    const bill = {
+      id: Date.now().toString(),
+      patientName: appointment.patientName,
+      date: todayString(),
+      source: "Registration & Consultation",
+      amount: 700,
+      status: "Pending"
+    };
+    const bills = JSON.parse(localStorage.getItem(CMS_KEYS.BILLS)) || [];
+    bills.push(bill);
+    localStorage.setItem(CMS_KEYS.BILLS, JSON.stringify(bills));
     showMessage("apt-message", `${appointment.appointmentId} booked - Token #${appointment.tokenNumber}.`, true);
     form.reset();
     document.getElementById("patient-preview").classList.remove("visible");
     loadDashboard();
+    renderBillingTable();
     if (typeof showToast === "function") showToast("Appointment booked successfully.", "success");
   } catch (error) {
     showMessage("apt-message", error.message);

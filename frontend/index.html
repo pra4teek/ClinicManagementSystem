@@ -13,12 +13,10 @@
       min-height: 100vh;
       background: var(--bg-page);
       padding: 1.5rem;
-      /* Subtle geometric background */
       background-image:
-        radial-gradient(ellipse 900px 600px at 80% 20%, rgba(0,87,184,.07) 0%, transparent 70%),
+        radial-gradient(ellipse 900px 600px at 80% 20%, rgba(0,87,184,.07) 0%, transparent 70%);
     }
 
-    /* ── Decorative side panel (desktop) ── */
     .login-wrapper {
       display: flex;
       border-radius: var(--radius-xl);
@@ -30,15 +28,39 @@
 
     .login-side {
       flex: 0 0 340px;
-      background: linear-gradient(160deg, var(--primary) 0%, #003d8f 40%, var(--secondary) 100%);
-      padding: 3rem 2.5rem;
+      position: relative;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
+      padding: 2rem;
       color: #fff;
     }
 
+    .login-side img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      z-index: 1;
+    }
+
+    .login-side-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(0, 40, 90, 0.75) 0%, rgba(0, 40, 90, 0.25) 50%, rgba(0, 40, 90, 0.75) 100%);
+      z-index: 2;
+    }
+
     .login-side-logo {
+      position: relative;
+      z-index: 3;
       display: flex;
       align-items: center;
       gap: 0.75rem;
@@ -47,93 +69,31 @@
     .side-icon {
       width: 44px;
       height: 44px;
-      background: rgba(255,255,255,.15);
+      background: rgba(255, 255, 255, 0.2);
       border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.5rem;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 
     .side-brand-name {
-      font-size: 1.2rem;
+      font-size: 1.25rem;
       font-weight: 800;
       letter-spacing: -.02em;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
 
     .side-tagline {
       font-size: 0.75rem;
-      opacity: .75;
+      color: rgba(255, 255, 255, 0.9);
       margin-top: 1px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
 
-    .login-side-copy {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 2.5rem 0;
-    }
-
-    .login-side-copy h2 {
-      font-size: 1.75rem;
-      font-weight: 800;
-      line-height: 1.25;
-      letter-spacing: -.03em;
-      margin-bottom: 1rem;
-    }
-
-    .login-side-copy p {
-      font-size: 0.9rem;
-      opacity: .8;
-      line-height: 1.6;
-    }
-
-    .side-features {
-      list-style: none;
-      margin-top: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-    }
-
-    .side-features li {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 0.85rem;
-      opacity: .9;
-    }
-
-    .side-features li::before {
-      content: '';
-      width: 20px;
-      height: 20px;
-      background: rgba(255,255,255,.2);
-      border-radius: 50%;
-      display: flex;
-      flex-shrink: 0;
-    }
-
-    .check-icon {
-      width: 20px;
-      height: 20px;
-      background: rgba(255,255,255,.2);
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.65rem;
-      flex-shrink: 0;
-    }
-
-    .login-side-footer {
-      font-size: 0.72rem;
-      opacity: .55;
-    }
-
-    /* ── Login card (right panel) ── */
     .login-card {
       flex: 1;
       background: var(--bg-card);
@@ -160,66 +120,10 @@
       color: var(--text-muted);
     }
 
-    .login-divider {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin: 1.5rem 0 1.25rem;
-    }
-
-    .login-divider::before, .login-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .login-divider span {
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--text-hint);
-      white-space: nowrap;
-    }
-
-    .demo-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem;
-    }
-
-    .demo-btn {
-      padding: 0.5rem 0.4rem;
-      font-size: 0.78rem;
-      font-weight: 600;
-      font-family: var(--font);
-      border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border);
-      background: var(--bg-main);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      transition: var(--transition);
-      color: var(--text-body);
-    }
-
-    .demo-btn:hover {
-      background: var(--primary-light);
-      border-color: var(--primary);
-      color: var(--primary);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* ── Responsive: collapse side panel ── */
     @media (max-width: 700px) {
       .login-wrapper { max-width: 440px; border-radius: var(--radius-lg); }
       .login-side    { display: none; }
       .login-card    { padding: 2.25rem 1.75rem; border-radius: var(--radius-lg); }
-      /* Show mini brand at top */
       .mobile-brand  { display: flex !important; }
     }
 
@@ -244,7 +148,6 @@
       letter-spacing: -.02em;
     }
 
-    /* ── Password field with show/hide ── */
     .input-group {
       position: relative;
     }
@@ -269,7 +172,6 @@
 
     .input-eye:hover { color: var(--text-main); }
 
-    /* ── Submit button ── */
     #signInBtn {
       width: 100%;
       padding: 0.75rem;
@@ -284,8 +186,9 @@
 
   <div class="login-wrapper">
 
-    <!-- ── Decorative Side Panel ── -->
     <div class="login-side">
+      <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Clinic">
+      <div class="login-side-overlay"></div>
       <div class="login-side-logo">
         <div class="side-icon">⚕️</div>
         <div>
@@ -293,39 +196,10 @@
           <div class="side-tagline">Clinic Management System</div>
         </div>
       </div>
-
-      <div class="login-side-copy">
-        <h2>Your clinic,<br>fully connected.</h2>
-        <p>A unified workspace for every member of your healthcare team.</p>
-        <ul class="side-features">
-          <li>
-            <span class="check-icon">✓</span>
-            Doctor consultations &amp; prescriptions
-          </li>
-          <li>
-            <span class="check-icon">✓</span>
-            Pharmacy &amp; medication dispensing
-          </li>
-          <li>
-            <span class="check-icon">✓</span>
-            Laboratory test management
-          </li>
-          <li>
-            <span class="check-icon">✓</span>
-            Patient records &amp; appointments
-          </li>
-        </ul>
-      </div>
-
-      <div class="login-side-footer">
-        © 2026 CarePoint Clinic · All rights reserved
-      </div>
     </div>
 
-    <!-- ── Login Card ── -->
     <div class="login-card">
 
-      <!-- Mobile-only branding -->
       <div class="mobile-brand">
         <div class="side-icon">⚕️</div>
         <span>CarePoint Clinic</span>
@@ -355,34 +229,11 @@
         </button>
       </form>
 
-      <div class="login-divider">
-        <span>⚡ Quick Demo Access</span>
-      </div>
-
-      <div class="demo-grid">
-        <button type="button" class="demo-btn" onclick="quickLogin('doctor','123')">
-          🩺 Doctor
-        </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('reception','123')">
-          📋 Receptionist
-        </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('pharma','123')">
-          💊 Pharmacist
-        </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('labtech','123')">
-          🔬 Lab Tech
-        </button>
-        <button type="button" class="demo-btn" onclick="quickLogin('admin','123')" style="grid-column: span 2;">
-          👑 Admin Portal
-        </button>
-      </div>
-
     </div>
   </div>
 
   <script src="shared/data.js"></script>
   <script>
-    // Password show/hide
     const eyeBtn = document.getElementById('eyeBtn');
     const pwdInput = document.getElementById('password');
     eyeBtn.addEventListener('click', () => {
@@ -390,12 +241,6 @@
       pwdInput.type = show ? 'text' : 'password';
       eyeBtn.textContent = '👁';
     });
-
-    function quickLogin(u, p) {
-      document.getElementById('username').value = u;
-      document.getElementById('password').value = p;
-      login(u, p);
-    }
 
     document.getElementById('loginForm').addEventListener('submit', function(e) {
       e.preventDefault();
