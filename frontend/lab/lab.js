@@ -53,12 +53,22 @@ const defaultTestMaster=[
     }
 ];
 
+function getSharedPatient(index, nameProperty){
+    const patients=getStorage(CMS_KEYS.PATIENTS,DEFAULT_PATIENTS);
+
+    if(!patients.length){
+        return {patientId:"",[nameProperty]:"Unknown Patient"};
+    }
+
+    const patient=patients[index%patients.length];
+    return {patientId:patient.patientId,[nameProperty]:patient.name};
+}
+
 const defaultData={
     orders:[
         {
             id:101,
-            patientId:"P001",
-            patient:"Anu Kumar",
+            ...getSharedPatient(0,"patient"),
             doctorId:"D001",
             doctorName:"Dr. Arun",
             testId:"LT001",
@@ -66,8 +76,7 @@ const defaultData={
         },
         {
             id:102,
-            patientId:"P002",
-            patient:"Rahul Menon",
+            ...getSharedPatient(1,"patient"),
             doctorId:"D002",
             doctorName:"Dr. Priya",
             testId:"LT002",
@@ -75,8 +84,7 @@ const defaultData={
         },
         {
             id:103,
-            patientId:"P003",
-            patient:"Meera Das",
+            ...getSharedPatient(2,"patient"),
             doctorId:"D001",
             doctorName:"Dr. Arun",
             testId:"LT003",
@@ -84,8 +92,7 @@ const defaultData={
         },
         {
             id:104,
-            patientId:"P004",
-            patient:"Kiran Raj",
+            ...getSharedPatient(3,"patient"),
             doctorId:"D003",
             doctorName:"Dr. Kumar",
             testId:"LT004",
@@ -93,8 +100,7 @@ const defaultData={
         },
         {
             id:105,
-            patientId:"P005",
-            patient:"Divya Nair",
+            ...getSharedPatient(4,"patient"),
             doctorId:"D002",
             doctorName:"Dr. Priya",
             testId:"LT005",
@@ -102,8 +108,7 @@ const defaultData={
         },
         {
             id:106,
-            patientId:"P006",
-            patient:"Vishnu S",
+            ...getSharedPatient(5,"patient"),
             doctorId:"D003",
             doctorName:"Dr. Kumar",
             testId:"LT006",
@@ -111,8 +116,7 @@ const defaultData={
         },
         {
             id:107,
-            patientId:"P007",
-            patient:"Lakshmi P",
+            ...getSharedPatient(6,"patient"),
             doctorId:"D001",
             doctorName:"Dr. Arun",
             testId:"LT001",
@@ -120,8 +124,7 @@ const defaultData={
         },
         {
             id:108,
-            patientId:"P008",
-            patient:"Akhil Kumar",
+            ...getSharedPatient(7,"patient"),
             doctorId:"D002",
             doctorName:"Dr. Priya",
             testId:"LT002",
@@ -129,8 +132,7 @@ const defaultData={
         },
         {
             id:109,
-            patientId:"P009",
-            patient:"Sneha Raj",
+            ...getSharedPatient(8,"patient"),
             doctorId:"D003",
             doctorName:"Dr. Kumar",
             testId:"LT003",
@@ -138,8 +140,7 @@ const defaultData={
         },
         {
             id:110,
-            patientId:"P010",
-            patient:"Manu Thomas",
+            ...getSharedPatient(9,"patient"),
             doctorId:"D001",
             doctorName:"Dr. Arun",
             testId:"LT004",
@@ -151,8 +152,7 @@ const defaultData={
         {
             reportId:1001,
             testId:108,
-            patientId:"P008",
-            patientName:"Akhil Kumar",
+            ...getSharedPatient(7,"patientName"),
             doctorId:"D002",
             doctorName:"Dr. Priya",
             testName:"Glucose",
@@ -166,8 +166,7 @@ const defaultData={
         {
             reportId:1002,
             testId:109,
-            patientId:"P009",
-            patientName:"Sneha Raj",
+            ...getSharedPatient(8,"patientName"),
             doctorId:"D003",
             doctorName:"Dr. Kumar",
             testName:"Urine Test",
@@ -181,8 +180,7 @@ const defaultData={
         {
             reportId:1003,
             testId:110,
-            patientId:"P010",
-            patientName:"Manu Thomas",
+            ...getSharedPatient(9,"patientName"),
             doctorId:"D001",
             doctorName:"Dr. Arun",
             testName:"Hemoglobin",
@@ -730,6 +728,31 @@ function syncWithDoctorOrders(){
     }
 }
 
+function syncLegacyPatientDetails(){
+    const patients=getStorage(CMS_KEYS.PATIENTS,[]);
+
+    if(!patients.length){
+        return;
+    }
+
+    function updatePatient(record,nameProperty){
+        const legacyId=String(record.patientId||"");
+
+        if(!/^P(?:00[1-9]|010)$/.test(legacyId)){
+            return;
+        }
+
+        const patientIndex=(Number(legacyId.slice(1))-1)%patients.length;
+        const patient=patients[patientIndex];
+        record.patientId=patient.patientId;
+        record[nameProperty]=patient.name;
+    }
+
+    orders.forEach(order=>updatePatient(order,"patient"));
+    reports.forEach(report=>updatePatient(report,"patientName"));
+    bills.forEach(bill=>updatePatient(bill,"patientName"));
+}
+
 function loadData(){
     const savedData=localStorage.getItem(STORAGE_KEY);
 
@@ -754,6 +777,7 @@ function loadData(){
     }
 
     syncWithDoctorOrders();
+    syncLegacyPatientDetails();
 
     const doctorName=getAvailableDoctorName();
 
