@@ -110,7 +110,7 @@ function initCMSStorage() {
         patientName: completedAppt.patientName,
         doctorName: completedAppt.doctorName || 'Dr. Prateek Pradeep',
         date: new Date().toISOString().split('T')[0],
-        vitals: { bp: '120/80', pulse: '72', temp: '98.6', weight: '65' },
+        vitals: { bp: '120/80', pulse: '72', temp: '37.0', weight: '65' },
         symptoms: completedAppt.reason || 'General health consultation',
         diagnosis: completedAppt.reason || 'Health Checkup Completed',
         remarks: 'Consultation completed. Advised lifestyle management and routine review.',

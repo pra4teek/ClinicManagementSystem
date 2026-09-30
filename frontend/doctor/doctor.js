@@ -480,7 +480,7 @@ function selectPatient(appt) {
         patientName: appt.patientName,
         doctorName: appt.doctorName || (currentUser && currentUser.name) || 'Doctor',
         date: new Date().toISOString().split('T')[0],
-        vitals: { bp: '118/76', pulse: '78', temp: '98.4', weight: '62' },
+        vitals: { bp: '118/76', pulse: '78', temp: '36.8', weight: '62' },
         symptoms: appt.reason || 'Acidity and stomach discomfort',
         diagnosis: 'Gastroesophageal Reflux Disease (GERD)',
         remarks: 'Avoid spicy food. Take medications on schedule. Follow up in 2 weeks.',
@@ -494,7 +494,7 @@ function selectPatient(appt) {
       if (existing.vitals) {
         document.getElementById('vitalBP').value = existing.vitals.bp || '120/80';
         document.getElementById('vitalPulse').value = existing.vitals.pulse || '72';
-        document.getElementById('vitalTemp').value = existing.vitals.temp || '98.6';
+        document.getElementById('vitalTemp').value = existing.vitals.temp || '37.0';
         document.getElementById('vitalWeight').value = existing.vitals.weight || '68';
       }
       document.getElementById('diagSymptoms').value = existing.symptoms || appt.reason || '';
@@ -519,7 +519,7 @@ function selectPatient(appt) {
       if (draft.vitals) {
         document.getElementById('vitalBP').value = draft.vitals.bp || '120/80';
         document.getElementById('vitalPulse').value = draft.vitals.pulse || '72';
-        document.getElementById('vitalTemp').value = draft.vitals.temp || '98.6';
+        document.getElementById('vitalTemp').value = draft.vitals.temp || '37.0';
         document.getElementById('vitalWeight').value = draft.vitals.weight || '68';
       }
       document.getElementById('diagSymptoms').value = draft.symptoms || appt.reason || '';
@@ -539,7 +539,7 @@ function selectPatient(appt) {
     } else {
       document.getElementById('vitalBP').value = '120/80';
       document.getElementById('vitalPulse').value = '72';
-      document.getElementById('vitalTemp').value = '98.6';
+      document.getElementById('vitalTemp').value = '37.0';
       document.getElementById('vitalWeight').value = '68';
       document.getElementById('diagSymptoms').value = appt.reason || '';
       document.getElementById('diagPrimary').value = '';
@@ -797,13 +797,13 @@ function handleConsultationSave(e) {
   const temp = document.getElementById('vitalTemp').value.trim();
   if (temp) {
     if (!/^\d+(\.\d+)?$/.test(temp)) {
-      showToast('Temperature must be a valid number in °F (e.g. 98.6).', 'warning');
+      showToast('Temperature must be a valid number in °C (e.g. 37.0).', 'warning');
       document.getElementById('vitalTemp').focus();
       return;
     }
     const tVal = parseFloat(temp);
-    if (tVal < 90 || tVal > 110) {
-      showToast('Temperature must be between 90°F and 110°F.', 'warning');
+    if (tVal < 34 || tVal > 43) {
+      showToast('Temperature must be between 34°C and 43°C (normal body temp is ~37°C).', 'warning');
       document.getElementById('vitalTemp').focus();
       return;
     }
@@ -825,6 +825,13 @@ function handleConsultationSave(e) {
   }
 
   const remarks = document.getElementById('diagRemarks').value.trim();
+  if (remarks) {
+    if (!/[a-zA-Z]/.test(remarks)) {
+      showToast("Doctor's Advice / Remarks must contain descriptive words/letters (not numbers only).", 'warning');
+      document.getElementById('diagRemarks').focus();
+      return;
+    }
+  }
 
   const vitals = {
     bp: bp,
@@ -1100,7 +1107,7 @@ function renderHistory() {
         <div class="vitals-row">
           ${v.bp     ? `<div class="vital-chip"><small>Blood Pressure</small><span>${v.bp} mmHg</span></div>` : ''}
           ${v.pulse  ? `<div class="vital-chip"><small>Pulse Rate</small><span>${v.pulse} bpm</span></div>` : ''}
-          ${v.temp   ? `<div class="vital-chip"><small>Body Temp</small><span>${v.temp} °F</span></div>` : ''}
+          ${v.temp   ? `<div class="vital-chip"><small>Body Temp</small><span>${v.temp} °C</span></div>` : ''}
           ${v.weight ? `<div class="vital-chip"><small>Weight</small><span>${v.weight} kg</span></div>` : ''}
         </div>
 
