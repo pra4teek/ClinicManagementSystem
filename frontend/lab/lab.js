@@ -1,7 +1,4 @@
-const STORAGE_KEY="lab-technician-demo-v4";
 const TEST_MASTER_KEY="lab-test-master";
-const SHARED_REPORTS_KEY="cms_lab_reports";
-const SHARED_BILLS_KEY="cms_lab_bills";
 
 let orders=[];
 let reports=[];
@@ -9,207 +6,16 @@ let bills=[];
 let testMaster=[];
 
 const defaultTestMaster=[
-    {
-        testId:"LT001",
-        testName:"Blood Count",
-        sampleType:"Blood",
-        normalValue:"4.5-5.5 million/µL",
-        charge:300
-    },
-    {
-        testId:"LT002",
-        testName:"Glucose",
-        sampleType:"Blood",
-        normalValue:"70-100 mg/dL",
-        charge:150
-    },
-    {
-        testId:"LT003",
-        testName:"Urine Test",
-        sampleType:"Urine",
-        normalValue:"Normal",
-        charge:200
-    },
-    {
-        testId:"LT004",
-        testName:"Hemoglobin",
-        sampleType:"Blood",
-        normalValue:"12-16 g/dL",
-        charge:180
-    },
-    {
-        testId:"LT005",
-        testName:"Cholesterol",
-        sampleType:"Blood",
-        normalValue:"Below 200 mg/dL",
-        charge:400
-    },
-    {
-        testId:"LT006",
-        testName:"Thyroid",
-        sampleType:"Blood",
-        normalValue:"0.4-4.0 mIU/L",
-        charge:500
-    }
+    {testId:"LT001",testName:"Blood Count",sampleType:"Blood",normalValue:"4.5-5.5 million/µL",charge:300},
+    {testId:"LT002",testName:"Glucose",sampleType:"Blood",normalValue:"70-100 mg/dL",charge:150},
+    {testId:"LT003",testName:"Urine Test",sampleType:"Urine",normalValue:"Normal",charge:200},
+    {testId:"LT004",testName:"Hemoglobin",sampleType:"Blood",normalValue:"12-16 g/dL",charge:180},
+    {testId:"LT005",testName:"Cholesterol",sampleType:"Blood",normalValue:"Below 200 mg/dL",charge:400},
+    {testId:"LT006",testName:"Thyroid",sampleType:"Blood",normalValue:"0.4-4.0 mIU/L",charge:500}
 ];
 
-function getSharedPatient(index, nameProperty){
-    const patients=getStorage(CMS_KEYS.PATIENTS,DEFAULT_PATIENTS);
-
-    if(!patients.length){
-        return {patientId:"",[nameProperty]:"Unknown Patient"};
-    }
-
-    const patient=patients[index%patients.length];
-    return {patientId:patient.patientId,[nameProperty]:patient.name};
-}
-
-const defaultData={
-    orders:[
-        {
-            id:101,
-            ...getSharedPatient(0,"patient"),
-            doctorId:"D001",
-            doctorName:"Dr. Arun",
-            testId:"LT001",
-            status:"Pending"
-        },
-        {
-            id:102,
-            ...getSharedPatient(1,"patient"),
-            doctorId:"D002",
-            doctorName:"Dr. Priya",
-            testId:"LT002",
-            status:"Pending"
-        },
-        {
-            id:103,
-            ...getSharedPatient(2,"patient"),
-            doctorId:"D001",
-            doctorName:"Dr. Arun",
-            testId:"LT003",
-            status:"Pending"
-        },
-        {
-            id:104,
-            ...getSharedPatient(3,"patient"),
-            doctorId:"D003",
-            doctorName:"Dr. Kumar",
-            testId:"LT004",
-            status:"Pending"
-        },
-        {
-            id:105,
-            ...getSharedPatient(4,"patient"),
-            doctorId:"D002",
-            doctorName:"Dr. Priya",
-            testId:"LT005",
-            status:"In Progress"
-        },
-        {
-            id:106,
-            ...getSharedPatient(5,"patient"),
-            doctorId:"D003",
-            doctorName:"Dr. Kumar",
-            testId:"LT006",
-            status:"In Progress"
-        },
-        {
-            id:107,
-            ...getSharedPatient(6,"patient"),
-            doctorId:"D001",
-            doctorName:"Dr. Arun",
-            testId:"LT001",
-            status:"In Progress"
-        },
-        {
-            id:108,
-            ...getSharedPatient(7,"patient"),
-            doctorId:"D002",
-            doctorName:"Dr. Priya",
-            testId:"LT002",
-            status:"Completed"
-        },
-        {
-            id:109,
-            ...getSharedPatient(8,"patient"),
-            doctorId:"D003",
-            doctorName:"Dr. Kumar",
-            testId:"LT003",
-            status:"Completed"
-        },
-        {
-            id:110,
-            ...getSharedPatient(9,"patient"),
-            doctorId:"D001",
-            doctorName:"Dr. Arun",
-            testId:"LT004",
-            status:"Completed"
-        }
-    ],
-
-    reports:[
-        {
-            reportId:1001,
-            testId:108,
-            ...getSharedPatient(7,"patientName"),
-            doctorId:"D002",
-            doctorName:"Dr. Priya",
-            testName:"Glucose",
-            sampleType:"Blood",
-            normalValue:"70-100 mg/dL",
-            actualReading:"92 mg/dL",
-            remarks:"Reading is within the normal range.",
-            date:"29/09/2026",
-            time:"09:30 AM"
-        },
-        {
-            reportId:1002,
-            testId:109,
-            ...getSharedPatient(8,"patientName"),
-            doctorId:"D003",
-            doctorName:"Dr. Kumar",
-            testName:"Urine Test",
-            sampleType:"Urine",
-            normalValue:"Normal",
-            actualReading:"Normal",
-            remarks:"No abnormality detected.",
-            date:"29/09/2026",
-            time:"10:15 AM"
-        },
-        {
-            reportId:1003,
-            testId:110,
-            ...getSharedPatient(9,"patientName"),
-            doctorId:"D001",
-            doctorName:"Dr. Arun",
-            testName:"Hemoglobin",
-            sampleType:"Blood",
-            normalValue:"12-16 g/dL",
-            actualReading:"14.2 g/dL",
-            remarks:"Hemoglobin level is normal.",
-            date:"29/09/2026",
-            time:"11:00 AM"
-        }
-    ],
-
-    bills:[]
-};
-
 function loadTestMaster(){
-    const savedMaster=localStorage.getItem(TEST_MASTER_KEY);
-
-    if(savedMaster){
-        testMaster=JSON.parse(savedMaster);
-    }else{
-        testMaster=JSON.parse(
-            JSON.stringify(defaultTestMaster)
-        );
-        localStorage.setItem(
-            TEST_MASTER_KEY,
-            JSON.stringify(testMaster)
-        );
-    }
+    testMaster=getStorage(TEST_MASTER_KEY,defaultTestMaster);
 
     // Auto-upgrade any old generic "Reference Normal" placeholders to realistic medical ranges
     let upgraded = false;
@@ -224,7 +30,7 @@ function loadTestMaster(){
         }
     });
     if (upgraded) {
-        localStorage.setItem(TEST_MASTER_KEY, JSON.stringify(testMaster));
+        setStorage(TEST_MASTER_KEY,testMaster);
     }
 }
 
@@ -671,157 +477,100 @@ function validateTestReadings(testName) {
 }
 
 function syncWithDoctorOrders(){
-    try{
-        const sharedOrders=JSON.parse(localStorage.getItem("cms_lab_orders")||"[]");
-        if(!Array.isArray(sharedOrders)||sharedOrders.length===0){
-            return;
-        }
-
-        sharedOrders.forEach(shared=>{
-            const orderId=shared.labOrderId||shared.id;
-            const testNames=Array.isArray(shared.tests)?shared.tests:[shared.testName||"Clinical Diagnostic Test"];
-
-            testNames.forEach((tName,idx)=>{
-                let masterMatch=testMaster.find(t=>t.testName.toLowerCase()===tName.toLowerCase());
-                const standardMeta=getStandardTestMeta(tName);
-
-                if(!masterMatch){
-                    const newId="LT"+(100+testMaster.length+1);
-                    masterMatch={
-                        testId:newId,
-                        testName:tName,
-                        sampleType:standardMeta.sampleType,
-                        normalValue:standardMeta.normalValue,
-                        charge:standardMeta.charge
-                    };
-                    testMaster.push(masterMatch);
-                    localStorage.setItem(TEST_MASTER_KEY,JSON.stringify(testMaster));
-                }else if(!masterMatch.normalValue||masterMatch.normalValue.includes("Reference Normal")||masterMatch.normalValue==="Standard Reference Range"){
-                    masterMatch.normalValue=standardMeta.normalValue;
-                    masterMatch.sampleType=standardMeta.sampleType;
-                    localStorage.setItem(TEST_MASTER_KEY,JSON.stringify(testMaster));
-                }
-
-                const subOrderId=testNames.length>1?`${orderId}-${idx+1}`:orderId;
-                const existing=orders.find(o=>String(o.id)===String(subOrderId));
-
-                if(!existing){
-                    orders.unshift({
-                        id:subOrderId,
-                        labOrderId:orderId,
-                        patientId:shared.patientId||"PAT-1001",
-                        patient:shared.patientName||"Patient",
-                        doctorId:"DOC-101",
-                        doctorName:shared.doctorName||"Dr. Jane Smith",
-                        testId:masterMatch.testId,
-                        status:shared.status||"Pending",
-                        date:shared.date||new Date().toLocaleDateString(),
-                        remarks:shared.remarks||""
-                    });
-                }else if(shared.status&&existing.status!==shared.status){
-                    existing.status=shared.status;
-                }
-            });
-        });
-    }catch(err){
-        console.error("Error syncing doctor orders into lab:",err);
-    }
-}
-
-function syncLegacyPatientDetails(){
+    const sharedOrders=getStorage(CMS_KEYS.LAB_ORDERS,[]);
     const patients=getStorage(CMS_KEYS.PATIENTS,[]);
 
-    if(!patients.length){
-        return;
-    }
+    orders=sharedOrders.flatMap(shared=>{
+        const orderId=shared.labOrderId||shared.id;
+        const testNames=Array.isArray(shared.tests)&&shared.tests.length
+            ?shared.tests
+            :[shared.testName||"Clinical Diagnostic Test"];
+        const patient=patients.find(item=>String(item.patientId)===String(shared.patientId));
+        const testStatuses=Array.isArray(shared.testStatuses)?shared.testStatuses:[];
 
-    function updatePatient(record,nameProperty){
-        const legacyId=String(record.patientId||"");
+        return testNames.map((testName,index)=>{
+            let masterMatch=testMaster.find(
+                test=>String(test.testName).toLowerCase()===String(testName).toLowerCase()
+            );
+            const standardMeta=getStandardTestMeta(testName);
 
-        if(!/^P(?:00[1-9]|010)$/.test(legacyId)){
-            return;
-        }
+            if(!masterMatch){
+                masterMatch={
+                    testId:"LT"+(100+testMaster.length+1),
+                    testName:testName,
+                    sampleType:standardMeta.sampleType,
+                    normalValue:standardMeta.normalValue,
+                    charge:standardMeta.charge
+                };
+                testMaster.push(masterMatch);
+                setStorage(TEST_MASTER_KEY,testMaster);
+            }else if(!masterMatch.normalValue||masterMatch.normalValue.includes("Reference Normal")||masterMatch.normalValue==="Standard Reference Range"){
+                masterMatch.normalValue=standardMeta.normalValue;
+                masterMatch.sampleType=standardMeta.sampleType;
+                setStorage(TEST_MASTER_KEY,testMaster);
+            }
 
-        const patientIndex=(Number(legacyId.slice(1))-1)%patients.length;
-        const patient=patients[patientIndex];
-        record.patientId=patient.patientId;
-        record[nameProperty]=patient.name;
-    }
-
-    orders.forEach(order=>updatePatient(order,"patient"));
-    reports.forEach(report=>updatePatient(report,"patientName"));
-    bills.forEach(bill=>updatePatient(bill,"patientName"));
+            return {
+                id:testNames.length>1?`${orderId}-${index+1}`:orderId,
+                labOrderId:orderId,
+                patientId:shared.patientId||"",
+                patient:shared.patientName||patient?.name||"Patient",
+                doctorId:shared.doctorId||"",
+                doctorName:shared.doctorName||"",
+                testId:masterMatch.testId,
+                status:testStatuses[index]||shared.status||"Pending",
+                date:shared.date||"",
+                remarks:shared.remarks||""
+            };
+        });
+    });
 }
 
 function loadData(){
-    const savedData=localStorage.getItem(STORAGE_KEY);
-
-    if(savedData){
-        const data=JSON.parse(savedData);
-
-        orders=data.orders||[];
-        reports=data.reports||[];
-        bills=data.bills||[];
-    }else{
-        orders=JSON.parse(
-            JSON.stringify(defaultData.orders)
-        );
-
-        reports=JSON.parse(
-            JSON.stringify(defaultData.reports)
-        );
-
-        bills=[];
-
-        saveData();
-    }
-
     syncWithDoctorOrders();
-    syncLegacyPatientDetails();
-
-    const doctorName=getAvailableDoctorName();
-
-    orders.forEach(order=>{
-        order.doctorName=doctorName;
-    });
-
-    reports.forEach(report=>{
-        report.doctorName=doctorName;
-    });
+    reports=getStorage(CMS_KEYS.LAB_REPORTS,[]);
+    bills=getStorage(CMS_KEYS.BILLS,[]).filter(bill=>bill.source==="Lab");
 
     const doctorNameLabel=
         document.getElementById("assignedDoctorName");
 
     if(doctorNameLabel){
-        doctorNameLabel.textContent="Doctor: "+doctorName;
+        doctorNameLabel.textContent="Doctor: "+(orders[0]?.doctorName||getAvailableDoctorName());
     }
 
     saveData();
 }
 
 function saveData(){
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-            orders:orders,
-            reports:reports,
-            bills:bills
-        })
-    );
+    const sharedOrders=getStorage(CMS_KEYS.LAB_ORDERS,[]);
 
-    syncSharedRecords();
-}
+    sharedOrders.forEach(shared=>{
+        const orderId=String(shared.labOrderId||shared.id);
+        const relatedOrders=orders.filter(
+            order=>String(order.labOrderId||order.id)===orderId
+        );
 
-function syncSharedRecords(){
-    localStorage.setItem(
-        SHARED_REPORTS_KEY,
-        JSON.stringify(reports)
-    );
+        if(!relatedOrders.length){
+            return;
+        }
 
-    localStorage.setItem(
-        SHARED_BILLS_KEY,
-        JSON.stringify(bills)
-    );
+        const statuses=relatedOrders.map(order=>order.status);
+        shared.testStatuses=statuses;
+        shared.status=statuses.every(status=>status==="Completed")
+            ?"Completed"
+            :statuses.every(status=>status==="Cancelled")
+                ?"Cancelled"
+                :statuses.some(status=>status!=="Pending")
+                    ?"In Progress"
+                    :"Pending";
+    });
+
+    setStorage(CMS_KEYS.LAB_ORDERS,sharedOrders);
+    setStorage(CMS_KEYS.LAB_REPORTS,reports);
+
+    const allBills=getStorage(CMS_KEYS.BILLS,[]);
+    const otherBills=allBills.filter(bill=>bill.source!=="Lab");
+    setStorage(CMS_KEYS.BILLS,[...otherBills,...bills]);
 }
 
 function escapeHtml(value){
@@ -1175,7 +924,7 @@ document.getElementById("patientForm")
     if(editedNormal && editedNormal !== test.normalValue){
         test.normalValue = editedNormal;
         try {
-            localStorage.setItem(TEST_MASTER_KEY, JSON.stringify(testMaster));
+            setStorage(TEST_MASTER_KEY,testMaster);
         } catch(e){}
     }
 
@@ -1216,61 +965,6 @@ document.getElementById("patientForm")
     }
 
     order.status="Completed";
-
-    // Sync completion and report to cms_lab_orders and cms_lab_reports for Doctor Portal
-    try {
-        const sharedOrders = JSON.parse(localStorage.getItem("cms_lab_orders") || "[]");
-        const targetLabOrderId = String(order.labOrderId || order.id);
-        let match = sharedOrders.find(o =>
-            String(o.labOrderId) === targetLabOrderId ||
-            (o.patientId && String(o.patientId) === String(order.patientId) && o.status !== "Completed") ||
-            (order.labOrderId && String(o.labOrderId) === String(order.labOrderId))
-        );
-
-        if (match) {
-            match.status = "Completed";
-            match.actualReading = actualReading;
-            match.results = detailedResults.length > 0 ? detailedResults : null;
-            match.reportRemarks = report.remarks;
-            match.reportDate = now.toISOString().split("T")[0];
-            match.completedAt = Date.now();
-            match.time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else {
-            match = {
-                labOrderId: targetLabOrderId,
-                appointmentId: null,
-                patientId: order.patientId,
-                patientName: order.patient,
-                doctorName: order.doctorName || "Dr. Jane Smith",
-                date: now.toISOString().split("T")[0],
-                tests: [test.testName],
-                remarks: report.remarks,
-                status: "Completed",
-                actualReading: actualReading,
-                results: detailedResults.length > 0 ? detailedResults : null,
-                reportRemarks: report.remarks,
-                reportDate: now.toISOString().split("T")[0]
-            };
-            sharedOrders.unshift(match);
-        }
-        localStorage.setItem("cms_lab_orders", JSON.stringify(sharedOrders));
-
-        const sharedReports = JSON.parse(localStorage.getItem("cms_lab_reports") || "[]");
-        const repMatchIndex = sharedReports.findIndex(r =>
-            String(r.labOrderId) === targetLabOrderId ||
-            String(r.testId) === String(order.id) ||
-            String(r.reportId) === String(report.reportId)
-        );
-
-        if (repMatchIndex >= 0) {
-            sharedReports[repMatchIndex] = report;
-        } else {
-            sharedReports.unshift(report);
-        }
-        localStorage.setItem("cms_lab_reports", JSON.stringify(sharedReports));
-    } catch(err) {
-        console.error("Error syncing completed report:", err);
-    }
 
     saveData();
 
@@ -1663,10 +1357,6 @@ function createBill(){
     bills.push(bill);
 
     saveData();
-
-    const centralBills=JSON.parse(localStorage.getItem(CMS_KEYS.BILLS))||[];
-    centralBills.push(bill);
-    localStorage.setItem(CMS_KEYS.BILLS,JSON.stringify(centralBills));
 
     renderBills();
     loadBillingTests();
