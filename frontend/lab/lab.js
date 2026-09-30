@@ -1624,19 +1624,25 @@ function createBill(){
     }
 
     const bill={
+        id:Date.now().toString(),
         billId:Date.now(),
         testId:order.id,
         patientId:order.patientId,
-        patientName:order.patient,
+        patientName:order.patient||order.patientName,
         testName:test.testName,
+        source:"Lab",
         amount:test.charge,
         status:"Pending",
-        date:new Date().toLocaleDateString()
+        date:new Date().toISOString().split("T")[0]
     };
 
     bills.push(bill);
 
     saveData();
+
+    const centralBills=JSON.parse(localStorage.getItem(CMS_KEYS.BILLS))||[];
+    centralBills.push(bill);
+    localStorage.setItem(CMS_KEYS.BILLS,JSON.stringify(centralBills));
 
     renderBills();
     loadBillingTests();
@@ -1675,7 +1681,10 @@ function renderBills(){
         return;
     }
 
-    if(bills.length===0){
+    const centralBills=JSON.parse(localStorage.getItem(CMS_KEYS.BILLS))||[];
+    const labBills=centralBills.filter(bill=>bill.source==="Lab");
+
+    if(labBills.length===0){
 
         tableBody.innerHTML=`
             <tr>
@@ -1689,20 +1698,20 @@ function renderBills(){
     }
 
     tableBody.innerHTML=
-        bills.map(bill=>`
+        labBills.map(bill=>`
 
         <tr>
 
             <td>
-                ${escapeHtml(bill.billId)}
+                ${escapeHtml(bill.billId||bill.id)}
             </td>
 
             <td>
-                ${escapeHtml(bill.patientId)}
+                ${escapeHtml(bill.patientId||"--")}
             </td>
 
             <td>
-                ${escapeHtml(bill.testName)}
+                ${escapeHtml(bill.testName||"--")}
             </td>
 
             <td>
