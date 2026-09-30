@@ -11,7 +11,8 @@ const CMS_KEYS = {
   PRESCRIPTIONS: 'cms_prescriptions',
   LAB_ORDERS: 'cms_lab_orders',
   LAB_REPORTS: 'cms_lab_reports',
-  MEDICINES: 'cms_medicines'
+  MEDICINES: 'cms_medicines',
+  BILLS: 'cms_bills'
 };
 
 const DEFAULT_USERS = [
@@ -157,6 +158,7 @@ function initCMSStorage() {
   }
 
   if (!localStorage.getItem(CMS_KEYS.LAB_REPORTS))  localStorage.setItem(CMS_KEYS.LAB_REPORTS,  JSON.stringify([]));
+  if (!localStorage.getItem(CMS_KEYS.BILLS))        localStorage.setItem(CMS_KEYS.BILLS,        JSON.stringify([]));
 
   // Sync any Completed appointment without a consultation record
   const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
@@ -213,6 +215,7 @@ function resetAllDemoData() {
   localStorage.setItem(CMS_KEYS.PRESCRIPTIONS, JSON.stringify(DEFAULT_PRESCRIPTIONS));
   localStorage.setItem(CMS_KEYS.LAB_ORDERS,    JSON.stringify(DEFAULT_LAB_ORDERS));
   localStorage.setItem(CMS_KEYS.LAB_REPORTS,   JSON.stringify([]));
+  localStorage.setItem(CMS_KEYS.BILLS,         JSON.stringify([]));
   alert('Demo data has been reset to defaults!');
   window.location.reload();
 }

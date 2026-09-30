@@ -162,6 +162,7 @@ function renderAll() {
   document.getElementById("stat-patients").textContent = state.patients.length;
   renderPatients();
   renderAppointments();
+  renderBillingTable();
 }
 
 function loadDashboard() {
@@ -353,7 +354,78 @@ function bindDashboardEvents() {
       elements.statusForm.requestSubmit();
     }
   });
+  const billingNavBtn = document.querySelector('[data-section="billing"]');
+  if (billingNavBtn) {
+    billingNavBtn.addEventListener("click", () => switchSection("billing"));
+  }
 }
+
+function switchSection(sectionId) {
+  document.querySelectorAll(".sidebar-nav .nav-item").forEach(button => {
+    button.classList.toggle("active", button.dataset.section === sectionId);
+  });
+  if (sectionId === "billing") {
+    const billingSection = document.getElementById("sectionBilling");
+    if (billingSection) {
+      billingSection.scrollIntoView({ behavior: "smooth" });
+      renderBillingTable();
+    }
+  } else if (sectionId === "dashboard") {
+    document.getElementById("page-title")?.scrollIntoView({ behavior: "smooth" });
+  } else if (sectionId === "register") {
+    document.getElementById("reg-title")?.scrollIntoView({ behavior: "smooth" });
+  } else if (sectionId === "queue") {
+    document.getElementById("queue-title")?.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+function renderBillingTable() {
+  const billingBody = document.getElementById("billing-body");
+  if (!billingBody) return;
+  const bills = getStorage(CMS_KEYS.BILLS, []);
+  if (!bills || bills.length === 0) {
+    billingBody.innerHTML = '<tr class="empty-row"><td colspan="6">No billing records found.</td></tr>';
+    return;
+  }
+  billingBody.innerHTML = bills.map((bill, index) => {
+    const billId = bill.billId ?? bill.id ?? index;
+    const status = bill.status || "Pending";
+    const isPaid = String(status).toLowerCase() === "paid";
+    const statusClass = isPaid ? "status-completed" : "status-scheduled";
+    const amountVal = bill.amount != null ? (typeof bill.amount === "number" ? `₹${bill.amount.toFixed(2)}` : `₹${bill.amount}`) : "₹0.00";
+    const dateVal = bill.date || bill.billDate || bill.createdAt || "--";
+    const patientVal = bill.patientName || bill.patient || (bill.patientId ? patientLabel(bill.patientId) : "Unknown");
+    const sourceVal = bill.source || bill.department || bill.service || "Consultation";
+    const actionHtml = isPaid
+      ? '<span class="subtext">Paid</span>'
+      : `<button class="row-action" type="button" onclick="markAsPaid('${escapeHtml(billId)}')">Mark as Paid</button>`;
+    return `<tr>
+      <td>${escapeHtml(dateVal)}</td>
+      <td><span class="strong">${escapeHtml(patientVal)}</span></td>
+      <td>${escapeHtml(sourceVal)}</td>
+      <td><span class="strong">${escapeHtml(amountVal)}</span></td>
+      <td><span class="status ${statusClass}">${escapeHtml(status)}</span></td>
+      <td>${actionHtml}</td>
+    </tr>`;
+  }).join("");
+}
+
+function markAsPaid(billId) {
+  const bills = getStorage(CMS_KEYS.BILLS, []);
+  const bill = bills.find((item, index) => String(item.billId ?? item.id ?? index) === String(billId));
+  if (bill) {
+    bill.status = "Paid";
+    setStorage(CMS_KEYS.BILLS, bills);
+    renderBillingTable();
+    if (typeof showToast === "function") {
+      showToast("Bill marked as paid.", "success");
+    }
+  }
+}
+
+window.switchSection = switchSection;
+window.renderBillingTable = renderBillingTable;
+window.markAsPaid = markAsPaid;
 
 document.addEventListener("DOMContentLoaded", async () => {
   state.user = requireAuth(["Receptionist"], "../index.html");
