@@ -8,9 +8,7 @@
   <title>Receptionist | CarePoint Clinic</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    /* ══════════════════════════════════════════════════
-       SHELL: sidebar + main
-    ══════════════════════════════════════════════════ */
+
     html, body { height: 100%; overflow: hidden; }
 
     .shell {
@@ -18,7 +16,6 @@
       height: 100vh;
     }
 
-    /* ── Sidebar ── */
     .sidebar {
       width: 230px;
       flex-shrink: 0;
@@ -135,7 +132,7 @@
     }
     .btn-signout:hover { background: rgba(220,38,38,.18); color: #fca5a5; }
 
-    /* SVG icon helper */
+    
     .icon {
       display: inline-block; width: 1em; height: 1em;
       vertical-align: -0.125em;
@@ -145,7 +142,7 @@
     .icon-lg { width: 1.25em; height: 1.25em; }
     .icon-xl { width: 1.5em; height: 1.5em; }
 
-    /* ── Main content area ── */
+    
     .main-area {
       flex: 1;
       margin-left: 230px;
@@ -160,7 +157,7 @@
       padding: 2rem 1.75rem 3rem;
     }
 
-    /* ── Page-level layout (mirrors lab.html) ── */
+    
     main {
       max-width: 1280px;
       margin: 0 auto;
@@ -190,7 +187,7 @@
       font-size: .875rem;
     }
 
-    /* ── Metrics row ── */
+    
     .metrics {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -199,7 +196,7 @@
       margin-top: .25rem;
     }
 
-    /* ── Two-column workspace ── */
+    
     .workspace {
       display: grid;
       grid-template-columns: minmax(0, 1.7fr) minmax(300px, .9fr);
@@ -213,7 +210,7 @@
       gap: 1.25rem;
     }
 
-    /* ── Panel (same as lab panel) ── */
+    
     .panel {
       overflow: hidden;
       margin-bottom: 0;
@@ -246,7 +243,7 @@
       font-size: .8rem;
     }
 
-    /* ── Queue toolbar ── */
+    
     .queue-tools {
       display: flex;
       align-items: center;
@@ -257,7 +254,7 @@
       width: min(200px, 35vw);
     }
 
-    /* ── Table ── */
+    
     .table-wrap {
       overflow-x: auto;
     }
@@ -297,7 +294,7 @@
       background: var(--bg-hover);
     }
 
-    /* ── Cell helpers ── */
+    
     .strong {
       font-weight: 650;
       color: var(--text-main);
@@ -310,7 +307,7 @@
       font-size: .72rem;
     }
 
-    /* ── Token chip ── */
+    
     .token-chip {
       display: inline-block;
       min-width: 28px;
@@ -323,7 +320,7 @@
       text-align: center;
     }
 
-    /* ── Status badges (appointment) ── */
+    
     .status {
       display: inline-block;
       border-radius: var(--radius-full);
@@ -337,7 +334,7 @@
     .status-completed { background: var(--success-light); color: var(--success); }
     .status-cancelled { background: var(--danger-light);  color: var(--danger); }
 
-    /* ── Row action link-button ── */
+    
     .row-action {
       border: 0;
       padding: .25rem 0;
@@ -358,7 +355,7 @@
       color: var(--danger);
     }
 
-    /* ── Form body ── */
+    
     .form-body {
       display: grid;
       gap: .75rem;
@@ -382,14 +379,14 @@
       color: var(--success);
     }
 
-    /* ── Two-column form row ── */
+    
     .form-2col {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: .75rem;
     }
 
-    /* ── Patient detail preview (inline) ── */
+    
     .patient-preview {
       display: none;
       padding: .75rem 1rem;
@@ -426,14 +423,14 @@
       gap: .1rem;
     }
 
-    /* ── Empty state row ── */
+    
     .empty-row td {
       padding: 1.5rem;
       color: var(--text-muted);
       text-align: center;
     }
 
-    /* ── Footer ── */
+    
     footer {
       padding: 1rem 1rem 1.5rem;
       color: var(--text-hint);
@@ -441,7 +438,7 @@
       text-align: center;
     }
 
-    /* ── Responsive ── */
+    
     @media (max-width: 900px) {
       .workspace { grid-template-columns: 1fr; }
       .column:last-child { grid-row: 1; }
@@ -524,7 +521,7 @@
     <div class="main-content">
   <main>
 
-    <!-- ── Page heading ── -->
+    
     <section class="page-heading" aria-labelledby="page-title">
       <div>
         <p class="front">Reception</p>
@@ -534,7 +531,7 @@
       <button class="btn btn-outline" id="refresh-btn" type="button">Refresh data</button>
     </section>
 
-    <!-- ── Summary metrics ── -->
+    
     <section class="metrics stats-grid" aria-label="Today's reception summary">
       <div class="stat-card">
         <div class="stat-icon blue" aria-hidden="true">
@@ -597,13 +594,13 @@
       </div>
     </section>
 
-    <!-- ── Workspace: left tables | right forms ── -->
+    
     <div class="workspace">
 
-      <!-- ===== LEFT column: tables ===== -->
+      
       <div class="column">
 
-        <!-- Appointment queue -->
+        
         <section class="panel" aria-labelledby="queue-title">
           <div class="panel-heading">
             <div>
@@ -638,7 +635,7 @@
           </div>
         </section>
 
-        <!-- Patient registry -->
+        
         <section class="panel" aria-labelledby="patients-title">
           <div class="panel-heading">
             <div>
@@ -672,12 +669,12 @@
           </div>
         </section>
 
-      </div><!-- /LEFT column -->
+      </div>
 
-      <!-- ===== RIGHT column: forms ===== -->
+      
       <div class="column">
 
-        <!-- Register new patient -->
+        
         <section class="panel" aria-labelledby="reg-title">
           <div class="panel-heading">
             <div>
@@ -735,7 +732,7 @@
           </form>
         </section>
 
-        <!-- Book appointment -->
+        
         <section class="panel" aria-labelledby="apt-form-title">
           <div class="panel-heading">
             <div>
@@ -752,7 +749,7 @@
               </select>
             </div>
 
-            <!-- Inline patient preview -->
+            
             <dl class="patient-preview" id="patient-preview" aria-live="polite">
               <div class="preview-pair">
                 <dt>Age / Gender</dt>
@@ -822,7 +819,7 @@
           </form>
         </section>
 
-        <!-- Update appointment status -->
+        
         <section class="panel" aria-labelledby="status-title">
           <div class="panel-heading">
             <div>
@@ -852,10 +849,10 @@
           </form>
         </section>
 
-      </div><!-- /RIGHT column -->
-    </div><!-- /workspace -->
+      </div>
+    </div>
 
-    <!-- ── Centralized Billing Section ── -->
+    
     <section id="sectionBilling" class="panel" aria-labelledby="billing-title" style="margin-top: 1.5rem;">
       <div class="panel-heading">
         <div>
