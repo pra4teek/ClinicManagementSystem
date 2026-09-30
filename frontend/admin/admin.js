@@ -75,9 +75,10 @@ const sectionInfo = {
 };
 
 let data = loadData();
+syncAllDoctorLogins();
+
 let currentSection = "dashboard";
 let editing = null;
-
 function clone(value){ return JSON.parse(JSON.stringify(value)); }
 
 function normalizeData(raw){
@@ -449,8 +450,15 @@ function validateRecord(collection,record){
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.EmailId)){error.textContent="Enter a valid email address.";return false}
       if(!/^\d{10}$/.test(record.PhoneNumber)){error.textContent="Phone number must contain exactly 10 digits.";return false}
       const age=ageFromDOB(record.DOB);
-      if(age==="" || age<18){error.textContent="User age must be at least 18 years.";return false}
-      if(new Date(record.DOB)>new Date()){error.textContent="Date of birth cannot be in the future.";return false}
+      if(age==="" || age<23 || age>56){
+      error.textContent="User age must be between 23 and 56 years.";
+      return false;
+}
+
+      if(new Date(record.DOB)>new Date()){
+      error.textContent="Date of birth cannot be in the future.";
+      return false;
+}
       const duplicate=data.users.find(u=>u.Username.toLowerCase()===record.Username.toLowerCase() && Number(u.UserId)!==Number(editing.id));
       if(duplicate){error.textContent="Username already exists.";return false}
       const dupEmail=data.users.find(u=>u.EmailId.toLowerCase()===record.EmailId.toLowerCase() && Number(u.UserId)!==Number(editing.id));
@@ -492,7 +500,43 @@ function syncRoleRecord(user,oldRoleId){
       else staff.Name=user.Name;
     }
 }
+function syncDoctorLogin(user){
+    if(!user || Number(user.RoleId) !== 2) return;
 
+    const sharedUsers = JSON.parse(localStorage.getItem("cms_users") || "[]");
+
+    const username = String(user.Username || "").trim();
+    if(!username) return;
+
+    const doctorLogin = {
+        username: username,
+        password: String(user.Password || ""),
+        role: "Doctor",
+        name: String(user.Name || "Doctor"),
+        adminUserId: Number(user.UserId)
+    };
+
+    const index = sharedUsers.findIndex(
+        u => String(u.username || "").toLowerCase() === username.toLowerCase()
+    );
+
+    if(index >= 0){
+        sharedUsers[index] = {
+            ...sharedUsers[index],
+            ...doctorLogin
+        };
+    }else{
+        sharedUsers.push(doctorLogin);
+    }
+
+    localStorage.setItem("cms_users", JSON.stringify(sharedUsers));
+}
+
+function syncAllDoctorLogins(){
+    data.users
+        .filter(u => Number(u.RoleId) === 2)
+        .forEach(syncDoctorLogin);
+}
 function saveForm(event){
     event.preventDefault();
     const {collection,id}=editing;
@@ -508,15 +552,24 @@ function saveForm(event){
     }
     if(!validateRecord(collection,record)) return;
 
-    if(id==null){
-      record[primaryId(collection)]=nextId(collection,primaryId(collection));
-      data[collection].push(record);
-      if(collection==="users") syncRoleRecord(record,null);
-      addAudit("CREATE",collectionRole(collection),record[primaryId(collection)],`${collectionLabel(collection)} created.`);
+  if(id==null){
+  record[primaryId(collection)]=nextId(collection,primaryId(collection));
+  data[collection].push(record);
+
+  if(collection==="users"){
+    syncRoleRecord(record,null);
+    syncDoctorLogin(record);
+  }
+
+  addAudit("CREATE",collectionRole(collection),record[primaryId(collection)],`${collectionLabel(collection)} created.`);
       showToast(`${collectionLabel(collection)} created successfully.`);
-    }else{
-      if(collection==="users") syncRoleRecord(record,oldRoleId);
-      addAudit("UPDATE",collectionRole(collection),id,`${collectionLabel(collection)} updated.`);
+  }else{
+  if(collection==="users"){
+    syncRoleRecord(record,oldRoleId);
+    syncDoctorLogin(record);
+  }
+
+  addAudit("UPDATE",collectionRole(collection),id,`${collectionLabel(collection)} updated.`);
       showToast(`${collectionLabel(collection)} updated successfully.`);
     }
     saveData(); closeModal(); render();

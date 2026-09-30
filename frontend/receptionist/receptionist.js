@@ -435,9 +435,166 @@ function markAsPaid(billId) {
   }
 }
 
+/* ── Receptionist: Consolidated Final Billing (Pharmacy → Receptionist) ─── */
+
+/** In-memory state for the invoice currently being processed */
+let currentFinalInvoice = {
+  patientId: null,
+  consultationId: null,
+  doctorFee: 500,   // Default OPD fee; override per real consultation when API is live
+  pharmacyBill: null,
+  grandTotal: 0
+};
+
+/**
+ * Searches localStorage for a pending pharmacy bill matching the given
+ * Patient ID or Prescription/Consultation ID.
+ */
+async function fetchPatientPendingBills() {
+  const query = (document.getElementById("billingSearchPatient")?.value || "").trim();
+  if (!query) { alert("Please enter a Patient ID or Prescription ID."); return; }
+
+  let pharmacyBill = null;
+
+  // 1. Try backend API (production)
+  try {
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const res = await fetch(`/api/receptionist/bills/pending/?search=${encodeURIComponent(query)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (res.ok) {
+      const data = await res.json();
+      pharmacyBill = Array.isArray(data)
+        ? data.find(b => b.status === "PENDING_RECEPTIONIST_PAYMENT")
+        : null;
+    }
+  } catch (_) { /* fall through */ }
+
+  // 2. Fallback to shared localStorage (offline / prototype mode)
+  if (!pharmacyBill) {
+    const stored = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
+    pharmacyBill = stored.find(b =>
+      b.status === "PENDING_RECEPTIONIST_PAYMENT" &&
+      (String(b.patientId) === query ||
+       String(b.consultationId) === query ||
+       String(b.prescriptionId) === query)
+    );
+  }
+
+  if (!pharmacyBill) {
+    alert("No pending pharmacy bill found for this Patient / Prescription ID.");
+    return;
+  }
+
+  renderFinalInvoice(pharmacyBill);
+}
+
+/**
+ * Builds the consolidated invoice card: Doctor fee + Pharmacy bill.
+ */
+function renderFinalInvoice(pharmacyBill) {
+  currentFinalInvoice.patientId      = pharmacyBill.patientId;
+  currentFinalInvoice.consultationId = pharmacyBill.consultationId || pharmacyBill.prescriptionId;
+  currentFinalInvoice.pharmacyBill   = pharmacyBill;
+
+  const card = document.getElementById("finalInvoiceCard");
+  if (!card) return;
+
+  document.getElementById("finalPatientName").textContent  = pharmacyBill.patientName || "--";
+  document.getElementById("finalPatientId").textContent    = pharmacyBill.patientId || "--";
+  document.getElementById("finalConsultationId").textContent = currentFinalInvoice.consultationId || "--";
+
+  const tbody = document.getElementById("finalBillBreakdownBody");
+  tbody.innerHTML = "";
+
+  // Doctor consultation row
+  const trDoc = document.createElement("tr");
+  trDoc.innerHTML = `
+    <td><strong>Doctor Consultation</strong></td>
+    <td>OPD / General Checkup</td>
+    <td>₹${currentFinalInvoice.doctorFee.toFixed(2)}</td>`;
+  tbody.appendChild(trDoc);
+
+  // Pharmacy row (all medicine items summarized)
+  const medSummary = Array.isArray(pharmacyBill.items)
+    ? pharmacyBill.items.map(i => `${i.medicineName} ×${i.quantity}`).join(", ")
+    : (pharmacyBill.medicine || "Medicines");
+  const pharmTotal = Number(pharmacyBill.totalAmount || pharmacyBill.total || 0);
+  const trPharm = document.createElement("tr");
+  trPharm.innerHTML = `
+    <td><strong>Pharmacy / Medicines</strong></td>
+    <td style="font-size:12px;color:#777b98">${escapeHtml(medSummary)}</td>
+    <td>₹${pharmTotal.toFixed(2)}</td>`;
+  tbody.appendChild(trPharm);
+
+  const grandTotal = currentFinalInvoice.doctorFee + pharmTotal;
+  currentFinalInvoice.grandTotal = grandTotal;
+  document.getElementById("finalGrandTotal").textContent = `₹${grandTotal.toFixed(2)}`;
+
+  card.style.display = "block";
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/**
+ * Marks the pharmacy bill as PAID and records the payment mode.
+ */
+async function processFinalPayment() {
+  if (!currentFinalInvoice.pharmacyBill) { alert("No active invoice to settle."); return; }
+
+  const mode   = document.getElementById("paymentMode")?.value || "CASH";
+  const billId = currentFinalInvoice.pharmacyBill.id;
+
+  // 1. Try backend API
+  try {
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    await fetch(`/api/receptionist/bills/${billId}/settle/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ paymentMode: mode, status: "PAID" })
+    });
+  } catch (_) { /* fall through */ }
+
+  // 2. Update shared localStorage regardless (offline-safe)
+  const stored = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
+  const target = stored.find(b => b.id === billId);
+  if (target) {
+    target.status      = "PAID";
+    target.paymentMode = mode;
+    target.settledAt   = new Date().toISOString();
+    localStorage.setItem("pending_receptionist_bills", JSON.stringify(stored));
+  }
+
+  // Also push into the shared BILLS key so the billing table picks it up
+  const cmsBills = getStorage(CMS_KEYS.BILLS, []);
+  cmsBills.unshift({
+    billId:      `FINAL-${billId}`,
+    patientId:   currentFinalInvoice.patientId,
+    patientName: currentFinalInvoice.pharmacyBill.patientName,
+    amount:      currentFinalInvoice.grandTotal,
+    status:      "Paid",
+    paymentMode: mode,
+    source:      "Pharmacy + Consultation",
+    date:        new Date().toLocaleDateString("en-IN")
+  });
+  setStorage(CMS_KEYS.BILLS, cmsBills);
+
+  const grand = currentFinalInvoice.grandTotal;
+  alert(`✅ Payment of ₹${grand.toFixed(2)} settled via ${mode}. Invoice closed.`);
+
+  // Reset UI
+  document.getElementById("finalInvoiceCard").style.display = "none";
+  const inp = document.getElementById("billingSearchPatient");
+  if (inp) inp.value = "";
+  currentFinalInvoice = { patientId: null, consultationId: null, doctorFee: 500, pharmacyBill: null, grandTotal: 0 };
+  renderBillingTable();
+  if (typeof showToast === "function") showToast("Invoice settled successfully.", "success");
+}
+
 window.switchSection = switchSection;
 window.renderBillingTable = renderBillingTable;
 window.markAsPaid = markAsPaid;
+window.fetchPatientPendingBills = fetchPatientPendingBills;
+window.processFinalPayment = processFinalPayment;
 
 document.addEventListener("DOMContentLoaded", async () => {
   state.user = requireAuth(["Receptionist"], "../index.html");
