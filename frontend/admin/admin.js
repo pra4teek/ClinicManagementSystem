@@ -14,6 +14,16 @@ const labTestData = [
     { testId:110, testName:"Vitamin D", sampleType:"Blood", normalValue:"30-100 ng/mL", amount:500 }
 ];
 
+const DEFAULT_MEDICINES = [
+    { id: 'MED-001', name: 'Paracetamol', dosage: '500mg', type: 'Tablet' },
+    { id: 'MED-002', name: 'Amoxicillin', dosage: '250mg', type: 'Capsule' },
+    { id: 'MED-003', name: 'Cetirizine', dosage: '10mg', type: 'Tablet' },
+    { id: 'MED-004', name: 'Metformin', dosage: '500mg', type: 'Tablet' },
+    { id: 'MED-005', name: 'Omeprazole', dosage: '20mg', type: 'Capsule' },
+    { id: 'MED-006', name: 'Ibuprofen', dosage: '400mg', type: 'Tablet' },
+    { id: 'MED-007', name: 'Azithromycin', dosage: '500mg', type: 'Tablet' }
+];
+
 const seedData = {
     users: [
         { UserId:1, Name:"System Administrator", Username:"admin", Password:"admin123", DOB:"1990-01-01", Address:"CarePoint Clinic", PhoneNumber:"9999999999", EmailId:"admin@carepointclinic.com", DepartmentId:1, RoleId:1, isActive:true },
@@ -43,9 +53,12 @@ const seedData = {
         LabtestId:x.testId, TestName:x.testName, SampleType:x.sampleType,
         NormalValue:x.normalValue, TestCost:x.amount
     })),
-    medicines: [
-        { MedicineId:1, MedicineName:"Paracetamol", Manufacturer:"ABC Pharma", GenericName:"Paracetamol", Category:"Tablet", CostValue:10, MRP:15, Quantity:50 }
-    ],
+    medicines: DEFAULT_MEDICINES.map((m,i) => ({
+        MedicineId:i+1, MedicineName:m.name, Manufacturer:"Not specified", GenericName:m.name,
+        Category:m.type, Dosage:m.dosage, Type:m.type, CostValue:0, MRP:0, Quantity:50
+    })).map(m => m.MedicineName === "Paracetamol"
+        ? {...m, Manufacturer:"ABC Pharma", CostValue:10, MRP:15, Quantity:50}
+        : m),
     auditLogs: []
 };
 
@@ -111,10 +124,36 @@ function normalizeData(raw){
         d.medicines = raw.medicines.map((x,i)=>({
             MedicineId:Number(x.MedicineId)||i+1, MedicineName:x.MedicineName||"",
             Manufacturer:x.Manufacturer||"", GenericName:x.GenericName||"",
-            Category:x.Category||"", CostValue:Number(x.CostValue)||0,
+            Category:x.Category||x.Type||"", Dosage:x.Dosage||"", Type:x.Type||x.Category||"", CostValue:Number(x.CostValue)||0,
             MRP:Number(x.MRP)||0, Quantity:Number(x.Quantity ?? x.Stock ?? 0)
         }));
     }
+    // Add any missing default medicines without changing existing medicine records.
+    const existingMedicineNames = new Set(d.medicines.map(m => String(m.MedicineName||"").toLowerCase()));
+    let nextMedicineId = Math.max(0, ...d.medicines.map(m => Number(m.MedicineId)||0)) + 1;
+    DEFAULT_MEDICINES.forEach(m => {
+        if (!existingMedicineNames.has(m.name.toLowerCase())) {
+            d.medicines.push({
+                MedicineId:nextMedicineId++, MedicineName:m.name, Manufacturer:"Not specified",
+                GenericName:m.name, Category:m.type, Dosage:m.dosage, Type:m.type,
+                CostValue:0, MRP:0, Quantity:50
+            });
+        }
+    });
+    // Fill dosage/type for existing default medicines when those fields are missing.
+    d.medicines.forEach(med => {
+        const preset = DEFAULT_MEDICINES.find(x => x.name.toLowerCase() === String(med.MedicineName||"").toLowerCase());
+        if (preset) {
+            if (!med.Dosage) med.Dosage = preset.dosage;
+            if (!med.Type) med.Type = preset.type;
+            // The default medicines added by the admin module start with stock.
+            // Only repair the zero-quantity values created by the previous seed;
+            // do not overwrite an intentionally edited stock value.
+            if (med.Quantity === 0 && Number(med.CostValue) === 0 && Number(med.MRP) === 0 && med.Manufacturer === "Not specified") {
+                med.Quantity = 50;
+            }
+        }
+    });
     // Always use the requested lab test catalog. It is intentionally status-free.
     d.labTests = clone(seedData.labTests);
     if (Array.isArray(raw.auditLogs)) {
@@ -491,11 +530,9 @@ function login(event){
     document.getElementById("adminIdentity").textContent=user.EmailId||user.Username;
     render();
 }
-function logout(){
+function logout() {
     localStorage.removeItem(LOGIN_KEY);
-    document.getElementById("appPage").classList.add("hidden");
-    document.getElementById("loginPage").classList.remove("hidden");
-    document.getElementById("loginForm").reset();
+    window.location.href = "../index.html";
 }
 document.getElementById("loginForm").addEventListener("submit",login);
 document.getElementById("logoutBtn").addEventListener("click",logout);
