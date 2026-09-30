@@ -16,36 +16,34 @@ const CMS_KEYS = {
 };
 
 const DEFAULT_USERS = [
-  { username: 'doctor', password: '123', role: 'Doctor', name: 'Dr. Jane Smith' },
-  { username: 'reception', password: '123', role: 'Receptionist', name: 'Sarah Miller' },
-  { username: 'pharma', password: '123', role: 'Pharmacist', name: 'Alex Johnson' },
-  { username: 'labtech', password: '123', role: 'Lab Technician', name: 'David Lee' },
-  { username: 'admin', password: '123', role: 'Admin', name: 'Admin User' }
+  { username: 'doctor', password: '123', role: 'Doctor', name: 'Dr. Prateek Pradeep' },
+  { username: 'reception', password: '123', role: 'Receptionist', name: 'Joel Jain' },
+  { username: 'pharma', password: '123', role: 'Pharmacist', name: 'Adarsh Chandran' },
+  { username: 'labtech', password: '123', role: 'Lab Technician', name: 'Malathi Sreekumar' },
+  { username: 'admin', password: '123', role: 'Admin', name: 'Bala Weslin' }
 ];
 
 const DEFAULT_MEDICINES = [
-  { id: 'MED-001', name: 'Paracetamol', dosage: '500mg', type: 'Tablet' },
-  { id: 'MED-002', name: 'Amoxicillin', dosage: '250mg', type: 'Capsule' },
-  { id: 'MED-003', name: 'Cetirizine', dosage: '10mg', type: 'Tablet' },
-  { id: 'MED-004', name: 'Metformin', dosage: '500mg', type: 'Tablet' },
-  { id: 'MED-005', name: 'Omeprazole', dosage: '20mg', type: 'Capsule' },
-  { id: 'MED-006', name: 'Ibuprofen', dosage: '400mg', type: 'Tablet' },
-  { id: 'MED-007', name: 'Azithromycin', dosage: '500mg', type: 'Tablet' }
+  { id: 'MED-001', name: 'Paracetamol', dosage: '500mg', type: 'Tablet', quantity: 50, costValue: 10, mrp: 15 },
+  { id: 'MED-002', name: 'Amoxicillin', dosage: '250mg', type: 'Capsule', quantity: 50, costValue: 15, mrp: 25 },
+  { id: 'MED-003', name: 'Cetirizine', dosage: '10mg', type: 'Tablet', quantity: 50, costValue: 5, mrp: 10 },
+  { id: 'MED-004', name: 'Metformin', dosage: '500mg', type: 'Tablet', quantity: 50, costValue: 12, mrp: 20 },
+  { id: 'MED-005', name: 'Omeprazole', dosage: '20mg', type: 'Capsule', quantity: 50, costValue: 10, mrp: 18 },
+  { id: 'MED-006', name: 'Ibuprofen', dosage: '400mg', type: 'Tablet', quantity: 50, costValue: 8, mrp: 12 },
+  { id: 'MED-007', name: 'Azithromycin', dosage: '500mg', type: 'Tablet', quantity: 50, costValue: 30, mrp: 45 }
 ];
 
 const DEFAULT_PATIENTS = [
-  { patientId: 'PAT-1001', name: 'Robert Davis', age: 45, gender: 'Male', phone: '9876543210', bloodGroup: 'O+' },
-  { patientId: 'PAT-1002', name: 'Emma Watson', age: 29, gender: 'Female', phone: '9845123456', bloodGroup: 'A+' },
-  { patientId: 'PAT-1003', name: 'Liam Johnson', age: 62, gender: 'Male', phone: '9712345678', bloodGroup: 'B-' },
-  { patientId: 'PAT-1004', name: 'Sophia Martinez', age: 34, gender: 'Female', phone: '9923456781', bloodGroup: 'AB+' }
+  { patientId: 'PAT-1001', name: 'Arjun Ravi', age: 45, gender: 'Male', phone: '9876543210', bloodGroup: 'O+' },
+  { patientId: 'PAT-1002', name: 'Rohit Krishna', age: 29, gender: 'Male', phone: '9845123456', bloodGroup: 'A+' }
 ];
 
 const DEFAULT_APPOINTMENTS = [
   {
     appointmentId: 'APT-2001',
     patientId: 'PAT-1001',
-    patientName: 'Robert Davis',
-    doctorName: 'Dr. Jane Smith',
+    patientName: 'Arjun Ravi',
+    doctorName: 'Dr. Prateek Pradeep',
     tokenNumber: 1,
     time: '10:00 AM',
     status: 'Scheduled',
@@ -54,83 +52,20 @@ const DEFAULT_APPOINTMENTS = [
   {
     appointmentId: 'APT-2002',
     patientId: 'PAT-1002',
-    patientName: 'Emma Watson',
-    doctorName: 'Dr. Jane Smith',
+    patientName: 'Rohit Krishna',
+    doctorName: 'Dr. Prateek Pradeep',
     tokenNumber: 2,
     time: '10:30 AM',
     status: 'Scheduled',
     reason: 'Severe throat pain and dry cough'
-  },
-  {
-    appointmentId: 'APT-2003',
-    patientId: 'PAT-1003',
-    patientName: 'Liam Johnson',
-    doctorName: 'Dr. Jane Smith',
-    tokenNumber: 3,
-    time: '11:00 AM',
-    status: 'Scheduled',
-    reason: 'Routine diabetic & BP checkup'
-  },
-  {
-    appointmentId: 'APT-2004',
-    patientId: 'PAT-1004',
-    patientName: 'Sophia Martinez',
-    doctorName: 'Dr. Jane Smith',
-    tokenNumber: 4,
-    time: '11:30 AM',
-    status: 'Scheduled',
-    reason: 'Acidity and stomach discomfort'
   }
 ];
 
-const DEFAULT_CONSULTATIONS = [
-  {
-    consultationId: 'CNS-DEMO1',
-    appointmentId:  'APT-2004',
-    patientId:      'PAT-1004',
-    patientName:    'Sophia Martinez',
-    doctorName:     'Dr. Jane Smith',
-    date:           '2026-09-29',
-    vitals: { bp: '118/76', pulse: '78', temp: '98.4', weight: '62' },
-    symptoms:  'Burning sensation in stomach, bloating after meals, mild nausea in the morning.',
-    diagnosis: 'Gastroesophageal Reflux Disease (GERD)',
-    remarks:   'Avoid spicy and oily food. Take medications 30 min before meals. Follow up in 2 weeks.',
-    status:    'Completed'
-  }
-];
+const DEFAULT_CONSULTATIONS = [];
 
-const DEFAULT_PRESCRIPTIONS = [
-  {
-    prescriptionId: 'RX-DEMO1',
-    consultationId: 'CNS-DEMO1',
-    appointmentId:  'APT-2004',
-    patientId:      'PAT-1004',
-    patientName:    'Sophia Martinez',
-    doctorName:     'Dr. Jane Smith',
-    date:           '2026-09-29',
-    items: [
-      { medicineName: 'Omeprazole',   dosage: '20mg',  frequency: '1-0-0', duration: '14 Days', instructions: 'Before Food' },
-      { medicineName: 'Metformin',    dosage: '500mg', frequency: '1-0-1', duration: '30 Days', instructions: 'After Food'  },
-      { medicineName: 'Paracetamol',  dosage: '500mg', frequency: 'SOS',   duration: '5 Days',  instructions: 'After Food'  }
-    ],
-    status: 'Pending'
-  }
-];
+const DEFAULT_PRESCRIPTIONS = [];
 
-const DEFAULT_LAB_ORDERS = [
-  {
-    labOrderId:    'LAB-DEMO1',
-    consultationId:'CNS-DEMO1',
-    appointmentId: 'APT-2004',
-    patientId:     'PAT-1004',
-    patientName:   'Sophia Martinez',
-    doctorName:    'Dr. Jane Smith',
-    date:          '2026-09-29',
-    tests:         ['Complete Blood Count (CBC)', 'Fasting Blood Sugar (FBS)'],
-    remarks:       'Check for anaemia and fasting glucose baseline.',
-    status:        'Pending'
-  }
-];
+const DEFAULT_LAB_ORDERS = [];
 
 // Initialize storage automatically
 function initCMSStorage() {
@@ -173,7 +108,7 @@ function initCMSStorage() {
         appointmentId: completedAppt.appointmentId,
         patientId: completedAppt.patientId,
         patientName: completedAppt.patientName,
-        doctorName: completedAppt.doctorName || 'Dr. Jane Smith',
+        doctorName: completedAppt.doctorName || 'Dr. Prateek Pradeep',
         date: new Date().toISOString().split('T')[0],
         vitals: { bp: '120/80', pulse: '72', temp: '98.6', weight: '65' },
         symptoms: completedAppt.reason || 'General health consultation',
@@ -189,22 +124,63 @@ function initCMSStorage() {
     setStorage(CMS_KEYS.CONSULTATIONS, consList);
   }
 
-  // Set all appointments to Scheduled if requested or not yet run
-  if (!localStorage.getItem('cms_scheduled_reset_v3')) {
-    setAllAppointmentsScheduled();
-    localStorage.setItem('cms_scheduled_reset_v3', 'true');
+  // Automatically update to Indian names, 2 patients, reset all patients and completely clear orphan lab tests
+  if (!localStorage.getItem('cms_two_patients_clean_v13')) {
+    setStorage(CMS_KEYS.USERS, DEFAULT_USERS);
+    setStorage(CMS_KEYS.PATIENTS, DEFAULT_PATIENTS);
+    setStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
+    setStorage(CMS_KEYS.CONSULTATIONS, []);
+    setStorage(CMS_KEYS.PRESCRIPTIONS, []);
+    setStorage(CMS_KEYS.LAB_ORDERS, []);
+    setStorage(CMS_KEYS.LAB_REPORTS, []);
+    try {
+      localStorage.removeItem("carepoint_lab_data");
+      localStorage.removeItem("carepointClinicAdminDataV2");
+    } catch(e) {}
+    const curr = getStorage(CMS_KEYS.CURRENT_USER, null);
+    if (curr && curr.role) {
+      const matchUser = DEFAULT_USERS.find(u => u.role.toLowerCase() === curr.role.toLowerCase());
+      if (matchUser) setStorage(CMS_KEYS.CURRENT_USER, matchUser);
+    }
+    localStorage.setItem('cms_two_patients_clean_v13', 'true');
   }
 }
 
-function setAllAppointmentsScheduled() {
-  const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+function resetAllToScheduled() {
+  // 1. Reset all appointments to 'Scheduled'
+  const appts = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
   if (appts && appts.length > 0) {
     appts.forEach(a => {
       a.status = 'Scheduled';
+      a.doctorName = 'Dr. Prateek Pradeep';
     });
     setStorage(CMS_KEYS.APPOINTMENTS, appts);
   }
+
+  // 2. Clear completed consultations so all patients are fresh
+  setStorage(CMS_KEYS.CONSULTATIONS, []);
+
+  // 3. Clear prescriptions
+  setStorage(CMS_KEYS.PRESCRIPTIONS, []);
+
+  // 4. Completely clear all lab orders and lab reports (patients have NO lab tests before seeing the doctor)
+  setStorage(CMS_KEYS.LAB_ORDERS, []);
+  setStorage(CMS_KEYS.LAB_REPORTS, []);
+
+  // 5. Clear lab technician local storage cache
+  try {
+    localStorage.removeItem("carepoint_lab_data");
+  } catch(e) {}
+
+  // Dispatch events for open tabs
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new Event('cms_rx_updated'));
+    window.dispatchEvent(new Event('cms_stock_updated'));
+  } catch(e) {}
 }
+
+const setAllAppointmentsScheduled = resetAllToScheduled;
 
 function resetAllDemoData() {
   localStorage.setItem(CMS_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
@@ -281,6 +257,130 @@ function showToast(msg, type = 'info') {
   t.textContent = msg;
   c.appendChild(t);
   setTimeout(() => t.remove(), 3000);
+}
+
+function getAdminMedicineStock() {
+  // Read live stock from Admin's storage key first
+  try {
+    const adminRaw = localStorage.getItem('carepointClinicAdminDataV2');
+    if (adminRaw) {
+      const adminData = JSON.parse(adminRaw);
+      if (Array.isArray(adminData.medicines) && adminData.medicines.length > 0) {
+        return adminData.medicines.map(m => ({
+          id: `MED-${m.MedicineId}`,
+          MedicineId: m.MedicineId,
+          name: m.MedicineName,
+          MedicineName: m.MedicineName,
+          dosage: m.Dosage || '500mg',
+          type: m.Type || m.Category || 'Tablet',
+          category: m.Category || m.Type || 'General',
+          manufacturer: m.Manufacturer || 'Not specified',
+          costValue: Number(m.CostValue || 0),
+          mrp: Number(m.MRP || 15),
+          quantity: Number(m.Quantity ?? 0)
+        }));
+      }
+    }
+  } catch(e) {}
+
+  // Fallback to cms_medicines
+  const cmsMeds = getStorage(CMS_KEYS.MEDICINES, DEFAULT_MEDICINES);
+  return cmsMeds.map((m, idx) => ({
+    id: m.id || `MED-${idx + 1}`,
+    MedicineId: idx + 1,
+    name: m.name || m.MedicineName,
+    MedicineName: m.name || m.MedicineName,
+    dosage: m.dosage || m.Dosage || '500mg',
+    type: m.type || m.Type || 'Tablet',
+    category: m.category || m.Category || 'General',
+    manufacturer: m.manufacturer || m.Manufacturer || 'Not specified',
+    costValue: Number(m.costValue || m.CostValue || 0),
+    mrp: Number(m.mrp || m.MRP || 15),
+    quantity: Number(m.quantity ?? m.Quantity ?? 50)
+  }));
+}
+
+function checkMedicineStock(medicineName) {
+  const norm = String(medicineName || '').toLowerCase().trim();
+  const allMeds = getAdminMedicineStock();
+  const found = allMeds.find(m =>
+    (m.name || m.MedicineName || '').toLowerCase().trim() === norm ||
+    norm.includes((m.name || m.MedicineName || '').toLowerCase().trim())
+  );
+  if (!found) {
+    return { exists: false, inStock: false, quantity: 0, medicine: null };
+  }
+  const qty = Number(found.quantity ?? 0);
+  return { exists: true, inStock: qty > 0, quantity: qty, medicine: found };
+}
+
+function deductAdminMedicineStock(medicineName, qtyToDeduct = 1) {
+  const normName = String(medicineName || '').toLowerCase().trim();
+  let deducted = false;
+  let remainingStock = 0;
+
+  // 1. Update in Admin storage (carepointClinicAdminDataV2)
+  try {
+    const adminRaw = localStorage.getItem('carepointClinicAdminDataV2');
+    if (adminRaw) {
+      const adminData = JSON.parse(adminRaw);
+      if (Array.isArray(adminData.medicines)) {
+        const found = adminData.medicines.find(m =>
+          (m.MedicineName || '').toLowerCase().trim() === normName ||
+          normName.includes((m.MedicineName || '').toLowerCase().trim())
+        );
+        if (found) {
+          const currentQty = Number(found.Quantity ?? 0);
+          found.Quantity = Math.max(0, currentQty - qtyToDeduct);
+          remainingStock = found.Quantity;
+          deducted = true;
+          localStorage.setItem('carepointClinicAdminDataV2', JSON.stringify(adminData));
+        }
+      }
+    }
+  } catch(e) {}
+
+  // 2. Update in cms_medicines
+  try {
+    const cmsMeds = getStorage(CMS_KEYS.MEDICINES, DEFAULT_MEDICINES);
+    const foundCms = cmsMeds.find(m =>
+      (m.name || m.MedicineName || '').toLowerCase().trim() === normName ||
+      normName.includes((m.name || m.MedicineName || '').toLowerCase().trim())
+    );
+    if (foundCms) {
+      const currentQty = Number(foundCms.quantity ?? foundCms.Quantity ?? 0);
+      foundCms.quantity = Math.max(0, currentQty - qtyToDeduct);
+      foundCms.Quantity = foundCms.quantity;
+      if (!deducted) remainingStock = foundCms.quantity;
+      deducted = true;
+      setStorage(CMS_KEYS.MEDICINES, cmsMeds);
+    }
+  } catch(e) {}
+
+  // 3. Update in cms_pharmacy_ui inventory if present
+  try {
+    const puiRaw = localStorage.getItem('cms_pharmacy_ui');
+    if (puiRaw) {
+      const pui = JSON.parse(puiRaw);
+      if (Array.isArray(pui.inventory)) {
+        const foundInv = pui.inventory.find(i =>
+          (i.medicine || '').toLowerCase().includes(normName) ||
+          normName.includes((i.medicine || '').toLowerCase())
+        );
+        if (foundInv) {
+          foundInv.quantity = Math.max(0, Number(foundInv.quantity || 0) - qtyToDeduct);
+          localStorage.setItem('cms_pharmacy_ui', JSON.stringify(pui));
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Dispatch storage event manually for same-window updates
+  try {
+    window.dispatchEvent(new Event('cms_stock_updated'));
+  } catch(e) {}
+
+  return { success: deducted, remainingStock };
 }
 
 initCMSStorage();

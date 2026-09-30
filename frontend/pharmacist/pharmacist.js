@@ -32,7 +32,7 @@ const SHARED = (function () {
   const hasSharedData = typeof getStorage === "function" && typeof CMS_KEYS !== "undefined";
 
   const loggedInUser = hasSharedData && typeof getCurrentUser === "function" ? getCurrentUser() : null;
-  const currentUser = loggedInUser || { name: "Alex Johnson", role: "Pharmacist" }; // DEFAULT_USERS fallback
+  const currentUser = loggedInUser || { name: "Adarsh Chandran", role: "Pharmacist" }; // DEFAULT_USERS fallback
 
   const allUsers = hasSharedData ? getStorage(CMS_KEYS.USERS, []) : [];
   const doctors = allUsers.filter(u => u.role === "Doctor");
@@ -236,14 +236,14 @@ const CMS_PHARMACY_DATA = {
 
   topPrescribingDoctors: (function () {
     // NOTE: data.js's DEFAULT_USERS currently defines exactly ONE doctor
-    // (Dr. Jane Smith). This card is built to scale to however many doctor
+    // (Dr. Prateek Pradeep). This card is built to scale to however many doctor
     // accounts actually exist in shared storage — 1 today, more once the
     // team adds them — rather than assuming a fixed roster.
     const palette = ["#4B3FE4", "#5B50EC", "#7469F1", "#9890F5", "#B4ADF8"];
     const sizeSteps = [104, 92, 78, 68, 56];
     const positions = [{ x: 38, y: 36 }, { x: 18, y: 72 }, { x: 74, y: 76 }, { x: 20, y: 30 }, { x: 55, y: 50 }];
 
-    const sourceDoctors = SHARED.doctors.length ? SHARED.doctors : [{ name: "Dr. Jane Smith", role: "Doctor" }];
+    const sourceDoctors = SHARED.doctors.length ? SHARED.doctors : [{ name: "Dr. Prateek Pradeep", role: "Doctor" }];
 
     const doctors = sourceDoctors.slice(0, 5).map((doc, i) => {
       // Real count once the Doctor module has written prescriptions;
@@ -319,17 +319,58 @@ if (typeof module !== "undefined" && module.exports) {
   function savePUI() {
     try { localStorage.setItem(PUI_KEY, JSON.stringify(pharmacyUI)); } catch(e) {}
   }
+
+  function syncPharmacyWithAdminStock() {
+    const adminMeds = typeof getAdminMedicineStock === 'function' ? getAdminMedicineStock() : [];
+    if (adminMeds.length > 0) {
+      pharmacyUI.inventory = adminMeds.map((m, i) => ({
+        id: m.MedicineId || i + 1,
+        medicine: `${m.name || m.MedicineName} ${m.dosage || m.Dosage || ''}`.trim(),
+        medicineName: m.name || m.MedicineName,
+        category: m.category || m.type || (typeof MED_CATEGORY !== 'undefined' ? MED_CATEGORY[m.name || m.MedicineName] : "General") || "General",
+        quantity: Number(m.quantity ?? 0),
+        unitPrice: Number(m.costValue || 10),
+        sellingPrice: Number(m.mrp || 15),
+        reorderLevel: 10
+      }));
+    }
+  }
+
+  function getSharedDoctorPrescriptions() {
+    const sharedRx = typeof getStorage === 'function' ? getStorage(CMS_KEYS.PRESCRIPTIONS, []) : [];
+    if (Array.isArray(sharedRx) && sharedRx.length > 0) {
+      return sharedRx.map(r => ({
+        id: r.prescriptionId || `RX-${r.appointmentId || '001'}`,
+        prescriptionId: r.prescriptionId,
+        appointmentId: r.appointmentId,
+        consultationId: r.consultationId,
+        patient: r.patientName || 'Patient',
+        patientId: r.patientId || 'PAT-1001',
+        doctor: r.doctorName || 'Dr. Prateek Pradeep',
+        date: r.date || 'Today',
+        symptoms: r.symptoms || '',
+        diagnosis: r.diagnosis || '',
+        items: r.items || [],
+        medicines: Array.isArray(r.items) && r.items.length > 0
+          ? r.items.map(it => `${it.medicineName} ${it.dosage || ''} (${it.frequency || '1-0-1'}, ${it.duration || '5 Days'})`).join('; ')
+          : (r.medicines || 'Prescribed medications'),
+        status: r.status === 'Dispensed' || r.status === 'Completed' ? 'Dispensed' : 'Ready'
+      }));
+    }
+    return pharmacyUI.prescriptions || [];
+  }
+
   function loadPUI() {
     try {
       const raw = localStorage.getItem(PUI_KEY);
       if (raw) {
         const saved = JSON.parse(raw);
-        // Merge saved data back into pharmacyUI (only valid keys)
-        ["inventory","prescriptions","dispenseLog","stockOrders","returns","suppliers","bills"].forEach(k => {
+        ["dispenseLog","stockOrders","returns","suppliers","bills"].forEach(k => {
           if (Array.isArray(saved[k])) pharmacyUI[k] = saved[k];
         });
       }
     } catch(e) {}
+    syncPharmacyWithAdminStock();
   }
 
   /* ------------------------------------------------------------------------
@@ -368,7 +409,7 @@ if (typeof module !== "undefined" && module.exports) {
   const seedPatients = SHARED.patients.length ? SHARED.patients : [
     { name: "Demo Patient", patientId: "PAT-0000" }
   ];
-  const primaryDoctorName = (SHARED.doctors[0] && SHARED.doctors[0].name) || "Dr. Jane Smith";
+  const primaryDoctorName = (SHARED.doctors[0] && SHARED.doctors[0].name) || "Dr. Prateek Pradeep";
   const today = "29 Sep 2026", yesterday = "28 Sep 2026";
   const pharmacistName = SHARED.currentUser.name;
 
@@ -1059,6 +1100,7 @@ if (typeof module !== "undefined" && module.exports) {
 
   function pageHead(h,p,action=""){return `<div class="page-heading"><div><h2>${h}</h2><p>${p}</p></div>${action?`<div class="page-actions">${action}</div>`:""}</div>`;}
   function renderInventory(){
+    syncPharmacyWithAdminStock();
     const b=document.getElementById("dynamic-page-content");
     b.innerHTML=pageHead("Inventory Management","Manage pharmacy stock, prices and reorder levels.",'<button class="btn-primary" id="add-stock">+ Add Stock</button>')+`<div class="metric-grid"><div class="metric-card"><span>Total Medicines</span><strong>${pharmacyUI.inventory.length}</strong></div><div class="metric-card"><span>Total Units</span><strong>${pharmacyUI.inventory.reduce((a,x)=>a+x.quantity,0)}</strong></div><div class="metric-card"><span>Low Stock</span><strong>${pharmacyUI.inventory.filter(x=>x.quantity>0&&x.quantity<=x.reorderLevel).length}</strong></div><div class="metric-card"><span>Out of Stock</span><strong>${pharmacyUI.inventory.filter(x=>x.quantity<=0).length}</strong></div></div><div class="page-card"><div class="toolbar"><div class="search-box"><span>⌕</span><input id="inv-search" placeholder="Search medicine or category..."></div><button class="btn-secondary" id="low-stock">Show Low Stock</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Medicine</th><th>Category</th><th>Quantity</th><th>Unit Price</th><th>Selling Price</th><th>Reorder</th><th>Status</th><th>Actions</th></tr></thead><tbody id="inv-body"></tbody></table></div></div>`;
     const rows=(items)=>{document.getElementById("inv-body").innerHTML=items.length?items.map(x=>{const s=statusFor(x);return `<tr><td>#${x.id}</td><td><strong>${escapeHtml(x.medicine)}</strong></td><td>${escapeHtml(x.category)}</td><td>${x.quantity}</td><td>${money(x.unitPrice)}</td><td>${money(x.sellingPrice)}</td><td>${x.reorderLevel}</td><td><span class="status-badge ${s[1]}">${s[0]}</span></td><td><button class="btn-small" data-edit="${x.id}">Edit</button> <button class="btn-small danger" data-del="${x.id}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="9" class="empty-state">No medicines found.</td></tr>`};
@@ -1076,10 +1118,173 @@ if (typeof module !== "undefined" && module.exports) {
     document.getElementById("stock-form").onsubmit=e=>{e.preventDefault();const medicine=sm.value.trim(),category=sc.value.trim(),quantity=+sq.value,reorderLevel=+sr.value,unitPrice=+su.value,sellingPrice=+ss.value;if(!medicine||!category||quantity<0||reorderLevel<0||sellingPrice<unitPrice){toast("Enter valid stock details.");return}if(x)Object.assign(x,{medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});else pharmacyUI.inventory.push({id:Math.max(0,...pharmacyUI.inventory.map(a=>a.id))+1,medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});savePUI();renderInventory();toast(x?"Stock updated.":"Stock added.");};
   }
   function renderPrescriptions(){
-    const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Prescription Queue","Review finalized prescriptions and dispense medicines.")+`<div class="page-card"><div class="toolbar"><div class="search-box"><span>⌕</span><input id="rx-search" placeholder="Search patient, prescription or doctor..."></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Prescription</th><th>Patient</th><th>Patient ID</th><th>Doctor</th><th>Date</th><th>Medicines</th><th>Status</th><th>Action</th></tr></thead><tbody id="rx-body"></tbody></table></div></div>`;
-    const rows=items=>document.getElementById("rx-body").innerHTML=items.map(x=>`<tr><td><strong>${x.id}</strong></td><td>${escapeHtml(x.patient)}</td><td>${x.patientId}</td><td>${escapeHtml(x.doctor)}</td><td>${x.date}</td><td>${escapeHtml(x.medicines)}</td><td><span class="status-badge ${x.status==="Ready"?"status-info":"status-good"}">${x.status}</span></td><td>${x.status==="Ready"?`<button class="btn-small" data-rx="${x.id}">Dispense</button>`:`<button class="btn-small">View</button>`}</td></tr>`).join("");rows(pharmacyUI.prescriptions);document.getElementById("rx-search").oninput=e=>{const q=e.target.value.toLowerCase();rows(pharmacyUI.prescriptions.filter(x=>(x.id+" "+x.patient+" "+x.doctor).toLowerCase().includes(q)));};b.querySelectorAll("[data-rx]").forEach(e=>e.onclick=()=>dispense(e.dataset.rx));
+    const b = document.getElementById("dynamic-page-content");
+    if (!b) return;
+    syncPharmacyWithAdminStock();
+    const liveRx = getSharedDoctorPrescriptions();
+
+    b.innerHTML = pageHead("Prescription Queue","Review doctor recommendations, check Admin stock availability, and issue medicines to patients.") + `
+      <div class="page-card">
+        <div class="toolbar">
+          <div class="search-box"><span>⌕</span><input id="rx-search" placeholder="Search patient, prescription or doctor..."></div>
+          <button class="btn-primary" onclick="document.getElementById('quick-dispense-fab')?.click()">+ Quick Dispense</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Prescription</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Date</th>
+                <th>Symptoms / Diagnosis</th>
+                <th>Doctor Recommended Medicines &amp; Admin Stock</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="rx-body"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const renderRows = (items) => {
+      const tbody = document.getElementById("rx-body");
+      if (!tbody) return;
+      if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No prescription requests from doctors yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = items.map(x => {
+        let medsHtml = '';
+        if (Array.isArray(x.items) && x.items.length > 0) {
+          medsHtml = x.items.map(it => {
+            const stockCheck = typeof checkMedicineStock === 'function' ? checkMedicineStock(it.medicineName) : { inStock: true, quantity: 50 };
+            const badge = stockCheck.inStock
+              ? `<span class="status-badge status-good" style="font-size:10px;margin-left:4px;">In Stock: ${stockCheck.quantity}</span>`
+              : `<span class="status-badge status-out" style="font-size:10px;margin-left:4px;">OUT OF STOCK</span>`;
+            return `<div style="margin-bottom:4px;line-height:1.4;"><strong>${escapeHtml(it.medicineName)}</strong> ${escapeHtml(it.dosage || '')} <span class="muted">(${escapeHtml(it.frequency || '1-0-1')}, ${escapeHtml(it.duration || '5 Days')})</span> ${badge}</div>`;
+          }).join('');
+        } else {
+          medsHtml = `<div>${escapeHtml(x.medicines || 'Medications')}</div>`;
+        }
+
+        const isDispensed = x.status === "Dispensed";
+        const statusBadge = isDispensed
+          ? `<span class="status-badge status-good">Issued to Patient</span>`
+          : `<span class="status-badge status-info">Pending Issue</span>`;
+
+        const actionBtn = isDispensed
+          ? `<span style="font-size:12px;color:#23814c;font-weight:700;">✓ Issued</span>`
+          : `<button class="btn-small" data-rx="${x.id}" style="background:#4b3fe4;color:#fff;font-weight:700;">Issue Medicines</button>`;
+
+        const diagText = x.diagnosis || x.symptoms || '—';
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(x.id)}</strong></td>
+            <td><strong>${escapeHtml(x.patient)}</strong><div class="muted">${escapeHtml(x.patientId)}</div></td>
+            <td>${escapeHtml(x.doctor)}</td>
+            <td>${escapeHtml(x.date)}</td>
+            <td><div style="max-width:180px;font-size:12px;color:#555873;">${escapeHtml(diagText)}</div></td>
+            <td><div style="max-width:320px;">${medsHtml}</div></td>
+            <td>${statusBadge}</td>
+            <td>${actionBtn}</td>
+          </tr>
+        `;
+      }).join("");
+
+      tbody.querySelectorAll("[data-rx]").forEach(e => {
+        e.onclick = () => dispense(e.dataset.rx);
+      });
+    };
+
+    renderRows(liveRx);
+
+    const searchInput = document.getElementById("rx-search");
+    if (searchInput) {
+      searchInput.oninput = e => {
+        const q = e.target.value.toLowerCase();
+        renderRows(liveRx.filter(x => (x.id + " " + x.patient + " " + x.doctor + " " + x.medicines + " " + (x.diagnosis||'')).toLowerCase().includes(q)));
+      };
+    }
   }
-  function dispense(id){const r=pharmacyUI.prescriptions.find(x=>x.id===id);if(!r||!confirm(`Dispense ${r.id} for ${r.patient}?`))return;const [name,qstr]=r.medicines.split(" × "),q=+(qstr||1),stock=pharmacyUI.inventory.find(x=>x.medicine===name);if(stock&&stock.quantity<q){toast("Insufficient stock.");return}if(stock)stock.quantity-=q;r.status="Dispensed";pharmacyUI.dispenseLog.unshift({id:"D-"+(502+pharmacyUI.dispenseLog.length),patient:r.patient,medicine:name,quantity:q,date:"29 Sep 2026",pharmacist:data.currentUser.name});const c=data.statCards.find(x=>x.id==="prescriptions-filled");if(c)c.value++;savePUI();renderPrescriptions();toast("Prescription dispensed successfully.");}
+
+  function dispense(id){
+    const liveRx = getSharedDoctorPrescriptions();
+    const r = liveRx.find(x => x.id === id);
+    if (!r) {
+      toast("Prescription request not found.");
+      return;
+    }
+
+    if (!confirm(`Issue doctor-recommended medicines for ${r.patient} (${r.id})?`)) return;
+
+    const itemsToDispense = Array.isArray(r.items) && r.items.length > 0
+      ? r.items
+      : [{ medicineName: (r.medicines || '').split(" × ")[0].split(" ")[0] || 'Medicine', dosage: "" }];
+
+    // 1. Verify stock availability in Admin inventory
+    for (const it of itemsToDispense) {
+      const stockCheck = typeof checkMedicineStock === 'function' ? checkMedicineStock(it.medicineName) : { inStock: true, quantity: 50 };
+      if (!stockCheck.inStock) {
+        alert(`Cannot issue prescription: "${it.medicineName}" is currently OUT OF STOCK in Admin inventory (Stock: ${stockCheck.quantity}). Please ask the Admin to restock before issuing to patient.`);
+        return;
+      }
+    }
+
+    // 2. Deduct stock from Admin inventory
+    const medNamesIssued = [];
+    for (const it of itemsToDispense) {
+      if (typeof deductAdminMedicineStock === 'function') {
+        deductAdminMedicineStock(it.medicineName, 1);
+      }
+      medNamesIssued.push(it.medicineName);
+    }
+
+    // 3. Mark prescription as Dispensed in CMS_KEYS.PRESCRIPTIONS
+    const sharedRx = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
+    const matchIdx = sharedRx.findIndex(rx =>
+      rx.prescriptionId === r.id ||
+      `RX-${rx.appointmentId}` === r.id ||
+      (rx.patientId === r.patientId && rx.status !== 'Dispensed')
+    );
+    if (matchIdx >= 0) {
+      sharedRx[matchIdx].status = 'Dispensed';
+      sharedRx[matchIdx].dispensedAt = new Date().toISOString();
+      sharedRx[matchIdx].dispensedBy = data.currentUser.name;
+      setStorage(CMS_KEYS.PRESCRIPTIONS, sharedRx);
+    }
+
+    r.status = "Dispensed";
+
+    // 4. Record transaction in dispenseLog
+    pharmacyUI.dispenseLog.unshift({
+      id: "D-" + (502 + pharmacyUI.dispenseLog.length),
+      patient: r.patient,
+      medicine: medNamesIssued.join(", "),
+      quantity: medNamesIssued.length,
+      date: new Date().toLocaleDateString('en-GB'),
+      pharmacist: data.currentUser.name
+    });
+
+    const c = data.statCards.find(x => x.id === "prescriptions-filled");
+    if (c) c.value++;
+
+    savePUI();
+    syncPharmacyWithAdminStock();
+    renderPrescriptions();
+
+    // Notify other portals (Doctor history and Admin inventory)
+    try {
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      window.dispatchEvent(new Event('cms_stock_updated'));
+    } catch(e) {}
+
+    toast(`Medicines successfully issued to ${r.patient} based on Doctor recommendation!`);
+  }
   function renderBilling(){
     const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Pharmacy Billing","Create a bill for a prescription or OTC purchase.")+`<div class="page-card"><form id="bill-form"><div class="form-grid"><div class="form-group"><label>Patient Name</label><input id="bp" required></div><div class="form-group"><label>Medicine</label><select id="bm" required><option value="">Select medicine</option>${pharmacyUI.inventory.map(x=>`<option value="${x.id}">${escapeHtml(x.medicine)} — ${money(x.sellingPrice)}</option>`).join("")}</select></div><div class="form-group"><label>Quantity</label><input id="bq" type="number" min="1" value="1" required></div><div class="form-group"><label>Prescription ID (optional)</label><input id="br" placeholder="RX-1001"></div></div><div class="bill-summary"><div class="bill-total"><span>Total Amount</span><strong id="bt">₹0.00</strong></div></div><div class="form-actions"><button type="reset" class="btn-secondary">Clear</button><button class="btn-primary">Generate Bill</button></div></form></div><div class="page-card"><h3>Recent Bills</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Bill ID</th><th>Patient</th><th>Medicine</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead><tbody>${pharmacyUI.bills.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${money(x.unitPrice)}</td><td><strong>${money(x.total)}</strong></td><td>${x.date}</td></tr>`).join("")}</tbody></table></div></div>`;
     const update=()=>{const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value);bt.textContent=money(x?(x.sellingPrice*(+bq.value||0)):0)};bm.onchange=update;bq.oninput=update;document.getElementById("bill-form").onsubmit=e=>{e.preventDefault();const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value),q=+bq.value,patient=bp.value.trim();if(!x||!patient||q<1){toast("Complete the billing form.");return}if(q>x.quantity){toast("Insufficient stock.");return}const total=x.sellingPrice*q;x.quantity-=q;pharmacyUI.bills.unshift({id:"PB-"+(7001+pharmacyUI.bills.length),patient,medicine:x.medicine,quantity:q,unitPrice:x.sellingPrice,total,date:"29 Sep 2026"});savePUI();renderBilling();toast("Bill generated successfully.");};
@@ -1154,37 +1359,75 @@ if (typeof module !== "undefined" && module.exports) {
     const closeBtn = document.getElementById("modal-close-btn");
     const cancelBtn = document.getElementById("modal-cancel-btn");
     const form = document.getElementById("quick-dispense-form");
+    const rxSelect = document.getElementById("dispense-prescription-select");
+    const patInput = document.getElementById("dispense-patient");
+    const docInput = document.getElementById("dispense-doctor");
+    const summaryBox = document.getElementById("dispense-meds-summary");
 
-    // Populate medicine + doctor options from the real inventory/doctor
-    // list instead of the fictional options previously hardcoded in HTML.
-    const medicineSelect = document.getElementById("dispense-medicine");
-    if (medicineSelect) {
-      medicineSelect.innerHTML =
-        `<option value="">Select available stock...</option>` +
-        pharmacyUI.inventory
-          .map(x => `<option value="${x.id}">${escapeHtml(x.medicine)} (${x.quantity} in stock)</option>`)
-          .join("");
+    function refreshModalOptions() {
+      if (!rxSelect) return;
+      const liveRx = getSharedDoctorPrescriptions();
+      const pendingRx = liveRx.filter(x => x.status !== 'Dispensed');
+
+      if (pendingRx.length === 0) {
+        rxSelect.innerHTML = `<option value="">No pending doctor prescriptions</option>`;
+        if (summaryBox) summaryBox.innerHTML = `<span style="color:#23814c;font-weight:600;">✓ All doctor prescriptions have been issued to patients!</span>`;
+        if (patInput) patInput.value = '';
+        if (docInput) docInput.value = '';
+        return;
+      }
+
+      rxSelect.innerHTML = `<option value="">Select pending doctor prescription (${pendingRx.length} waiting)...</option>` +
+        pendingRx.map(x => `<option value="${x.id}">${x.patient} — ${x.id} (${x.doctor})</option>`).join('');
+
+      // Auto-select first if available
+      rxSelect.value = pendingRx[0].id;
+      updateSelectedPrescription(pendingRx[0].id);
     }
 
-    const doctorSelect = document.getElementById("dispense-doctor");
-    if (doctorSelect) {
-      const doctorList = SHARED.doctors.length ? SHARED.doctors : [{ name: "Dr. Jane Smith", department: "" }];
-      doctorSelect.innerHTML = doctorList
-        .map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}${d.department ? ` (${escapeHtml(d.department)})` : ""}</option>`)
-        .join("");
+    function updateSelectedPrescription(selectedId) {
+      const liveRx = getSharedDoctorPrescriptions();
+      const r = liveRx.find(x => x.id === selectedId);
+      if (!r) {
+        if (patInput) patInput.value = '';
+        if (docInput) docInput.value = '';
+        if (summaryBox) summaryBox.innerHTML = 'Select a doctor prescription above to review recommendations.';
+        return;
+      }
+
+      if (patInput) patInput.value = `${r.patient} (#${r.patientId})`;
+      if (docInput) docInput.value = r.doctor;
+
+      if (summaryBox) {
+        let medsHtml = '';
+        if (Array.isArray(r.items) && r.items.length > 0) {
+          medsHtml = r.items.map(it => {
+            const stockCheck = typeof checkMedicineStock === 'function' ? checkMedicineStock(it.medicineName) : { inStock: true, quantity: 50 };
+            const badge = stockCheck.inStock
+              ? `<span style="background:#e9f8ef;color:#23814c;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;">In Stock: ${stockCheck.quantity}</span>`
+              : `<span style="background:#ffeaea;color:#c43d3d;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;">OUT OF STOCK</span>`;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #eef;"><span><strong>${escapeHtml(it.medicineName)}</strong> ${escapeHtml(it.dosage || '')} (${escapeHtml(it.frequency || '1-0-1')}, ${escapeHtml(it.duration || '5 Days')})</span>${badge}</div>`;
+          }).join('');
+        } else {
+          medsHtml = `<div>${escapeHtml(r.medicines || 'Medications prescribed')}</div>`;
+        }
+
+        summaryBox.innerHTML = `
+          <div style="font-weight:700;color:#20213d;margin-bottom:6px;">Doctor's Prescribed Items:</div>
+          ${medsHtml}
+          ${r.symptoms || r.diagnosis ? `<div style="margin-top:6px;font-size:12px;color:#777b98;"><em>Diagnosis/Symptoms: ${escapeHtml(r.diagnosis || r.symptoms)}</em></div>` : ''}
+        `;
+      }
     }
 
-    const patientInputEl = document.getElementById("dispense-patient");
-    if (patientInputEl && pharmacyUI.prescriptions[0]) {
-      const sample = pharmacyUI.prescriptions[0];
-      patientInputEl.placeholder = `e.g. ${sample.patient} (#${sample.patientId})`;
+    if (rxSelect) {
+      rxSelect.onchange = (e) => updateSelectedPrescription(e.target.value);
     }
 
     function openModal() {
+      refreshModalOptions();
       modal.classList.add("active");
       modal.setAttribute("aria-hidden", "false");
-      const firstInput = document.getElementById("dispense-patient");
-      if (firstInput) firstInput.focus();
     }
 
     function closeModal() {
@@ -1210,39 +1453,19 @@ if (typeof module !== "undefined" && module.exports) {
     if (form) {
       form.addEventListener("submit", e => {
         e.preventDefault();
-        const patientInput = document.getElementById("dispense-patient");
-        const patientName = patientInput ? patientInput.value : "Patient";
-
-        // Increment Prescriptions Filled stat card dynamically
-        const filledCard = data.statCards.find(c => c.id === "prescriptions-filled");
-        if (filledCard) {
-          filledCard.value += 1;
-          const statEl = document.getElementById("stat-val-0");
-          if (statEl) {
-            statEl.textContent = filledCard.value.toLocaleString();
-          }
+        const selectedId = rxSelect ? rxSelect.value : '';
+        if (!selectedId) {
+          toast("Please select a prescription first.");
+          return;
         }
-
-        form.reset();
         closeModal();
-
-        // Brief notification
-        const topTitle = document.querySelector(".topbar-title");
-        if (topTitle) {
-          const original = topTitle.textContent;
-          topTitle.textContent = `Dispensed to ${patientName}!`;
-          topTitle.style.color = "var(--primary)";
-          setTimeout(() => {
-            topTitle.textContent = original;
-            topTitle.style.color = "";
-          }, 3000);
-        }
+        dispense(selectedId);
       });
     }
   }
 
   /* ------------------------------------------------------------------------
-     Initialize Everything on DOM Ready
+     Initialize Everything on DOM Ready & Setup Cross-Tab Synchronization
      ------------------------------------------------------------------------ */
   function init() {
     loadPUI();          // Restore persisted data before any render
@@ -1256,6 +1479,35 @@ if (typeof module !== "undefined" && module.exports) {
     setupQuickDispenseModal();
     showPage("prescriptions");
   }
+
+  // Cross-tab synchronization listeners
+  window.addEventListener('storage', function(e) {
+    if (!e.key || e.key.includes('prescription') || e.key.includes('medicine') || e.key.includes('carepointClinicAdminDataV2')) {
+      syncPharmacyWithAdminStock();
+      if (state.currentPage === "prescriptions") renderPrescriptions();
+      if (state.currentPage === "inventory") renderInventory();
+      if (state.currentPage === "dashboard") renderDashboard();
+    }
+  });
+
+  window.addEventListener('focus', function() {
+    syncPharmacyWithAdminStock();
+    if (state.currentPage === "prescriptions") renderPrescriptions();
+    if (state.currentPage === "inventory") renderInventory();
+    if (state.currentPage === "dashboard") renderDashboard();
+  });
+
+  window.addEventListener('cms_rx_updated', function() {
+    if (state.currentPage === "prescriptions") renderPrescriptions();
+    if (state.currentPage === "dashboard") renderDashboard();
+  });
+
+  window.addEventListener('cms_stock_updated', function() {
+    syncPharmacyWithAdminStock();
+    if (state.currentPage === "inventory") renderInventory();
+    if (state.currentPage === "prescriptions") renderPrescriptions();
+    if (state.currentPage === "dashboard") renderDashboard();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

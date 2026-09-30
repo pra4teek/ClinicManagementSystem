@@ -26,11 +26,11 @@ const DEFAULT_MEDICINES = [
 
 const seedData = {
     users: [
-        { UserId:1, Name:"System Administrator", Username:"admin", Password:"admin123", DOB:"1990-01-01", Address:"CarePoint Clinic", PhoneNumber:"9999999999", EmailId:"admin@carepointclinic.com", DepartmentId:1, RoleId:1, isActive:true },
-        { UserId:2, Name:"Dr. John", Username:"doctor1", Password:"doctor123", DOB:"1988-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876543210", EmailId:"john@carepointclinic.com", DepartmentId:2, RoleId:2, isActive:true },
-        { UserId:3, Name:"Anu Receptionist", Username:"reception1", Password:"reception123", DOB:"1995-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876500000", EmailId:"reception@carepointclinic.com", DepartmentId:1, RoleId:3, isActive:true },
-        { UserId:4, Name:"Lab Technician", Username:"labtech1", Password:"lab12345", DOB:"1993-03-12", Address:"Thiruvananthapuram", PhoneNumber:"9876511111", EmailId:"lab@carepointclinic.com", DepartmentId:1, RoleId:4, isActive:true },
-        { UserId:5, Name:"Pharmacist", Username:"pharma1", Password:"pharma123", DOB:"1992-07-20", Address:"Thiruvananthapuram", PhoneNumber:"9876522222", EmailId:"pharmacy@carepointclinic.com", DepartmentId:1, RoleId:5, isActive:true }
+        { UserId:1, Name:"Bala Weslin", Username:"admin", Password:"admin123", DOB:"1990-01-01", Address:"CarePoint Clinic", PhoneNumber:"9999999999", EmailId:"bala@carepointclinic.com", DepartmentId:1, RoleId:1, isActive:true },
+        { UserId:2, Name:"Dr. Prateek Pradeep", Username:"doctor1", Password:"doctor123", DOB:"1988-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876543210", EmailId:"prateek@carepointclinic.com", DepartmentId:1, RoleId:2, isActive:true },
+        { UserId:3, Name:"Joel Jain", Username:"reception1", Password:"reception123", DOB:"1995-05-10", Address:"Thiruvananthapuram", PhoneNumber:"9876500000", EmailId:"joel@carepointclinic.com", DepartmentId:1, RoleId:3, isActive:true },
+        { UserId:4, Name:"Malathi Sreekumar", Username:"labtech1", Password:"lab12345", DOB:"1993-03-12", Address:"Thiruvananthapuram", PhoneNumber:"9876511111", EmailId:"malathi@carepointclinic.com", DepartmentId:1, RoleId:4, isActive:true },
+        { UserId:5, Name:"Adarsh Chandran", Username:"pharma1", Password:"pharma123", DOB:"1992-07-20", Address:"Thiruvananthapuram", PhoneNumber:"9876522222", EmailId:"adarsh@carepointclinic.com", DepartmentId:1, RoleId:5, isActive:true }
     ],
     roles: [
         { RoleId:1, RoleName:"Admin" },
@@ -44,10 +44,10 @@ const seedData = {
         { DepartmentId:2, DepartmentName:"Cardiology" }
     ],
     staff: [
-        { StaffId:1, Name:"Anu Receptionist", UserId:3, RoleId:3 }
+        { StaffId:1, Name:"Joel Jain", UserId:3, RoleId:3 }
     ],
     doctors: [
-        { DoctorId:1, Name:"Dr. John", Qualification:"MBBS", Specialization:"Cardiology", UserId:2, DepartmentId:2 }
+        { DoctorId:1, Name:"Dr. Prateek Pradeep", Qualification:"MBBS, MD", Specialization:"General Medicine", UserId:2, DepartmentId:1 }
     ],
     labTests: labTestData.map(x => ({
         LabtestId:x.testId, TestName:x.testName, SampleType:x.sampleType,
@@ -185,7 +185,34 @@ function loadData(){
         return clone(seedData);
     }
 }
-function saveData(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(data)); }
+function syncAdminMedicinesToCMS(){
+    if (!data || !Array.isArray(data.medicines)) return;
+    const cmsMeds = data.medicines.map(m => ({
+        id: `MED-${m.MedicineId}`,
+        MedicineId: m.MedicineId,
+        name: m.MedicineName,
+        MedicineName: m.MedicineName,
+        dosage: m.Dosage || '500mg',
+        Dosage: m.Dosage || '500mg',
+        type: m.Type || m.Category || 'Tablet',
+        Type: m.Type || m.Category || 'Tablet',
+        category: m.Category || m.Type || 'General',
+        manufacturer: m.Manufacturer || 'Not specified',
+        genericName: m.GenericName || m.MedicineName,
+        costValue: Number(m.CostValue) || 0,
+        mrp: Number(m.MRP) || 15,
+        quantity: Number(m.Quantity ?? 0),
+        Quantity: Number(m.Quantity ?? 0)
+    }));
+    try {
+        localStorage.setItem('cms_medicines', JSON.stringify(cmsMeds));
+        window.dispatchEvent(new Event('cms_stock_updated'));
+    } catch(e) {}
+}
+function saveData(){ 
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data)); 
+    syncAdminMedicinesToCMS();
+}
 function nextId(collection,field){
     return data[collection].length ? Math.max(...data[collection].map(x=>Number(x[field])||0))+1 : 1;
 }
@@ -527,7 +554,7 @@ function login(event){
     document.getElementById("loginError").textContent="";
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("appPage").classList.remove("hidden");
-    document.getElementById("adminIdentity").textContent=user.EmailId||user.Username;
+    document.getElementById("adminIdentity").textContent=user.Name||user.EmailId||user.Username;
     render();
 }
 function logout() {
@@ -543,6 +570,22 @@ if(localStorage.getItem(LOGIN_KEY)==="true"){
     const admin=data.users.find(u=>roleName(u.RoleId)==="Admin");
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("appPage").classList.remove("hidden");
-    document.getElementById("adminIdentity").textContent=admin?.EmailId||"Administrator";
+    document.getElementById("adminIdentity").textContent=admin?.Name||admin?.EmailId||"Bala Weslin";
     render();
 }
+
+// Cross-tab synchronization: refresh Admin tables if Pharmacist dispenses medicines
+window.addEventListener('storage', function(e) {
+    if (e.key === 'carepointClinicAdminDataV2' || e.key === 'cms_medicines') {
+        data = loadData();
+        render();
+    }
+});
+window.addEventListener('focus', function() {
+    data = loadData();
+    render();
+});
+window.addEventListener('cms_stock_updated', function() {
+    data = loadData();
+    render();
+});

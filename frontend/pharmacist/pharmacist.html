@@ -338,25 +338,28 @@
         </div>
         <form id="quick-dispense-form" class="modal-form">
           <div class="form-group">
-            <label for="dispense-patient" class="form-label">Patient Name or MRN</label>
-            <input type="text" id="dispense-patient" class="form-input" placeholder="e.g. Robert Davis (#PAT-1001)" required>
+            <label for="dispense-prescription-select" class="form-label">Doctor Prescription Request</label>
+            <select id="dispense-prescription-select" class="form-select" required>
+              <option value="">Select pending doctor prescription...</option>
+            </select>
           </div>
           <div class="form-group">
-            <label for="dispense-medicine" class="form-label">Prescribed Medicine</label>
-            <select id="dispense-medicine" class="form-select" required>
-              <!-- Populated by pharmacist.js from the real inventory on load -->
-              <option value="">Select available stock...</option>
-            </select>
+            <label for="dispense-patient" class="form-label">Patient</label>
+            <input type="text" id="dispense-patient" class="form-input" readonly placeholder="Auto-populated from prescription" style="background:#f8f8fc;">
           </div>
           <div class="form-group">
             <label for="dispense-doctor" class="form-label">Prescribing Physician</label>
-            <select id="dispense-doctor" class="form-select" required>
-              <!-- Populated by pharmacist.js from data.js's shared user list on load -->
-            </select>
+            <input type="text" id="dispense-doctor" class="form-input" readonly placeholder="Auto-populated from prescription" style="background:#f8f8fc;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Doctor's Recommended Medicines &amp; Admin Stock</label>
+            <div id="dispense-meds-summary" style="background:#f8f8fc;border:1px solid #e2e3ef;border-radius:9px;padding:12px;font-size:13px;min-height:55px;color:#555873;">
+              Select a doctor prescription above to review recommendations.
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" id="modal-cancel-btn" class="btn-secondary">Cancel</button>
-            <button type="submit" class="btn-primary">Dispense Now</button>
+            <button type="submit" id="btn-dispense-submit" class="btn-primary">Issue Prescribed Medicines</button>
           </div>
         </form>
       </div>

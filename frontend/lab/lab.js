@@ -80,10 +80,10 @@ function getAvailableDoctorName(){
             return doctor.name.trim();
         }
     }catch(error){
-        return "Dr. Jane Smith";
+        return "Dr. Prateek Pradeep";
     }
 
-    return "Dr. Jane Smith";
+    return "Dr. Prateek Pradeep";
 }
 
 function getStandardTestMeta(testName){
@@ -800,7 +800,7 @@ function processTest(id){
     document.getElementById("patientId").value=order.patientId;
     document.getElementById("patientName").value=order.patient;
     document.getElementById("doctorId").value=order.doctorId||"DOC-101";
-    document.getElementById("doctorName").value=order.doctorName||"Dr. Jane Smith";
+    document.getElementById("doctorName").value=order.doctorName||"Dr. Prateek Pradeep";
     document.getElementById("testName").value=test.testName;
     document.getElementById("sampleType").value=test.sampleType;
     document.getElementById("normalValue").value=test.normalValue;
@@ -936,7 +936,7 @@ document.getElementById("patientForm")
         patientId:order.patientId,
         patientName:order.patient,
         doctorId:order.doctorId||"DOC-101",
-        doctorName:order.doctorName||"Dr. Jane Smith",
+        doctorName:order.doctorName||"Dr. Prateek Pradeep",
         testName:test.testName,
         sampleType:test.sampleType,
         normalValue:effectiveNormal,
@@ -948,7 +948,7 @@ document.getElementById("patientForm")
             .trim(),
         date:now.toLocaleDateString(),
         time:now.toLocaleTimeString(),
-        technicianName:"David Lee (Lab Technician)"
+        technicianName:"Malathi Sreekumar (Lab Technician)"
     };
 
     const existingReport=reports.find(

@@ -30,22 +30,47 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadMedicineOptions() {
-  const meds = getStorage(CMS_KEYS.MEDICINES, []);
+  const meds = typeof getAdminMedicineStock === 'function' ? getAdminMedicineStock() : getStorage(CMS_KEYS.MEDICINES, []);
   const dl = document.getElementById('medOptions');
+  if (!dl) return;
   dl.innerHTML = '';
+
   meds.forEach(m => {
+    const medName = m.name || m.MedicineName;
+    const dosage = m.dosage || m.Dosage || '500mg';
+    const qty = Number(m.quantity ?? m.Quantity ?? 0);
     const opt = document.createElement('option');
-    opt.value = m.name;
-    opt.dataset.dosage = m.dosage;
+    opt.value = medName;
+    opt.dataset.dosage = dosage;
+    opt.dataset.stock = qty;
+    opt.label = `${medName} (${dosage}) — ${qty > 0 ? qty + ' in stock' : 'OUT OF STOCK'}`;
     dl.appendChild(opt);
   });
 
-  document.getElementById('rxMedName').addEventListener('input', function(e) {
-    const found = meds.find(m => m.name.toLowerCase() === e.target.value.toLowerCase());
-    if (found && found.dosage) {
-      document.getElementById('rxDosage').value = found.dosage;
+  const medInput = document.getElementById('rxMedName');
+  if (!medInput) return;
+
+  // Remove previous listeners by replacing with cloned node if needed, or simply assign oninput
+  medInput.oninput = function(e) {
+    const val = e.target.value.trim().toLowerCase();
+    const found = meds.find(m => (m.name || m.MedicineName || '').toLowerCase() === val);
+    const stockHelp = document.getElementById('rxStockIndicator');
+    if (found) {
+      if (found.dosage || found.Dosage) {
+        document.getElementById('rxDosage').value = found.dosage || found.Dosage;
+      }
+      const qty = Number(found.quantity ?? found.Quantity ?? 0);
+      if (stockHelp) {
+        if (qty > 0) {
+          stockHelp.innerHTML = `<span style="color:var(--success);font-weight:600;">✓ In Stock: ${qty} units available in Pharmacy</span>`;
+        } else {
+          stockHelp.innerHTML = `<span style="color:var(--danger);font-weight:700;">⚠ Out of Stock in Pharmacy (0 units available)</span>`;
+        }
+      }
+    } else if (stockHelp) {
+      stockHelp.innerHTML = val ? `<span style="color:var(--text-muted);font-size:0.75rem;">Select from Admin pharmacy catalog</span>` : '';
     }
-  });
+  };
 }
 
 function setFilter(f) {
@@ -260,25 +285,6 @@ function selectPatient(appt) {
 
     const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
     let existingRx = rxList.find(r => r.appointmentId === appt.appointmentId);
-    if (!existingRx && appt.appointmentId === 'APT-2004') {
-      existingRx = {
-        prescriptionId: 'RX-DEMO1',
-        consultationId: existing.consultationId,
-        appointmentId: 'APT-2004',
-        patientId: appt.patientId,
-        patientName: appt.patientName,
-        doctorName: 'Dr. Jane Smith',
-        date: new Date().toISOString().split('T')[0],
-        items: [
-          { medicineName: 'Omeprazole', dosage: '20mg', frequency: '1-0-0', duration: '14 Days', instructions: 'Before Food' },
-          { medicineName: 'Metformin', dosage: '500mg', frequency: '1-0-1', duration: '30 Days', instructions: 'After Food' },
-          { medicineName: 'Paracetamol', dosage: '500mg', frequency: 'SOS', duration: '5 Days', instructions: 'After Food' }
-        ],
-        status: 'Pending'
-      };
-      rxList.push(existingRx);
-      setStorage(CMS_KEYS.PRESCRIPTIONS, rxList);
-    }
 
     if (existingRx && existingRx.items) {
       currentRxItems = [...existingRx.items];
@@ -286,6 +292,8 @@ function selectPatient(appt) {
     }
   } else {
     document.getElementById('btnPrintRx').style.display = 'none';
+    currentRxItems = [];
+    renderRxTable();
   }
 
   const completedNotice = document.getElementById('completedNotice');
@@ -307,8 +315,17 @@ function addRxItem() {
   const inst = document.getElementById('rxInstructions').value;
 
   if (!name) {
-    showToast('Please type a medicine name!', 'warning');
+    showToast('Please type or select a medicine name!', 'warning');
     return;
+  }
+
+  // Check stock availability in Admin medicine inventory
+  const stockCheck = typeof checkMedicineStock === 'function'
+    ? checkMedicineStock(name)
+    : { exists: true, inStock: true, quantity: 50 };
+
+  if (stockCheck.exists && !stockCheck.inStock) {
+    showToast(`Note: "${name}" is currently Out of Stock in Pharmacy (Available: 0). Recommending anyway will alert Pharmacist to restock.`, 'warning');
   }
 
   currentRxItems.push({
@@ -316,12 +333,16 @@ function addRxItem() {
     dosage: dosage,
     frequency: freq,
     duration: dur,
-    instructions: inst
+    instructions: inst,
+    inStock: stockCheck.inStock,
+    availableStock: stockCheck.quantity
   });
 
   document.getElementById('rxMedName').value = '';
   document.getElementById('rxDosage').value = '';
   document.getElementById('rxDuration').value = '';
+  const stockHelp = document.getElementById('rxStockIndicator');
+  if (stockHelp) stockHelp.innerHTML = '';
   document.getElementById('rxMedName').focus();
 
   renderRxTable();
@@ -345,9 +366,14 @@ function renderRxTable() {
 
   tbl.style.display = 'table';
   currentRxItems.forEach((it, i) => {
+    const stockInfo = typeof checkMedicineStock === 'function' ? checkMedicineStock(it.medicineName) : { inStock: true, quantity: 50 };
+    const stockBadge = stockInfo.inStock
+      ? `<span class="badge badge-completed" style="font-size:0.68rem;padding:0.1rem 0.4rem;">In Stock: ${stockInfo.quantity}</span>`
+      : `<span class="badge" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;font-size:0.68rem;padding:0.1rem 0.4rem;font-weight:700;">Out of Stock</span>`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><strong>${it.medicineName}</strong></td>
+      <td><strong>${it.medicineName}</strong> &nbsp;${stockBadge}</td>
       <td>${it.dosage}</td>
       <td><span class="badge badge-scheduled">${it.frequency}</span></td>
       <td>${it.duration}</td>
@@ -367,7 +393,24 @@ function cancelConsultation() {
   currentRxItems = [];
   document.getElementById('noSelection').style.display = 'block';
   document.getElementById('consultationPanel').style.display = 'none';
+  const labBanner = document.getElementById('patientLabStatusBanner');
+  if (labBanner) {
+    labBanner.style.display = 'none';
+    labBanner.innerHTML = '';
+  }
   renderQueueAndStats();
+}
+
+function resetAllConsultationsToScheduled() {
+  if (typeof setAllAppointmentsScheduled === 'function') {
+    setAllAppointmentsScheduled();
+  }
+  cancelConsultation();
+  renderQueueAndStats();
+  renderHistory();
+  renderLabRequests();
+  renderLabResults();
+  showToast('All patient consultations have been reset to Scheduled! Consultation and lab history cleared.', 'success');
 }
 
 function handleConsultationSave(e) {
@@ -426,6 +469,10 @@ function handleConsultationSave(e) {
       patientName: activeAppt.patientName,
       doctorName: currentUser.name || 'Doctor',
       date: todayStr,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: Date.now(),
+      symptoms: symp,
+      diagnosis: diag,
       items: currentRxItems,
       status: 'Pending'
     };
@@ -434,6 +481,7 @@ function handleConsultationSave(e) {
     if (rIdx >= 0) rxList[rIdx] = newRx;
     else rxList.push(newRx);
     setStorage(CMS_KEYS.PRESCRIPTIONS, rxList);
+    try { window.dispatchEvent(new Event('cms_rx_updated')); } catch(e) {}
   }
 
   // 3. Save Lab Orders
@@ -556,7 +604,7 @@ function renderHistory() {
         appointmentId: a.appointmentId,
         patientId: a.patientId,
         patientName: a.patientName,
-        doctorName: a.doctorName || 'Dr. Jane Smith',
+        doctorName: a.doctorName || 'Dr. Prateek Pradeep',
         date: new Date().toISOString().split('T')[0],
         vitals: { bp: '118/76', pulse: '78', temp: '98.4', weight: '62' },
         symptoms: a.reason || 'General health consultation',
@@ -596,14 +644,14 @@ function renderHistory() {
   list.forEach(c => {
     const appt = appts.find(a => a.appointmentId === c.appointmentId) || {};
     const p    = patients.find(pt => pt.patientId === c.patientId) || {};
-    const rx   = rxList.find(r => r.appointmentId === c.appointmentId);
+    const rx   = rxList.find(r => r.appointmentId === c.appointmentId || r.consultationId === c.consultationId || (r.patientId === c.patientId && (r.date === c.date || r.date === appt.date)));
     const lab  = labList.find(l => l.appointmentId === c.appointmentId);
 
     const card = document.createElement('div');
     card.className = 'history-card';
 
     const v = c.vitals || {};
-    const meds = rx && rx.items ? rx.items : [];
+    const meds = rx && rx.items ? rx.items : (c.items || c.medicines || []);
 
     card.innerHTML = `
       <div class="history-card-header" onclick="toggleHistoryCard(this)">
@@ -660,9 +708,16 @@ function renderHistory() {
           </div>` : ''}
         </div>
 
-        ${meds.length > 0 ? `
-          <div style="margin-bottom:1.25rem;">
-            <div class="detail-label" style="margin-bottom:0.5rem;">Medications Prescribed (${meds.length})</div>
+        <div style="margin-bottom:1.25rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.4rem;">
+            <div class="detail-label" style="margin-bottom:0;">Medications Prescribed ${meds.length > 0 ? `(${meds.length})` : ''}</div>
+            ${rx ? `
+              <span class="badge ${rx.status === 'Dispensed' ? 'badge-completed' : 'badge-scheduled'}" style="font-size:0.75rem;">
+                ${rx.status === 'Dispensed' ? '✓ Dispensed by Pharmacist' : '⏳ Pending with Pharmacist'}
+              </span>
+            ` : ''}
+          </div>
+          ${meds.length > 0 ? `
             <div class="table-responsive">
               <table style="width:100%;border-collapse:collapse;font-size:0.83rem;background:white;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);">
                 <thead>
@@ -686,8 +741,9 @@ function renderHistory() {
                   `).join('')}
                 </tbody>
               </table>
-            </div>
-          </div>` : ''}
+            </div>` : `
+            <div style="font-size:0.82rem;color:var(--text-muted);font-style:italic;background:var(--bg-main);padding:0.45rem 0.75rem;border-radius:4px;">No medications prescribed for this consultation.</div>`}
+        </div>
 
         ${lab && lab.tests && lab.tests.length > 0 ? `
           <div>
@@ -971,7 +1027,7 @@ function renderLabResults() {
           patientId: o.patientId,
           patientName: o.patientName,
           testName: (o.tests || ['Diagnostic Test']).join(', '),
-          technicianName: o.technicianName || 'David Lee (Certified Lab Technologist)',
+          technicianName: o.technicianName || 'Malathi Sreekumar (Certified Lab Technologist)',
           date: o.reportDate || o.date || new Date().toISOString().split('T')[0],
           actualReading: o.actualReading,
           results: o.results || (o.tests || ['Diagnostic Test']).map(t => ({
@@ -999,7 +1055,7 @@ function renderLabResults() {
               labOrderId: idToMatch,
               patientId: tr.patientId,
               patientName: tr.patientName,
-              doctorName: tr.doctorName || 'Dr. Jane Smith',
+              doctorName: tr.doctorName || 'Dr. Prateek Pradeep',
               testName: tr.testName,
               sampleType: tr.sampleType,
               normalValue: tr.normalValue,
@@ -1008,13 +1064,13 @@ function renderLabResults() {
               remarks: tr.remarks,
               date: tr.date,
               time: tr.time,
-              technicianName: tr.technicianName || 'David Lee (Lab Tech)'
+              technicianName: tr.technicianName || 'Malathi Sreekumar (Lab Tech)'
             },
             order: {
               labOrderId: idToMatch,
               patientId: tr.patientId,
               patientName: tr.patientName,
-              doctorName: tr.doctorName || 'Dr. Jane Smith',
+              doctorName: tr.doctorName || 'Dr. Prateek Pradeep',
               tests: [tr.testName || 'Diagnostic Test'],
               status: 'Completed',
               date: tr.date
@@ -1182,7 +1238,7 @@ function renderLabResults() {
       <div style="text-align:right;flex-shrink:0;">
         <div style="font-size:0.78rem;color:var(--text-muted);">Reported on</div>
         <div style="font-weight:600;font-size:0.85rem;color:var(--text-main);">${report.date || '—'}</div>
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.15rem;">By ${report.technicianName || 'David Lee (Lab Tech)'}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.15rem;">By ${report.technicianName || 'Malathi Sreekumar (Lab Tech)'}</div>
       </div>
     `;
     container.appendChild(row);
@@ -1206,17 +1262,14 @@ function renderPatientLabStatus(appt) {
   const labOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
   const labReports = getStorage(CMS_KEYS.LAB_REPORTS, []);
 
-  // Match orders for this patient
+  // Match lab orders strictly for this specific appointment/visit
   const patientOrders = labOrders.filter(o =>
-    (currentAppt.patientId && String(o.patientId).toLowerCase() === String(currentAppt.patientId).toLowerCase()) ||
-    (currentAppt.appointmentId && String(o.appointmentId) === String(currentAppt.appointmentId)) ||
-    (currentAppt.patientName && String(o.patientName).toLowerCase() === String(currentAppt.patientName).toLowerCase())
+    currentAppt.appointmentId && String(o.appointmentId) === String(currentAppt.appointmentId)
   );
 
   const patientReports = labReports.filter(r =>
-    (currentAppt.patientId && String(r.patientId).toLowerCase() === String(currentAppt.patientId).toLowerCase()) ||
-    (currentAppt.patientName && String(r.patientName).toLowerCase() === String(currentAppt.patientName).toLowerCase()) ||
-    patientOrders.some(po => String(po.labOrderId) === String(r.labOrderId))
+    patientOrders.some(po => String(po.labOrderId) === String(r.labOrderId)) ||
+    (currentAppt.appointmentId && String(r.appointmentId) === String(currentAppt.appointmentId))
   );
 
   if (patientOrders.length === 0 && patientReports.length === 0) {
@@ -1336,7 +1389,7 @@ function sendLabRequestFromConsultation() {
     appointmentId: activeAppt.appointmentId,
     patientId: activeAppt.patientId,
     patientName: activeAppt.patientName,
-    doctorName: (currentUser && currentUser.name) || 'Dr. Jane Smith',
+    doctorName: (currentUser && currentUser.name) || 'Dr. Prateek Pradeep',
     date: new Date().toISOString().split('T')[0],
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     createdAt: Date.now(),
@@ -1416,7 +1469,7 @@ function handleNewLabRequestSubmit(e) {
     appointmentId: activeAppt && activeAppt.patientId === patientId ? activeAppt.appointmentId : null,
     patientId: patientId,
     patientName: patientName,
-    doctorName: (currentUser && currentUser.name) || 'Dr. Jane Smith',
+    doctorName: (currentUser && currentUser.name) || 'Dr. Prateek Pradeep',
     date: new Date().toISOString().split('T')[0],
     tests: tests,
     remarks: remarks,
@@ -1449,9 +1502,9 @@ function openLabReportModal(reportId, labOrderId) {
   const p = patients.find(pt => pt.patientId === patientId) || {};
 
   const patName = (report && report.patientName) || (order && order.patientName) || 'Patient';
-  const docName = (report && report.doctorName) || (order && order.doctorName) || (currentUser && currentUser.name) || 'Dr. Jane Smith';
+  const docName = (report && report.doctorName) || (order && order.doctorName) || (currentUser && currentUser.name) || 'Dr. Prateek Pradeep';
   const repDate = (report && report.date) || (order && order.reportDate) || (order && order.date) || new Date().toLocaleDateString();
-  const techName = (report && report.technicianName) || 'David Lee (Certified Medical Lab Technologist)';
+  const techName = (report && report.technicianName) || 'Malathi Sreekumar (Certified Medical Lab Technologist)';
   const remarks = (report && report.remarks) || (order && order.reportRemarks) || 'Findings recorded and verified within standard laboratory parameters.';
 
   document.getElementById('reportViewPatName').textContent = patName;
@@ -1544,14 +1597,16 @@ function closeLabReportModal() {
 }
 
 /* ──────────────────────────────────────────────────────────
-   REAL-TIME CROSS-TAB SYNC (Auto-refresh on lab updates)
+   REAL-TIME CROSS-TAB SYNC (Auto-refresh on lab, rx, medicine updates)
 ────────────────────────────────────────────────────────── */
 window.addEventListener('storage', function(e) {
-  if (!e.key || e.key.includes('lab') || e.key.includes('appointment') || e.key.includes('consultation')) {
+  if (!e.key || e.key.includes('lab') || e.key.includes('appointment') || e.key.includes('consultation') || e.key.includes('prescription') || e.key.includes('medicine')) {
     renderQueueAndStats();
     renderLabRequests();
     renderLabResults();
     renderPatientLabStatus();
+    loadMedicineOptions();
+    renderHistory();
   }
 });
 
@@ -1560,5 +1615,17 @@ window.addEventListener('focus', function() {
   renderLabRequests();
   renderLabResults();
   renderPatientLabStatus();
+  loadMedicineOptions();
+  renderHistory();
+});
+
+window.addEventListener('cms_stock_updated', function() {
+  loadMedicineOptions();
+  renderHistory();
+});
+
+window.addEventListener('cms_rx_updated', function() {
+  renderQueueAndStats();
+  renderHistory();
 });
 
