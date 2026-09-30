@@ -7,6 +7,51 @@ let activeAppt = null;
 let currentRxItems = [];
 let currentFilter = 'all';
 
+const DRAFTS_KEY = 'cms_consultation_drafts';
+
+function saveConsultationDraft() {
+  if (!activeAppt || activeAppt.status === 'Completed') return;
+  try {
+    const drafts = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '{}');
+    const checkedLabs = [];
+    document.querySelectorAll('input[name="labCheck"]:checked').forEach(cb => checkedLabs.push(cb.value));
+
+    drafts[activeAppt.appointmentId] = {
+      symptoms: document.getElementById('diagSymptoms')?.value || '',
+      diagnosis: document.getElementById('diagPrimary')?.value || '',
+      remarks: document.getElementById('diagRemarks')?.value || '',
+      vitals: {
+        bp: document.getElementById('vitalBP')?.value || '',
+        pulse: document.getElementById('vitalPulse')?.value || '',
+        temp: document.getElementById('vitalTemp')?.value || '',
+        weight: document.getElementById('vitalWeight')?.value || ''
+      },
+      labRemarks: document.getElementById('labRemarks')?.value || '',
+      labTests: checkedLabs,
+      rxItems: currentRxItems || [],
+      savedAt: Date.now()
+    };
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+  } catch(e) {}
+}
+
+function getConsultationDraft(apptId) {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '{}');
+    return drafts[apptId] || null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function clearConsultationDraft(apptId) {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '{}');
+    delete drafts[apptId];
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+  } catch(e) {}
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   currentUser = requireAuth(['Doctor', 'Admin'], '../index.html');
   if (!currentUser) return;
@@ -26,7 +71,12 @@ document.addEventListener('DOMContentLoaded', function() {
   loadMedicineOptions();
   renderQueueAndStats();
 
-  document.getElementById('consultationForm').addEventListener('submit', handleConsultationSave);
+  const cForm = document.getElementById('consultationForm');
+  if (cForm) {
+    cForm.addEventListener('submit', handleConsultationSave);
+    cForm.addEventListener('input', saveConsultationDraft);
+    cForm.addEventListener('change', saveConsultationDraft);
+  }
 });
 
 function loadMedicineOptions() {
@@ -238,17 +288,6 @@ function selectPatient(appt) {
   document.getElementById('panelTime').textContent = appt.time || '—';
   document.getElementById('panelComplaint').textContent = appt.reason || 'General Consultation';
 
-  // Defaults
-  document.getElementById('vitalBP').value = '120/80';
-  document.getElementById('vitalPulse').value = '72';
-  document.getElementById('vitalTemp').value = '98.6';
-  document.getElementById('vitalWeight').value = '68';
-  document.getElementById('diagSymptoms').value = appt.reason || '';
-  document.getElementById('diagPrimary').value = '';
-  document.getElementById('diagRemarks').value = '';
-  document.getElementById('labRemarks').value = '';
-  document.querySelectorAll('input[name="labCheck"]').forEach(cb => cb.checked = false);
-
   if (appt.status === 'Completed') {
     document.getElementById('btnPrintRx').style.display = 'inline-flex';
     const cons = getStorage(CMS_KEYS.CONSULTATIONS, []);
@@ -273,12 +312,12 @@ function selectPatient(appt) {
 
     if (existing) {
       if (existing.vitals) {
-        document.getElementById('vitalBP').value = existing.vitals.bp || '';
-        document.getElementById('vitalPulse').value = existing.vitals.pulse || '';
-        document.getElementById('vitalTemp').value = existing.vitals.temp || '';
-        document.getElementById('vitalWeight').value = existing.vitals.weight || '';
+        document.getElementById('vitalBP').value = existing.vitals.bp || '120/80';
+        document.getElementById('vitalPulse').value = existing.vitals.pulse || '72';
+        document.getElementById('vitalTemp').value = existing.vitals.temp || '98.6';
+        document.getElementById('vitalWeight').value = existing.vitals.weight || '68';
       }
-      document.getElementById('diagSymptoms').value = existing.symptoms || '';
+      document.getElementById('diagSymptoms').value = existing.symptoms || appt.reason || '';
       document.getElementById('diagPrimary').value = existing.diagnosis || '';
       document.getElementById('diagRemarks').value = existing.remarks || '';
     }
@@ -292,8 +331,43 @@ function selectPatient(appt) {
     }
   } else {
     document.getElementById('btnPrintRx').style.display = 'none';
-    currentRxItems = [];
-    renderRxTable();
+
+    // Check for draft saved during active consultation or prior to lab request
+    const draft = getConsultationDraft(appt.appointmentId);
+    if (draft) {
+      if (draft.vitals) {
+        document.getElementById('vitalBP').value = draft.vitals.bp || '120/80';
+        document.getElementById('vitalPulse').value = draft.vitals.pulse || '72';
+        document.getElementById('vitalTemp').value = draft.vitals.temp || '98.6';
+        document.getElementById('vitalWeight').value = draft.vitals.weight || '68';
+      }
+      document.getElementById('diagSymptoms').value = draft.symptoms || appt.reason || '';
+      document.getElementById('diagPrimary').value = draft.diagnosis || '';
+      document.getElementById('diagRemarks').value = draft.remarks || '';
+      document.getElementById('labRemarks').value = draft.labRemarks || '';
+      document.querySelectorAll('input[name="labCheck"]').forEach(cb => {
+        cb.checked = Array.isArray(draft.labTests) && draft.labTests.includes(cb.value);
+      });
+      if (Array.isArray(draft.rxItems) && draft.rxItems.length > 0) {
+        currentRxItems = [...draft.rxItems];
+        renderRxTable();
+      } else {
+        currentRxItems = [];
+        renderRxTable();
+      }
+    } else {
+      document.getElementById('vitalBP').value = '120/80';
+      document.getElementById('vitalPulse').value = '72';
+      document.getElementById('vitalTemp').value = '98.6';
+      document.getElementById('vitalWeight').value = '68';
+      document.getElementById('diagSymptoms').value = appt.reason || '';
+      document.getElementById('diagPrimary').value = '';
+      document.getElementById('diagRemarks').value = '';
+      document.getElementById('labRemarks').value = '';
+      document.querySelectorAll('input[name="labCheck"]').forEach(cb => cb.checked = false);
+      currentRxItems = [];
+      renderRxTable();
+    }
   }
 
   const completedNotice = document.getElementById('completedNotice');
@@ -346,12 +420,14 @@ function addRxItem() {
   document.getElementById('rxMedName').focus();
 
   renderRxTable();
+  saveConsultationDraft();
   showToast(`${name} added to prescription.`, 'success');
 }
 
 function removeRx(idx) {
   currentRxItems.splice(idx, 1);
   renderRxTable();
+  saveConsultationDraft();
 }
 
 function renderRxTable() {
@@ -514,6 +590,8 @@ function handleConsultationSave(e) {
     setStorage(CMS_KEYS.APPOINTMENTS, appts);
     activeAppt.status = 'Completed'; // keep local state in sync
   }
+
+  clearConsultationDraft(activeAppt.appointmentId);
 
   showToast(`Consultation completed for ${activeAppt.patientName}.`, 'success');
   document.getElementById('btnPrintRx').style.display = 'inline-flex';
@@ -1400,6 +1478,7 @@ function sendLabRequestFromConsultation() {
 
   labList.unshift(newOrder);
   setStorage(CMS_KEYS.LAB_ORDERS, labList);
+  saveConsultationDraft();
 
   showToast(`Lab test requested for ${activeAppt.patientName}. Sent to Lab Technician pending queue!`, 'success');
   renderLabRequests();

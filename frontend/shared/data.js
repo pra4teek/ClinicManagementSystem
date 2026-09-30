@@ -167,9 +167,10 @@ function resetAllToScheduled() {
   setStorage(CMS_KEYS.LAB_ORDERS, []);
   setStorage(CMS_KEYS.LAB_REPORTS, []);
 
-  // 5. Clear lab technician local storage cache
+  // 5. Clear lab technician local storage cache and consultation drafts
   try {
     localStorage.removeItem("carepoint_lab_data");
+    localStorage.removeItem("cms_consultation_drafts");
   } catch(e) {}
 
   // Dispatch events for open tabs
