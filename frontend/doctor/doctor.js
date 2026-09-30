@@ -103,7 +103,151 @@ document.addEventListener('DOMContentLoaded', function() {
       this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
     });
   }
+
+  // Auto-normalize and format dosage on blur (e.g. "8" -> "8mg")
+  const rxDosageInput = document.getElementById('rxDosage');
+  if (rxDosageInput) {
+    rxDosageInput.addEventListener('blur', function() {
+      const formatted = normalizeDosage(this.value);
+      if (formatted) {
+        this.value = formatted;
+      }
+    });
+  }
+
+  // Auto-normalize and format duration on blur (e.g. "5" -> "5 Days")
+  const rxDurationInput = document.getElementById('rxDuration');
+  if (rxDurationInput) {
+    rxDurationInput.addEventListener('blur', function() {
+      const formatted = normalizeDuration(this.value);
+      if (formatted) {
+        this.value = formatted;
+      }
+    });
+  }
 });
+
+// Normalizes and validates dosage input (e.g. "8" -> "8mg", "500mg" -> "500mg", "10ml" -> "10ml")
+function normalizeDosage(raw) {
+  let val = (raw || '').trim();
+  if (!val) return null;
+
+  // Pure integer or decimal number (e.g. "8", "500", "0.5") -> auto-append "mg"
+  if (/^\d+(\.\d+)?$/.test(val)) {
+    const num = parseFloat(val);
+    if (num <= 0) return null;
+    return `${val}mg`;
+  }
+
+  // Number with valid medical unit
+  const unitRegex = /^(\d+(\.\d+)?)\s*(mg|g|ml|mcg|iu|drops?|tabs?|tablets?|caps?|capsules?|puffs?|tsp|tbsp)$/i;
+  const match = val.match(unitRegex);
+  if (match) {
+    const num = parseFloat(match[1]);
+    if (num <= 0) return null;
+    let unit = match[3].toLowerCase();
+    if (unit === 'iu') unit = 'IU';
+    else if (unit === 'ml') unit = 'ml';
+    else if (unit === 'mg' || unit === 'g' || unit === 'mcg') unit = unit;
+    else if (unit.startsWith('tab')) unit = num === 1 ? 'tab' : 'tabs';
+    else if (unit.startsWith('cap')) unit = num === 1 ? 'cap' : 'caps';
+    else if (unit.startsWith('drop')) unit = num === 1 ? 'drop' : 'drops';
+    else if (unit.startsWith('puff')) unit = num === 1 ? 'puff' : 'puffs';
+    else unit = unit.charAt(0).toUpperCase() + unit.slice(1);
+
+    const space = ['mg', 'g', 'ml', 'mcg', 'IU'].includes(unit) ? '' : ' ';
+    return `${match[1]}${space}${unit}`;
+  }
+
+  return null;
+}
+
+// Normalizes and validates duration input (e.g. "5" -> "5 Days", "1" -> "1 Day", "2w" -> "2 Weeks")
+function normalizeDuration(raw) {
+  let val = (raw || '').trim();
+  if (!val) return null;
+
+  // Pure integer (e.g. "5", "10", "1") -> auto-append "Days" or "Day"
+  if (/^\d+$/.test(val)) {
+    const num = parseInt(val, 10);
+    if (num <= 0 || num > 365) return null;
+    return num === 1 ? '1 Day' : `${num} Days`;
+  }
+
+  // Number with timeframe: e.g. 5 days, 5d, 2 weeks, 2w, 1 month, 1m
+  const durRegex = /^(\d+)\s*(days?|d|weeks?|w|months?|m)$/i;
+  const match = val.match(durRegex);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    if (num <= 0 || num > 365) return null;
+    const unitPart = match[2].toLowerCase();
+
+    if (unitPart.startsWith('d')) {
+      return num === 1 ? '1 Day' : `${num} Days`;
+    } else if (unitPart.startsWith('w')) {
+      return num === 1 ? '1 Week' : `${num} Weeks`;
+    } else if (unitPart.startsWith('m')) {
+      return num === 1 ? '1 Month' : `${num} Months`;
+    }
+  }
+
+  return null;
+}
+
+// Toggles form between interactive editing mode and locked read-only mode once completed
+function setConsultationFormEditable(isEditable) {
+  const fields = [
+    'vitalBP', 'vitalPulse', 'vitalTemp', 'vitalWeight',
+    'diagSymptoms', 'diagPrimary', 'diagRemarks',
+    'rxMedName', 'rxDosage', 'rxFrequency', 'rxDuration', 'rxInstructions',
+    'labRemarks'
+  ];
+
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = !isEditable;
+      if (!isEditable) {
+        el.style.backgroundColor = '#f8fafc';
+        el.style.color = '#334155';
+        el.style.cursor = 'not-allowed';
+      } else {
+        el.style.backgroundColor = '';
+        el.style.color = '';
+        el.style.cursor = '';
+      }
+    }
+  });
+
+  // Lab checkboxes
+  document.querySelectorAll('input[name="labCheck"]').forEach(cb => {
+    cb.disabled = !isEditable;
+    cb.style.cursor = isEditable ? 'pointer' : 'not-allowed';
+  });
+
+  // Prescription draft input row & add button
+  const rxInputRow = document.getElementById('rxInputRow');
+  if (rxInputRow) {
+    rxInputRow.style.display = isEditable ? 'grid' : 'none';
+  }
+  const btnAddRx = document.getElementById('btnAddRx');
+  if (btnAddRx) {
+    btnAddRx.disabled = !isEditable;
+  }
+
+  // Lab send request button
+  const btnSendLabNow = document.getElementById('btnSendLabNow');
+  if (btnSendLabNow) {
+    btnSendLabNow.disabled = !isEditable;
+    btnSendLabNow.style.display = isEditable ? 'inline-flex' : 'none';
+  }
+
+  // Consultation save / discard action buttons
+  const consultationActions = document.getElementById('consultationActions');
+  if (consultationActions) {
+    consultationActions.style.display = isEditable ? 'flex' : 'none';
+  }
+}
 
 function loadMedicineOptions() {
   const meds = typeof getAdminMedicineStock === 'function' ? getAdminMedicineStock() : getStorage(CMS_KEYS.MEDICINES, []);
@@ -324,6 +468,7 @@ function selectPatient(appt) {
   document.getElementById('panelComplaint').textContent = appt.reason || 'General Consultation';
 
   if (appt.status === 'Completed') {
+    setConsultationFormEditable(false);
     document.getElementById('btnPrintRx').style.display = 'inline-flex';
     const cons = getStorage(CMS_KEYS.CONSULTATIONS, []);
     let existing = cons.find(c => c.appointmentId === appt.appointmentId);
@@ -365,6 +510,7 @@ function selectPatient(appt) {
       renderRxTable();
     }
   } else {
+    setConsultationFormEditable(true);
     document.getElementById('btnPrintRx').style.display = 'none';
 
     // Check for draft saved during active consultation or prior to lab request
@@ -418,9 +564,9 @@ function selectPatient(appt) {
 
 function addRxItem() {
   const name = document.getElementById('rxMedName').value.trim();
-  const dosage = document.getElementById('rxDosage').value.trim();
+  const rawDosage = document.getElementById('rxDosage').value.trim();
   const freq = document.getElementById('rxFrequency').value.trim();
-  const dur = document.getElementById('rxDuration').value.trim();
+  const rawDur = document.getElementById('rxDuration').value.trim();
   const inst = document.getElementById('rxInstructions').value.trim();
 
   if (!name) {
@@ -429,25 +575,41 @@ function addRxItem() {
     return;
   }
   if (!/[a-zA-Z]/.test(name)) {
-    showToast('Medicine Name must contain letters.', 'warning');
+    showToast('Medicine Name must contain valid letters.', 'warning');
     document.getElementById('rxMedName').focus();
     return;
   }
-  if (!dosage) {
-    showToast('Dosage (e.g. 500mg, 250mg) is mandatory!', 'warning');
+
+  if (!rawDosage) {
+    showToast('Dosage is mandatory (e.g. 500mg, 10ml, or enter a number like 8)!', 'warning');
     document.getElementById('rxDosage').focus();
     return;
   }
+  const dosage = normalizeDosage(rawDosage);
+  if (!dosage) {
+    showToast('Please enter a valid dosage with quantity and unit (e.g. 500mg, 10ml, 1 tab, or enter a number like 8).', 'warning');
+    document.getElementById('rxDosage').focus();
+    return;
+  }
+
   if (!freq) {
     showToast('Frequency (e.g. 1-0-1) is mandatory!', 'warning');
     document.getElementById('rxFrequency').focus();
     return;
   }
-  if (!dur) {
-    showToast('Duration (e.g. 5 Days, 10 Days) is mandatory!', 'warning');
+
+  if (!rawDur) {
+    showToast('Duration is mandatory (e.g. 5 Days, 1 Week, or enter number of days)!', 'warning');
     document.getElementById('rxDuration').focus();
     return;
   }
+  const dur = normalizeDuration(rawDur);
+  if (!dur) {
+    showToast('Duration must be a valid timeframe with numbers (e.g. 5 Days, 1 Week, or enter a number like 5).', 'warning');
+    document.getElementById('rxDuration').focus();
+    return;
+  }
+
   if (!inst) {
     showToast('Instructions (e.g. After Food) are mandatory!', 'warning');
     document.getElementById('rxInstructions').focus();
@@ -482,7 +644,7 @@ function addRxItem() {
 
   renderRxTable();
   saveConsultationDraft();
-  showToast(`${name} added to prescription.`, 'success');
+  showToast(`${name} (${dosage}) added to prescription.`, 'success');
 }
 
 function removeRx(idx) {
@@ -502,6 +664,13 @@ function renderRxTable() {
   }
 
   tbl.style.display = 'table';
+  const isCompleted = activeAppt && activeAppt.status === 'Completed';
+
+  const thAction = document.getElementById('rxTableThAction');
+  if (thAction) {
+    thAction.style.display = isCompleted ? 'none' : '';
+  }
+
   currentRxItems.forEach((it, i) => {
     const stockInfo = typeof checkMedicineStock === 'function' ? checkMedicineStock(it.medicineName) : { inStock: true, quantity: 50 };
     const stockBadge = stockInfo.inStock
@@ -515,11 +684,12 @@ function renderRxTable() {
       <td><span class="badge badge-scheduled">${it.frequency}</span></td>
       <td>${it.duration}</td>
       <td>${it.instructions}</td>
+      ${isCompleted ? '' : `
       <td>
-        <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:#fca5a5;" onclick="removeRx(${i})">
+        <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:#fca5a5;" onclick="removeRx(${i})" title="Remove medicine">
           <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
-      </td>
+      </td>`}
     `;
     tbody.appendChild(tr);
   });
@@ -528,6 +698,7 @@ function renderRxTable() {
 function cancelConsultation() {
   activeAppt = null;
   currentRxItems = [];
+  setConsultationFormEditable(true);
   document.getElementById('noSelection').style.display = 'block';
   document.getElementById('consultationPanel').style.display = 'none';
   const labBanner = document.getElementById('patientLabStatusBanner');
@@ -746,6 +917,10 @@ function handleConsultationSave(e) {
   }
 
   clearConsultationDraft(activeAppt.appointmentId);
+
+  // Lock consultation form to read-only once saved and completed
+  setConsultationFormEditable(false);
+  renderRxTable();
 
   // Update Completed Banner in consultation view
   const completedNotice = document.getElementById('completedNotice');

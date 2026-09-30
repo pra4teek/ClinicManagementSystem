@@ -583,7 +583,7 @@
                 <div id="completedNotice" style="display:none;background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid var(--success);padding:0.75rem 1rem;border-radius:var(--radius-sm);margin-bottom:1.25rem;font-size:0.875rem;color:#065f46;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
                   <div style="display:flex;align-items:center;gap:0.5rem;">
                     <svg class="icon" viewBox="0 0 24 24" style="stroke:var(--success);width:1.2rem;height:1.2rem;flex-shrink:0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    <span><strong>Consultation Completed:</strong> Viewing recorded findings, diagnosis, and prescription for this patient.</span>
+                    <span><strong>Consultation Completed &amp; Locked:</strong> Viewing recorded findings, diagnosis, and prescription for this patient (Read-Only).</span>
                   </div>
                   <button type="button" class="btn btn-sm btn-primary" onclick="openPrintModal()">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -638,7 +638,7 @@
                     3. Prescribe Medications
                   </h4>
                   <div style="background:var(--bg-main);padding:1rem;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:1rem;">
-                    <div class="rx-grid">
+                    <div class="rx-grid" id="rxInputRow">
                       <div>
                         <label class="form-label">Medicine *</label>
                         <input type="text" id="rxMedName" list="medOptions" class="form-control" placeholder="Type or select">
@@ -647,7 +647,7 @@
                       </div>
                       <div>
                         <label class="form-label">Dosage *</label>
-                        <input type="text" id="rxDosage" class="form-control" placeholder="e.g. 500mg">
+                        <input type="text" id="rxDosage" class="form-control" placeholder="e.g. 500mg or 8">
                       </div>
                       <div>
                         <label class="form-label">Frequency *</label>
@@ -661,7 +661,7 @@
                       </div>
                       <div>
                         <label class="form-label">Duration *</label>
-                        <input type="text" id="rxDuration" class="form-control" placeholder="e.g. 5 Days">
+                        <input type="text" id="rxDuration" class="form-control" placeholder="e.g. 5 Days or 5">
                       </div>
                       <div>
                         <label class="form-label">Instructions *</label>
@@ -673,7 +673,7 @@
                         </select>
                       </div>
                       <div>
-                        <button type="button" class="btn btn-secondary" onclick="addRxItem()">
+                        <button type="button" class="btn btn-secondary" id="btnAddRx" onclick="addRxItem()">
                           <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           Add
                         </button>
@@ -683,7 +683,7 @@
                       <table class="table" id="rxTable" style="display:none;background:white;border-radius:var(--radius-sm);">
                         <thead>
                           <tr>
-                            <th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th><th></th>
+                            <th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th><th id="rxTableThAction"></th>
                           </tr>
                         </thead>
                         <tbody id="rxTableBody"></tbody>
@@ -711,16 +711,16 @@
                     <input type="text" id="labRemarks" class="form-control" placeholder="Special instructions for lab technician (optional)">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem;">
                       <span style="font-size:0.75rem;color:var(--text-muted);">Request will be queued directly into Lab Technician's pending queue.</span>
-                      <button type="button" class="btn btn-secondary btn-sm" onclick="sendLabRequestFromConsultation()">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btnSendLabNow" onclick="sendLabRequestFromConsultation()">
                         <svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                         Send Request to Lab Now
                       </button>
                     </div>
                   </div>
 
-                  <div style="display:flex;justify-content:flex-end;gap:1rem;border-top:1px solid var(--border);padding-top:1rem;">
-                    <button type="button" class="btn btn-outline" onclick="cancelConsultation()">Discard</button>
-                    <button type="submit" class="btn btn-primary" style="padding:0.7rem 1.5rem;font-size:0.95rem;">
+                  <div id="consultationActions" style="display:flex;justify-content:flex-end;gap:1rem;border-top:1px solid var(--border);padding-top:1rem;">
+                    <button type="button" class="btn btn-outline" id="btnDiscardConsultation" onclick="cancelConsultation()">Discard</button>
+                    <button type="submit" class="btn btn-primary" id="btnSaveConsultation" style="padding:0.7rem 1.5rem;font-size:0.95rem;">
                       <svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                       Save &amp; Complete Consultation
                     </button>
