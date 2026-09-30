@@ -77,6 +77,32 @@ document.addEventListener('DOMContentLoaded', function() {
     cForm.addEventListener('input', saveConsultationDraft);
     cForm.addEventListener('change', saveConsultationDraft);
   }
+
+  // Real-time input constraints for vitals
+  const vitalPulse = document.getElementById('vitalPulse');
+  if (vitalPulse) {
+    vitalPulse.addEventListener('input', function() {
+      this.value = this.value.replace(/[^\d]/g, '');
+    });
+  }
+  const vitalBP = document.getElementById('vitalBP');
+  if (vitalBP) {
+    vitalBP.addEventListener('input', function() {
+      this.value = this.value.replace(/[^\d/]/g, '');
+    });
+  }
+  const vitalTemp = document.getElementById('vitalTemp');
+  if (vitalTemp) {
+    vitalTemp.addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+    });
+  }
+  const vitalWeight = document.getElementById('vitalWeight');
+  if (vitalWeight) {
+    vitalWeight.addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+    });
+  }
 });
 
 function loadMedicineOptions() {
@@ -243,22 +269,31 @@ function renderQueueAndStats() {
 
 function selectPatient(appt) {
   // ── Sequential token enforcement ──
-  // Completed patients can always be viewed. Only block Scheduled ones that are out of order.
+  // Completed patients can always be viewed. Only block Scheduled ones that are out of order,
+  // unless they have an ongoing consultation draft or lab order/report.
   if (appt.status !== 'Completed') {
-    const allAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
-    const scheduled = allAppts
-      .filter(a => a.status === 'Scheduled')
-      .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+    const draft = getConsultationDraft(appt.appointmentId);
+    const labOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
+    const labReports = getStorage(CMS_KEYS.LAB_REPORTS, []);
+    const hasLabActivity = labOrders.some(o => String(o.appointmentId) === String(appt.appointmentId)) ||
+                           labReports.some(r => String(r.appointmentId) === String(appt.appointmentId));
 
-    if (scheduled.length > 0) {
-      const nextToken = scheduled[0].tokenNumber;
-      if ((appt.tokenNumber || 0) > nextToken) {
-        const nextPatient = scheduled[0].patientName;
-        showToast(
-          `Token #${nextToken} (${nextPatient}) must be consulted first. Please follow the queue order.`,
-          'warning'
-        );
-        return; // Block the selection
+    if (!draft && !hasLabActivity) {
+      const allAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      const scheduled = allAppts
+        .filter(a => a.status === 'Scheduled')
+        .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
+
+      if (scheduled.length > 0) {
+        const nextToken = scheduled[0].tokenNumber;
+        if ((appt.tokenNumber || 0) > nextToken) {
+          const nextPatient = scheduled[0].patientName;
+          showToast(
+            `Token #${nextToken} (${nextPatient}) must be consulted first. Please follow the queue order.`,
+            'warning'
+          );
+          return; // Block the selection
+        }
       }
     }
   }
@@ -393,6 +428,11 @@ function addRxItem() {
     document.getElementById('rxMedName').focus();
     return;
   }
+  if (!/[a-zA-Z]/.test(name)) {
+    showToast('Medicine Name must contain letters.', 'warning');
+    document.getElementById('rxMedName').focus();
+    return;
+  }
   if (!dosage) {
     showToast('Dosage (e.g. 500mg, 250mg) is mandatory!', 'warning');
     document.getElementById('rxDosage').focus();
@@ -512,22 +552,114 @@ function resetAllConsultationsToScheduled() {
 
 function handleConsultationSave(e) {
   e.preventDefault();
-  if (!activeAppt) return;
-
-  const diag = document.getElementById('diagPrimary').value.trim();
-  const symp = document.getElementById('diagSymptoms').value.trim();
-  const remarks = document.getElementById('diagRemarks').value.trim();
-
-  if (!diag) {
-    showToast('Primary diagnosis is required!', 'warning');
+  if (!activeAppt) {
+    showToast('Please select a patient appointment first!', 'warning');
     return;
   }
 
+  // --- 1. Clinical validation ---
+  const symp = document.getElementById('diagSymptoms').value.trim();
+  if (!symp) {
+    showToast('Symptoms & Observations are required!', 'warning');
+    document.getElementById('diagSymptoms').focus();
+    return;
+  }
+  if (!/[a-zA-Z]/.test(symp)) {
+    showToast('Symptoms must contain descriptive text/letters.', 'warning');
+    document.getElementById('diagSymptoms').focus();
+    return;
+  }
+
+  const diag = document.getElementById('diagPrimary').value.trim();
+  if (!diag) {
+    showToast('Primary diagnosis is required!', 'warning');
+    document.getElementById('diagPrimary').focus();
+    return;
+  }
+  if (!/[a-zA-Z]/.test(diag)) {
+    showToast('Primary diagnosis must contain letters describing the condition.', 'warning');
+    document.getElementById('diagPrimary').focus();
+    return;
+  }
+
+  // Check if doctor typed medicine in prescription draft but forgot to click Add
+  const unaddedMed = document.getElementById('rxMedName').value.trim();
+  if (unaddedMed) {
+    showToast(`You entered "${unaddedMed}" without clicking "Add". Please click "+ Add" to include it in the prescription, or clear the input to complete consultation.`, 'warning');
+    document.getElementById('rxMedName').focus();
+    return;
+  }
+
+  // --- 2. Vitals validation ---
+  const bp = document.getElementById('vitalBP').value.trim();
+  if (bp) {
+    const bpMatch = bp.match(/^(\d{2,3})\/(\d{2,3})$/);
+    if (!bpMatch) {
+      showToast('Blood Pressure must be formatted as Systolic/Diastolic (e.g. 120/80, digits only).', 'warning');
+      document.getElementById('vitalBP').focus();
+      return;
+    }
+    const sys = parseInt(bpMatch[1], 10);
+    const dia = parseInt(bpMatch[2], 10);
+    if (sys < 50 || sys > 260 || dia < 30 || dia > 160) {
+      showToast('Please enter realistic BP values (Systolic: 50-260, Diastolic: 30-160 mmHg).', 'warning');
+      document.getElementById('vitalBP').focus();
+      return;
+    }
+  }
+
+  const pulse = document.getElementById('vitalPulse').value.trim();
+  if (pulse) {
+    if (!/^\d+$/.test(pulse)) {
+      showToast('Pulse must be a valid whole number / integer in bpm (e.g. 72).', 'warning');
+      document.getElementById('vitalPulse').focus();
+      return;
+    }
+    const pVal = parseInt(pulse, 10);
+    if (pVal < 30 || pVal > 250) {
+      showToast('Pulse must be between 30 and 250 bpm.', 'warning');
+      document.getElementById('vitalPulse').focus();
+      return;
+    }
+  }
+
+  const temp = document.getElementById('vitalTemp').value.trim();
+  if (temp) {
+    if (!/^\d+(\.\d+)?$/.test(temp)) {
+      showToast('Temperature must be a valid number in °F (e.g. 98.6).', 'warning');
+      document.getElementById('vitalTemp').focus();
+      return;
+    }
+    const tVal = parseFloat(temp);
+    if (tVal < 90 || tVal > 110) {
+      showToast('Temperature must be between 90°F and 110°F.', 'warning');
+      document.getElementById('vitalTemp').focus();
+      return;
+    }
+  }
+
+  const weight = document.getElementById('vitalWeight').value.trim();
+  if (weight) {
+    if (!/^\d+(\.\d+)?$/.test(weight)) {
+      showToast('Weight must be a valid number in kg (e.g. 68 or 68.5).', 'warning');
+      document.getElementById('vitalWeight').focus();
+      return;
+    }
+    const wVal = parseFloat(weight);
+    if (wVal < 1 || wVal > 300) {
+      showToast('Weight must be between 1 kg and 300 kg.', 'warning');
+      document.getElementById('vitalWeight').focus();
+      return;
+    }
+  }
+
+  const remarks = document.getElementById('diagRemarks').value.trim();
+
   const vitals = {
-    bp: document.getElementById('vitalBP').value.trim(),
-    pulse: document.getElementById('vitalPulse').value.trim(),
-    temp: document.getElementById('vitalTemp').value.trim(),
-    weight: document.getElementById('vitalWeight').value.trim()
+    bp: bp,
+    pulse: pulse,
+    temp: temp,
+    weight: weight
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -584,6 +716,7 @@ function handleConsultationSave(e) {
   // 3. Save Lab Orders
   const labTests = [];
   document.querySelectorAll('input[name="labCheck"]:checked').forEach(cb => labTests.push(cb.value));
+  const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
 
   if (labTests.length > 0) {
     labList.push({
@@ -614,10 +747,15 @@ function handleConsultationSave(e) {
 
   clearConsultationDraft(activeAppt.appointmentId);
 
+  // Update Completed Banner in consultation view
+  const completedNotice = document.getElementById('completedNotice');
+  if (completedNotice) completedNotice.style.display = 'flex';
+
   showToast(`Consultation completed for ${activeAppt.patientName}.`, 'success');
   document.getElementById('btnPrintRx').style.display = 'inline-flex';
 
   renderQueueAndStats();
+  renderPatientLabStatus(activeAppt);
 }
 
 function openPrintModal(specificApptId) {
