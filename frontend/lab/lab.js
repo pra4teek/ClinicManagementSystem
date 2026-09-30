@@ -258,6 +258,14 @@ const TEST_PARAM_SCHEMAS = {
         params: [
             { id: "hb_single", name: "Hemoglobin", unit: "g/dL", ref: "12.0 - 16.0 g/dL", normalVal: 14.0, highVal: 8.2, min: 2.5, max: 25.0 }
         ]
+    },
+    "xray": {
+        title: "Chest X-Ray PA View",
+        params: [
+            { id: "lungFields", name: "Lung Fields & Pleura", unit: "Visual", ref: "Clear, normal vascularity", normalVal: "Clear, no infiltrates or effusion", highVal: "Infiltrates noted in lower zone", isText: true },
+            { id: "cardioRatio", name: "Cardiothoracic Ratio (CTR)", unit: "Ratio", ref: "< 0.50", normalVal: 0.44, highVal: 0.58, min: 0.20, max: 0.90 },
+            { id: "impression", name: "Radiological Impression", unit: "Impression", ref: "Normal PA View", normalVal: "Normal Chest Radiograph", highVal: "Cardiomegaly / Active Lesion", isText: true }
+        ]
     }
 };
 
@@ -265,6 +273,7 @@ let currentActiveSchema = null;
 
 function getTestSchema(testName) {
     const name = String(testName || "").toLowerCase();
+    if (name.includes("x-ray") || name.includes("chest") || name.includes("radiology")) return TEST_PARAM_SCHEMAS["xray"];
     if (name.includes("lipid") || name.includes("cholesterol")) return TEST_PARAM_SCHEMAS["lipid"];
     if (name.includes("cbc") || name.includes("complete blood count") || name.includes("blood count")) return TEST_PARAM_SCHEMAS["cbc"];
     if (name.includes("ppbs") || name.includes("post prandial")) return TEST_PARAM_SCHEMAS["ppbs"];

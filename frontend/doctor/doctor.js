@@ -1332,31 +1332,52 @@ function renderLabRequests() {
    CLINICAL LAB EVALUATOR (Normal vs Abnormal Color Flagging)
 ────────────────────────────────────────────────────────── */
 function evaluateLabReading(testName, readingStr, normalRef) {
-  const name = String(testName || '').toLowerCase();
+  const name = String(testName || '').toLowerCase().trim();
   const valStr = String(readingStr || '').trim();
-  const refStr = String(normalRef || '').toLowerCase();
+  const refStr = String(normalRef || '').trim().toLowerCase();
 
-  if (!valStr || valStr === '—') return { isAbnormal: false, tag: 'RECORDED' };
+  if (!valStr || valStr === '—' || valStr === '-') return { isAbnormal: false, tag: 'RECORDED' };
 
   // Explicit clinical text indicators
-  if (valStr.includes('(High)') || valStr.includes('Elevated') || valStr.includes('Positive') || valStr.includes('Critical') || valStr.includes('2+') || valStr.includes('3+') || valStr.includes('Turbid')) {
+  const valLower = valStr.toLowerCase();
+  if (
+    valStr.includes('(High)') || valStr.includes('(HIGH)') ||
+    valLower.includes('elevated') || valLower.includes('positive') ||
+    valLower.includes('critical') || valLower.includes('turbid') ||
+    valLower.includes('cardiomegaly') || valLower.includes('infiltrate') ||
+    valLower.includes('consolidation') || valLower.includes('effusion') ||
+    valLower.includes('active lesion') || valLower.includes('abnormal')
+  ) {
     return { isAbnormal: true, tag: 'HIGH' };
   }
-  if (valStr.includes('(Low)') || valStr.includes('Deficient')) {
+  if (valStr.includes('(Low)') || valStr.includes('(LOW)') || valLower.includes('deficient')) {
     return { isAbnormal: true, tag: 'LOW' };
   }
 
-  // Extract primary numeric value
+  // Explicit normal keywords in reading
+  if (
+    valLower === 'normal' || valLower === 'clear' || valLower === 'nil' ||
+    valLower === 'negative' || valLower.includes('pale yellow') ||
+    valLower.includes('no active lesion') || valLower.includes('clear lung fields') ||
+    valLower.includes('normal chest radiograph') || valLower.includes('within normal limits')
+  ) {
+    return { isAbnormal: false, tag: 'NORMAL' };
+  }
+
+  // For imaging / radiology tests (like Chest X-Ray):
+  // If reading has no explicit abnormal keywords, it's normal (do NOT match against text reference like (<0.5))
+  if (name.includes('x-ray') || name.includes('radiology') || name.includes('imaging') || name.includes('ultrasound') || name.includes('ecg')) {
+    return { isAbnormal: false, tag: 'NORMAL' };
+  }
+
+  // Extract primary numeric value from reading
   const numMatch = valStr.match(/-?\d+(\.\d+)?/);
   if (!numMatch) {
-    if (valStr.toLowerCase() === 'normal' || valStr.toLowerCase() === 'nil' || valStr.toLowerCase() === 'negative' || valStr.toLowerCase().includes('pale yellow')) {
-      return { isAbnormal: false, tag: 'NORMAL' };
-    }
-    return { isAbnormal: false, tag: 'RECORDED' };
+    return { isAbnormal: false, tag: 'NORMAL' };
   }
   const val = parseFloat(numMatch[0]);
 
-  // Standard medical reference thresholds
+  // Standard medical reference thresholds by parameter name
   if (name.includes('total chol')) {
     if (val >= 200) return { isAbnormal: true, tag: 'HIGH' };
   } else if (name.includes('triglyceride')) {
@@ -1394,21 +1415,35 @@ function evaluateLabReading(testName, readingStr, normalRef) {
     if (val > 56) return { isAbnormal: true, tag: 'HIGH' };
   } else if (name.includes('bilirubin')) {
     if (val > 1.2) return { isAbnormal: true, tag: 'HIGH' };
+  } else if (name.includes('cardiothoracic') || name.includes('ctr')) {
+    if (val >= 0.50) return { isAbnormal: true, tag: 'HIGH' };
   }
 
-  // Parse reference interval like "70-99" or "< 200" or "> 40"
-  if (refStr.includes('<')) {
-    const limit = parseFloat(refStr.replace(/[^0-9.]/g, ''));
-    if (!isNaN(limit) && val >= limit) return { isAbnormal: true, tag: 'HIGH' };
-  } else if (refStr.includes('>')) {
-    const limit = parseFloat(refStr.replace(/[^0-9.]/g, ''));
-    if (!isNaN(limit) && val < limit) return { isAbnormal: true, tag: 'LOW' };
-  } else if (refStr.includes('-')) {
-    const parts = refStr.split('-');
-    const min = parseFloat(parts[0].replace(/[^0-9.]/g, ''));
-    const max = parseFloat(parts[1].replace(/[^0-9.]/g, ''));
-    if (!isNaN(min) && val < min) return { isAbnormal: true, tag: 'LOW' };
-    if (!isNaN(max) && val > max) return { isAbnormal: true, tag: 'HIGH' };
+  // Parse dedicated reference interval string only if it's formatted as a standard range:
+  // e.g. "< 200 mg/dL", "< 0.50", "> 40", "70 - 99", "12.0 - 16.0"
+  // Must NOT parse long descriptive sentences like "Clear lung fields, normal cardiothoracic ratio (<0.5)..."
+  if (refStr && refStr.length < 35 && !refStr.includes('lung') && !refStr.includes('lesion') && !refStr.includes('clear')) {
+    if (refStr.includes('<')) {
+      const m = refStr.match(/<\s*(\d+(\.\d+)?)/);
+      if (m) {
+        const limit = parseFloat(m[1]);
+        if (!isNaN(limit) && val >= limit) return { isAbnormal: true, tag: 'HIGH' };
+      }
+    } else if (refStr.includes('>')) {
+      const m = refStr.match(/>\s*(\d+(\.\d+)?)/);
+      if (m) {
+        const limit = parseFloat(m[1]);
+        if (!isNaN(limit) && val < limit) return { isAbnormal: true, tag: 'LOW' };
+      }
+    } else if (refStr.includes('-')) {
+      const m = refStr.match(/(\d+(\.\d+)?)\s*-\s*(\d+(\.\d+)?)/);
+      if (m) {
+        const min = parseFloat(m[1]);
+        const max = parseFloat(m[3]);
+        if (!isNaN(min) && val < min) return { isAbnormal: true, tag: 'LOW' };
+        if (!isNaN(max) && val > max) return { isAbnormal: true, tag: 'HIGH' };
+      }
+    }
   }
 
   return { isAbnormal: false, tag: 'NORMAL' };
@@ -1700,22 +1735,41 @@ function renderPatientLabStatus(appt) {
   const completedItems = [];
 
   patientReports.forEach(r => {
+    let evalRes = { isAbnormal: false, tag: 'NORMAL' };
+    if (r.results && r.results.length > 0) {
+      for (const res of r.results) {
+        const ev = evaluateLabReading(res.test || r.testName, res.reading, res.normalValue || r.normalValue);
+        if (ev.isAbnormal) {
+          evalRes = ev;
+          break;
+        }
+      }
+    } else {
+      evalRes = evaluateLabReading(r.testName, r.actualReading, r.normalValue || '');
+    }
+
     completedItems.push({
       reportId: r.reportId,
       labOrderId: r.labOrderId,
       testName: r.testName || (r.results && r.results.map(x => x.test).join(', ')) || 'Diagnostic Panel',
       actualReading: r.actualReading || (r.results && r.results.map(x => `${x.test}: ${x.reading}`).join(', ')) || 'Verified',
+      normalValue: r.normalValue || '',
+      evalResult: evalRes,
       date: r.date || 'Today'
     });
   });
 
   patientOrders.forEach(o => {
     if ((o.status === 'Completed' || o.actualReading) && !completedItems.some(ci => String(ci.labOrderId) === String(o.labOrderId))) {
+      const testNames = (o.tests || ['Diagnostic Test']).join(', ');
+      const ev = evaluateLabReading(testNames, o.actualReading || 'Completed', '');
       completedItems.push({
         reportId: o.labOrderId,
         labOrderId: o.labOrderId,
-        testName: (o.tests || ['Diagnostic Test']).join(', '),
+        testName: testNames,
         actualReading: o.actualReading || 'Completed',
+        normalValue: '',
+        evalResult: ev,
         date: o.reportDate || o.date || 'Today'
       });
     }
@@ -1730,7 +1784,7 @@ function renderPatientLabStatus(appt) {
 
   if (completedItems.length > 0) {
     completedItems.forEach(ci => {
-      const evalResult = evaluateLabReading(ci.testName, ci.actualReading, '');
+      const evalResult = ci.evalResult || evaluateLabReading(ci.testName, ci.actualReading, ci.normalValue);
       const isAb = evalResult.isAbnormal;
       const cardBg = isAb ? '#fef2f2' : '#ecfdf5';
       const cardBorder = isAb ? '#fecaca' : '#a7f3d0';
