@@ -1077,9 +1077,173 @@ if (typeof module !== "undefined" && module.exports) {
   }
   function renderPrescriptions(){
     const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Prescription Queue","Review finalized prescriptions and dispense medicines.")+`<div class="page-card"><div class="toolbar"><div class="search-box"><span>⌕</span><input id="rx-search" placeholder="Search patient, prescription or doctor..."></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Prescription</th><th>Patient</th><th>Patient ID</th><th>Doctor</th><th>Date</th><th>Medicines</th><th>Status</th><th>Action</th></tr></thead><tbody id="rx-body"></tbody></table></div></div>`;
-    const rows=items=>document.getElementById("rx-body").innerHTML=items.map(x=>`<tr><td><strong>${x.id}</strong></td><td>${escapeHtml(x.patient)}</td><td>${x.patientId}</td><td>${escapeHtml(x.doctor)}</td><td>${x.date}</td><td>${escapeHtml(x.medicines)}</td><td><span class="status-badge ${x.status==="Ready"?"status-info":"status-good"}">${x.status}</span></td><td>${x.status==="Ready"?`<button class="btn-small" data-rx="${x.id}">Dispense</button>`:`<button class="btn-small">View</button>`}</td></tr>`).join("");rows(pharmacyUI.prescriptions);document.getElementById("rx-search").oninput=e=>{const q=e.target.value.toLowerCase();rows(pharmacyUI.prescriptions.filter(x=>(x.id+" "+x.patient+" "+x.doctor).toLowerCase().includes(q)));};b.querySelectorAll("[data-rx]").forEach(e=>e.onclick=()=>dispense(e.dataset.rx));
+    const rows=items=>document.getElementById("rx-body").innerHTML=items.map(x=>`<tr><td><strong>${x.id}</strong></td><td>${escapeHtml(x.patient)}</td><td>${x.patientId}</td><td>${escapeHtml(x.doctor)}</td><td>${x.date}</td><td>${escapeHtml(x.medicines)}</td><td><span class="status-badge ${x.status==="Ready"?"status-info":"status-good"}">${x.status}</span></td><td>${x.status==="Ready"?`<button class="btn-small" data-rx="${x.id}">Dispense</button> <button class="btn-small" style="background:#e8f5e9;color:#2e7d32" data-bill="${x.id}">Generate Bill</button>`:`<button class="btn-small">View</button>`}</td></tr>`).join("");rows(pharmacyUI.prescriptions);document.getElementById("rx-search").oninput=e=>{const q=e.target.value.toLowerCase();rows(pharmacyUI.prescriptions.filter(x=>(x.id+" "+x.patient+" "+x.doctor).toLowerCase().includes(q)));};b.querySelectorAll("[data-rx]").forEach(e=>e.onclick=()=>dispense(e.dataset.rx));b.querySelectorAll("[data-bill]").forEach(e=>e.onclick=()=>loadPrescriptionForBilling(e.dataset.bill));
   }
   function dispense(id){const r=pharmacyUI.prescriptions.find(x=>x.id===id);if(!r||!confirm(`Dispense ${r.id} for ${r.patient}?`))return;const [name,qstr]=r.medicines.split(" × "),q=+(qstr||1),stock=pharmacyUI.inventory.find(x=>x.medicine===name);if(stock&&stock.quantity<q){toast("Insufficient stock.");return}if(stock)stock.quantity-=q;r.status="Dispensed";pharmacyUI.dispenseLog.unshift({id:"D-"+(502+pharmacyUI.dispenseLog.length),patient:r.patient,medicine:name,quantity:q,date:"29 Sep 2026",pharmacist:data.currentUser.name});const c=data.statCards.find(x=>x.id==="prescriptions-filled");if(c)c.value++;savePUI();renderPrescriptions();toast("Prescription dispensed successfully.");}
+  /* ── Pharmacy Bill Generation (Prescription-Based) ─────────────────────── */
+  let currentPharmacyBill = {
+    prescriptionId: null, patientId: null, patientName: '', consultationId: null,
+    items: [], subtotal: 0, tax: 0, totalAmount: 0
+  };
+
+  /**
+   * Builds bill items from a prescription row and renders the billing page
+   * with a fully-populated summary table.
+   */
+  function loadPrescriptionForBilling(rxId) {
+    const rx = pharmacyUI.prescriptions.find(x => x.id === rxId);
+    if (!rx) { toast("Prescription not found."); return; }
+
+    showPage("billing");
+
+    // Parse medicine lines from the compact "Name × qty" format used by the demo
+    const itemLines = rx.medicines.split(",").map(s => s.trim());
+    const parsedItems = itemLines.map(line => {
+      const [namePart, qtyStr] = line.split("×").map(s => s.trim());
+      const qty = Math.max(1, parseInt(qtyStr) || 1);
+      const stock = pharmacyUI.inventory.find(m => m.medicine === namePart);
+      const unitPrice = stock ? stock.sellingPrice : 0;
+      return {
+        medicineId: stock ? stock.id : null,
+        medicineName: namePart,
+        dosage: "",
+        quantity: qty,
+        unitPrice,
+        totalPrice: qty * unitPrice
+      };
+    });
+
+    currentPharmacyBill.prescriptionId = rx.id;
+    currentPharmacyBill.patientId      = rx.patientId;
+    currentPharmacyBill.patientName    = rx.patient;
+    currentPharmacyBill.consultationId = rx.id;
+    currentPharmacyBill.items          = parsedItems;
+
+    renderBillingWithItems(parsedItems, rx);
+  }
+
+  function renderBillingWithItems(items, rx) {
+    const subtotal = items.reduce((s, i) => s + i.totalPrice, 0);
+    const tax      = subtotal * 0.05;
+    const grand    = subtotal + tax;
+
+    currentPharmacyBill.subtotal     = subtotal;
+    currentPharmacyBill.tax          = tax;
+    currentPharmacyBill.totalAmount  = grand;
+
+    const b = document.getElementById("dynamic-page-content");
+    const itemRows = items.map(i => `
+      <tr>
+        <td><strong>${escapeHtml(i.medicineName)}</strong></td>
+        <td>${escapeHtml(i.dosage)||"—"}</td>
+        <td>${i.quantity}</td>
+        <td>${money(i.unitPrice)}</td>
+        <td>${money(i.totalPrice)}</td>
+      </tr>`).join("");
+
+    b.innerHTML = pageHead(
+      "Generate Pharmacy Bill",
+      `Prescription ${rx.id} · ${escapeHtml(rx.patient)}`,
+      `<button class="btn-secondary" onclick="(function(){window._resetBillView&&window._resetBillView();})()">← Back to Billing</button>`
+    ) + `
+    <div class="page-card">
+      <div class="info-grid" style="margin-bottom:18px">
+        <div class="info-item"><strong>Patient Name</strong><span id="billPatientName">${escapeHtml(rx.patient)}</span></div>
+        <div class="info-item"><strong>Patient ID</strong><span id="billPatientId">${escapeHtml(rx.patientId)}</span></div>
+        <div class="info-item"><strong>Prescription ID</strong><span id="displayPrescriptionId">${escapeHtml(rx.id)}</span></div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:18px">
+        <table class="data-table">
+          <thead><tr><th>Medicine</th><th>Dosage</th><th>Qty</th><th>Unit Price (₹)</th><th>Total (₹)</th></tr></thead>
+          <tbody id="pharmacyItemsBody">${itemRows}</tbody>
+        </table>
+      </div>
+      <div class="bill-summary">
+        <div class="bill-total" style="text-align:left;min-width:280px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="color:#777b98;font-size:13px">Subtotal</span>
+            <span id="pharmacySubtotal">${money(subtotal)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="color:#777b98;font-size:13px">Tax (GST 5%)</span>
+            <span id="pharmacyTax">${money(tax)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid #ececf5;padding-top:10px;margin-top:4px">
+            <strong>Total Pharmacy Amount</strong>
+            <strong id="pharmacyTotalAmount" style="color:#4b3fe4;font-size:18px">${money(grand)}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:22px">
+        <button type="button" class="btn-secondary" id="btnCancelBill">Cancel</button>
+        <button type="button" class="btn-primary" id="btnSendToReceptionist">
+          ✉ Generate &amp; Send to Receptionist
+        </button>
+      </div>
+    </div>
+    <div class="page-card" style="margin-top:0">
+      <h3>Recent Bills</h3>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Bill ID</th><th>Patient</th><th>Medicine</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead>
+        <tbody>${pharmacyUI.bills.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${money(x.unitPrice)}</td><td><strong>${money(x.total)}</strong></td><td>${x.date}</td></tr>`).join("")}</tbody>
+      </table></div>
+    </div>`;
+
+    document.getElementById("btnCancelBill").onclick   = resetPharmacyBill;
+    document.getElementById("btnSendToReceptionist").onclick = submitPharmacyBillToReceptionist;
+
+    // expose back-nav helper for the header button
+    window._resetBillView = resetPharmacyBill;
+  }
+
+  /**
+   * Sends the generated pharmacy bill to the receptionist via localStorage.
+   */
+  async function submitPharmacyBillToReceptionist() {
+    if (!currentPharmacyBill.prescriptionId || !currentPharmacyBill.items.length) {
+      toast("No prescription items to bill."); return;
+    }
+
+    const payload = {
+      ...currentPharmacyBill,
+      billType: "PHARMACY",
+      status: "PENDING_RECEPTIONIST_PAYMENT",
+      generatedBy: data.currentUser.name,
+      generatedAt: new Date().toISOString()
+    };
+
+    const btn = document.getElementById("btnSendToReceptionist");
+    if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const res = await fetch("/api/pharmacist/bills/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("API error");
+      const d = await res.json();
+      toast(`Bill #${d.id || payload.prescriptionId} sent to Receptionist.`);
+    } catch (_) {
+      // Offline / prototype fallback — write to shared localStorage key
+      const existing = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
+      payload.id = "PB-" + Date.now();
+      existing.push(payload);
+      localStorage.setItem("pending_receptionist_bills", JSON.stringify(existing));
+      toast(`Bill ${payload.id} forwarded to Receptionist (offline mode).`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "✉ Generate & Send to Receptionist"; }
+      resetPharmacyBill();
+    }
+  }
+
+  /** Clears the active bill and navigates back to the standard billing page. */
+  function resetPharmacyBill() {
+    currentPharmacyBill = { prescriptionId: null, patientId: null, patientName: '', consultationId: null, items: [], subtotal: 0, tax: 0, totalAmount: 0 };
+    renderBilling();
+  }
+
   function renderBilling(){
     const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead("Pharmacy Billing","Create a bill for a prescription or OTC purchase.")+`<div class="page-card"><form id="bill-form"><div class="form-grid"><div class="form-group"><label>Patient Name</label><input id="bp" required></div><div class="form-group"><label>Medicine</label><select id="bm" required><option value="">Select medicine</option>${pharmacyUI.inventory.map(x=>`<option value="${x.id}">${escapeHtml(x.medicine)} — ${money(x.sellingPrice)}</option>`).join("")}</select></div><div class="form-group"><label>Quantity</label><input id="bq" type="number" min="1" value="1" required></div><div class="form-group"><label>Prescription ID (optional)</label><input id="br" placeholder="RX-1001"></div></div><div class="bill-summary"><div class="bill-total"><span>Total Amount</span><strong id="bt">₹0.00</strong></div></div><div class="form-actions"><button type="reset" class="btn-secondary">Clear</button><button class="btn-primary">Generate Bill</button></div></form></div><div class="page-card"><h3>Recent Bills</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Bill ID</th><th>Patient</th><th>Medicine</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Date</th></tr></thead><tbody>${pharmacyUI.bills.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${money(x.unitPrice)}</td><td><strong>${money(x.total)}</strong></td><td>${x.date}</td></tr>`).join("")}</tbody></table></div></div>`;
     const update=()=>{const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value);bt.textContent=money(x?(x.sellingPrice*(+bq.value||0)):0)};bm.onchange=update;bq.oninput=update;document.getElementById("bill-form").onsubmit=e=>{e.preventDefault();const x=pharmacyUI.inventory.find(a=>String(a.id)===bm.value),q=+bq.value,patient=bp.value.trim();if(!x||!patient||q<1){toast("Complete the billing form.");return}if(q>x.quantity){toast("Insufficient stock.");return}const total=x.sellingPrice*q;x.quantity-=q;pharmacyUI.bills.unshift({id:"PB-"+(7001+pharmacyUI.bills.length),patient,medicine:x.medicine,quantity:q,unitPrice:x.sellingPrice,total,date:"29 Sep 2026"});savePUI();renderBilling();toast("Bill generated successfully.");};

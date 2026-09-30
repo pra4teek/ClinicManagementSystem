@@ -877,6 +877,94 @@
           </tbody>
         </table>
       </div>
+
+      <!-- ── Pending Pharmacy Bills (forwarded from Pharmacist) ── -->
+      <div class="panel-heading" style="margin-top:2rem">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:1rem;font-weight:700;color:#1a1a2e">Pending Pharmacy Bills</h3>
+          <p class="panel-note">Search for a pharmacy bill forwarded by the Pharmacist and generate the final consolidated invoice.</p>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+        <input
+          id="billingSearchPatient"
+          type="text"
+          placeholder="Enter Patient ID or Prescription ID (e.g. PAT-1001 or RX-1001)"
+          style="flex:1;min-width:260px;padding:10px 14px;border:1px solid #dde1f0;border-radius:10px;font-size:14px;outline:none;font-family:inherit"
+          onkeydown="if(event.key==='Enter')fetchPatientPendingBills()"
+        />
+        <button
+          type="button"
+          class="action-btn"
+          onclick="fetchPatientPendingBills()"
+          style="white-space:nowrap"
+        >Find Pending Bill</button>
+      </div>
+
+      <!-- Consolidated Invoice Card (hidden until a bill is found) -->
+      <div id="finalInvoiceCard" style="display:none;background:#fff;border:1px solid #dde1f0;border-radius:14px;padding:22px;box-shadow:0 4px 18px rgba(30,30,80,.07);margin-bottom:1.5rem">
+        <h4 style="margin:0 0 14px;font-size:1rem;font-weight:700;color:#1a1a2e">Consolidated Invoice</h4>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+          <div style="background:#f7f8fc;border-radius:10px;padding:12px">
+            <span style="display:block;font-size:11px;color:#8891b0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Patient</span>
+            <strong id="finalPatientName" style="font-size:14px;color:#1a1a2e">--</strong>
+          </div>
+          <div style="background:#f7f8fc;border-radius:10px;padding:12px">
+            <span style="display:block;font-size:11px;color:#8891b0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Patient ID</span>
+            <strong id="finalPatientId" style="font-size:14px;color:#1a1a2e">--</strong>
+          </div>
+          <div style="background:#f7f8fc;border-radius:10px;padding:12px">
+            <span style="display:block;font-size:11px;color:#8891b0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Prescription ID</span>
+            <strong id="finalConsultationId" style="font-size:14px;color:#1a1a2e">--</strong>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom:16px">
+          <table class="rec-table" style="min-width:0">
+            <thead>
+              <tr>
+                <th>Department / Service</th>
+                <th>Details</th>
+                <th>Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="finalBillBreakdownBody"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:18px">
+          <div style="background:#f0eeff;border-radius:12px;padding:14px 20px;text-align:right;min-width:220px">
+            <span style="display:block;font-size:12px;color:#7a7fa8;margin-bottom:4px">Total Payable</span>
+            <strong id="finalGrandTotal" style="font-size:22px;color:#4b3fe4">₹0.00</strong>
+          </div>
+        </div>
+
+        <!-- Payment controls -->
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label for="paymentMode" style="font-size:13px;font-weight:600;color:#555">Payment Mode:</label>
+          <select id="paymentMode" style="padding:9px 14px;border:1px solid #dde1f0;border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:#fff">
+            <option value="CASH">💵 Cash</option>
+            <option value="CARD">💳 Debit / Credit Card</option>
+            <option value="UPI">📱 UPI / QR</option>
+          </select>
+          <button
+            type="button"
+            class="action-btn"
+            onclick="processFinalPayment()"
+            style="background:#22c55e;color:#fff;border:none"
+          >✅ Settle &amp; Close Invoice</button>
+          <button
+            type="button"
+            class="action-btn"
+            onclick="document.getElementById('finalInvoiceCard').style.display='none'"
+            style="background:#f1f0fb;color:#4b3fe4"
+          >Cancel</button>
+        </div>
+      </div>
+
     </section>
 
   </main>
