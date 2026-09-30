@@ -640,18 +640,18 @@
                   <div style="background:var(--bg-main);padding:1rem;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:1rem;">
                     <div class="rx-grid">
                       <div>
-                        <label class="form-label">Medicine</label>
-                        <input type="text" id="rxMedName" list="medOptions" class="form-control" placeholder="Type or select">
+                        <label class="form-label">Medicine *</label>
+                        <input type="text" id="rxMedName" list="medOptions" class="form-control" placeholder="Type or select" required>
                         <datalist id="medOptions"></datalist>
                         <div id="rxStockIndicator" style="font-size:0.75rem;margin-top:0.25rem;"></div>
                       </div>
                       <div>
-                        <label class="form-label">Dosage</label>
-                        <input type="text" id="rxDosage" class="form-control" placeholder="500mg">
+                        <label class="form-label">Dosage *</label>
+                        <input type="text" id="rxDosage" class="form-control" placeholder="e.g. 500mg" required>
                       </div>
                       <div>
-                        <label class="form-label">Frequency</label>
-                        <select id="rxFrequency" class="form-control">
+                        <label class="form-label">Frequency *</label>
+                        <select id="rxFrequency" class="form-control" required>
                           <option value="1-0-1">1-0-1 (Twice daily)</option>
                           <option value="1-0-0">1-0-0 (Morning)</option>
                           <option value="0-0-1">0-0-1 (Night)</option>
@@ -660,15 +660,16 @@
                         </select>
                       </div>
                       <div>
-                        <label class="form-label">Duration</label>
-                        <input type="text" id="rxDuration" class="form-control" placeholder="5 Days">
+                        <label class="form-label">Duration *</label>
+                        <input type="text" id="rxDuration" class="form-control" placeholder="e.g. 5 Days" required>
                       </div>
                       <div>
-                        <label class="form-label">Instructions</label>
-                        <select id="rxInstructions" class="form-control">
+                        <label class="form-label">Instructions *</label>
+                        <select id="rxInstructions" class="form-control" required>
                           <option value="After Food">After Food</option>
                           <option value="Before Food">Before Food</option>
                           <option value="At Bedtime">At Bedtime</option>
+                          <option value="With Food">With Food</option>
                         </select>
                       </div>
                       <div>

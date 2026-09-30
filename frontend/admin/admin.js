@@ -401,9 +401,14 @@ const fields = {
       ["NormalValue","text","Normal Value",true],["TestCost","number","Test Cost (₹)",true]
     ],
     medicines:[
-      ["MedicineName","text","Medicine Name",true],["Manufacturer","text","Manufacturer",true],
-      ["GenericName","text","Generic Name",true],["Category","text","Category",true],
-      ["CostValue","number","Cost Value (₹)",true],["MRP","number","MRP (₹)",true],
+      ["MedicineName","text","Medicine Name",true],
+      ["Manufacturer","text","Manufacturer",true],
+      ["GenericName","text","Generic Name",true],
+      ["Category","text","Category",true],
+      ["Dosage","text","Dosage (e.g. 500mg)",true],
+      ["Type","text","Type (e.g. Tablet, Capsule)",true],
+      ["CostValue","number","Cost Value (₹)",true],
+      ["MRP","number","MRP (₹)",true],
       ["Quantity","number","Quantity",true]
     ]
 };
@@ -473,8 +478,36 @@ function validateRecord(collection,record){
       if(["TestName","SampleType","NormalValue"].some(k=>!String(record[k]||"").trim())||Number(record.TestCost)<=0){error.textContent="Please provide valid lab test details.";return false}
     }
     if(collection==="medicines"){
-      if(["MedicineName","Manufacturer","GenericName","Category"].some(k=>!String(record[k]||"").trim())||Number(record.CostValue)<0||Number(record.MRP)<0||Number(record.Quantity)<0){error.textContent="Please provide valid medicine details.";return false}
-      if(Number(record.MRP)<Number(record.CostValue)){error.textContent="MRP cannot be lower than cost value.";return false}
+      const strFields = [
+        ["MedicineName", "Medicine Name"],
+        ["Manufacturer", "Manufacturer"],
+        ["GenericName", "Generic Name"],
+        ["Category", "Category"],
+        ["Dosage", "Dosage"],
+        ["Type", "Type"]
+      ];
+      for(const [k, lbl] of strFields){
+        if(!String(record[k]||"").trim()){
+          error.textContent = `${lbl} is mandatory. Please fill all fields.`;
+          return false;
+        }
+      }
+      if(record.CostValue==="" || record.CostValue===null || record.CostValue===undefined || isNaN(Number(record.CostValue)) || Number(record.CostValue)<0){
+        error.textContent = "Cost Value is mandatory and must be 0 or greater.";
+        return false;
+      }
+      if(record.MRP==="" || record.MRP===null || record.MRP===undefined || isNaN(Number(record.MRP)) || Number(record.MRP)<=0){
+        error.textContent = "MRP is mandatory and must be greater than 0.";
+        return false;
+      }
+      if(record.Quantity==="" || record.Quantity===null || record.Quantity===undefined || isNaN(Number(record.Quantity)) || Number(record.Quantity)<0){
+        error.textContent = "Quantity is mandatory and must be 0 or greater.";
+        return false;
+      }
+      if(Number(record.MRP) < Number(record.CostValue)){
+        error.textContent = "MRP cannot be lower than Cost Value.";
+        return false;
+      }
     }
     return true;
 }

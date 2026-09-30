@@ -383,13 +383,34 @@ function selectPatient(appt) {
 
 function addRxItem() {
   const name = document.getElementById('rxMedName').value.trim();
-  const dosage = document.getElementById('rxDosage').value.trim() || '500mg';
-  const freq = document.getElementById('rxFrequency').value;
-  const dur = document.getElementById('rxDuration').value.trim() || '5 Days';
-  const inst = document.getElementById('rxInstructions').value;
+  const dosage = document.getElementById('rxDosage').value.trim();
+  const freq = document.getElementById('rxFrequency').value.trim();
+  const dur = document.getElementById('rxDuration').value.trim();
+  const inst = document.getElementById('rxInstructions').value.trim();
 
   if (!name) {
-    showToast('Please type or select a medicine name!', 'warning');
+    showToast('Medicine Name is mandatory! Please select or enter a medicine.', 'warning');
+    document.getElementById('rxMedName').focus();
+    return;
+  }
+  if (!dosage) {
+    showToast('Dosage (e.g. 500mg, 250mg) is mandatory!', 'warning');
+    document.getElementById('rxDosage').focus();
+    return;
+  }
+  if (!freq) {
+    showToast('Frequency (e.g. 1-0-1) is mandatory!', 'warning');
+    document.getElementById('rxFrequency').focus();
+    return;
+  }
+  if (!dur) {
+    showToast('Duration (e.g. 5 Days, 10 Days) is mandatory!', 'warning');
+    document.getElementById('rxDuration').focus();
+    return;
+  }
+  if (!inst) {
+    showToast('Instructions (e.g. After Food) are mandatory!', 'warning');
+    document.getElementById('rxInstructions').focus();
     return;
   }
 

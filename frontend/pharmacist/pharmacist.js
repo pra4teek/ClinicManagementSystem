@@ -1113,9 +1113,44 @@ if (typeof module !== "undefined" && module.exports) {
   }
   function stockForm(id=null){
     const b=document.getElementById("dynamic-page-content"),x=id?pharmacyUI.inventory.find(a=>a.id===id):null;
-    b.innerHTML=pageHead(x?"Edit Stock":"Add Stock","Frontend demo form; medicine master data will later come from Admin.")+`<div class="page-card"><form id="stock-form"><div class="form-grid"><div class="form-group"><label>Medicine Name</label><input id="sm" required value="${escapeHtml(x?.medicine||"")}"></div><div class="form-group"><label>Category</label><input id="sc" required value="${escapeHtml(x?.category||"")}"></div><div class="form-group"><label>Quantity</label><input id="sq" type="number" min="0" required value="${x?.quantity??""}"></div><div class="form-group"><label>Reorder Level</label><input id="sr" type="number" min="0" required value="${x?.reorderLevel??10}"></div><div class="form-group"><label>Unit Price</label><input id="su" type="number" step="0.01" min="0" required value="${x?.unitPrice??""}"></div><div class="form-group"><label>Selling Price</label><input id="ss" type="number" step="0.01" min="0" required value="${x?.sellingPrice??""}"></div></div><div class="form-actions"><button type="button" class="btn-secondary" id="cancel-stock">Cancel</button><button class="btn-primary">${x?"Update":"Save"} Stock</button></div></form></div>`;
+    b.innerHTML=pageHead(x?"Edit Stock":"Add Stock","Manage medicine details in pharmacy inventory.")+`
+    <div class="page-card">
+      <form id="stock-form">
+        <div class="form-grid">
+          <div class="form-group"><label>Medicine Name *</label><input id="sm" required placeholder="e.g. Paracetamol 500mg" value="${escapeHtml(x?.medicine||"")}"></div>
+          <div class="form-group"><label>Category *</label><input id="sc" required placeholder="e.g. Analgesic, Antibiotic" value="${escapeHtml(x?.category||"")}"></div>
+          <div class="form-group"><label>Quantity *</label><input id="sq" type="number" min="0" required placeholder="e.g. 50" value="${x?.quantity??""}"></div>
+          <div class="form-group"><label>Reorder Level *</label><input id="sr" type="number" min="0" required placeholder="e.g. 10" value="${x?.reorderLevel??10}"></div>
+          <div class="form-group"><label>Unit Price (₹) *</label><input id="su" type="number" step="0.01" min="0" required placeholder="e.g. 10.00" value="${x?.unitPrice??""}"></div>
+          <div class="form-group"><label>Selling Price (₹) *</label><input id="ss" type="number" step="0.01" min="0" required placeholder="e.g. 15.00" value="${x?.sellingPrice??""}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="cancel-stock">Cancel</button>
+          <button class="btn-primary" type="submit">${x?"Update":"Save"} Stock</button>
+        </div>
+      </form>
+    </div>`;
     document.getElementById("cancel-stock").onclick=renderInventory;
-    document.getElementById("stock-form").onsubmit=e=>{e.preventDefault();const medicine=sm.value.trim(),category=sc.value.trim(),quantity=+sq.value,reorderLevel=+sr.value,unitPrice=+su.value,sellingPrice=+ss.value;if(!medicine||!category||quantity<0||reorderLevel<0||sellingPrice<unitPrice){toast("Enter valid stock details.");return}if(x)Object.assign(x,{medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});else pharmacyUI.inventory.push({id:Math.max(0,...pharmacyUI.inventory.map(a=>a.id))+1,medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});savePUI();renderInventory();toast(x?"Stock updated.":"Stock added.");};
+    document.getElementById("stock-form").onsubmit=e=>{
+      e.preventDefault();
+      const medicine=sm.value.trim(),category=sc.value.trim();
+      const qVal=sq.value.trim(), rVal=sr.value.trim(), uVal=su.value.trim(), sVal=ss.value.trim();
+
+      if(!medicine){ toast("Medicine Name is mandatory."); sm.focus(); return; }
+      if(!category){ toast("Category is mandatory."); sc.focus(); return; }
+      if(qVal==="" || isNaN(+qVal) || +qVal < 0){ toast("Quantity is mandatory and cannot be negative."); sq.focus(); return; }
+      if(rVal==="" || isNaN(+rVal) || +rVal < 0){ toast("Reorder Level is mandatory."); sr.focus(); return; }
+      if(uVal==="" || isNaN(+uVal) || +uVal < 0){ toast("Unit Price is mandatory and cannot be negative."); su.focus(); return; }
+      if(sVal==="" || isNaN(+sVal) || +sVal <= 0){ toast("Selling Price is mandatory and must be greater than 0."); ss.focus(); return; }
+      if(+sVal < +uVal){ toast("Selling Price cannot be less than Unit Price."); ss.focus(); return; }
+
+      const quantity=+qVal, reorderLevel=+rVal, unitPrice=+uVal, sellingPrice=+sVal;
+      if(x) Object.assign(x,{medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});
+      else pharmacyUI.inventory.push({id:Math.max(0,...pharmacyUI.inventory.map(a=>a.id))+1,medicine,category,quantity,reorderLevel,unitPrice,sellingPrice});
+      savePUI();
+      renderInventory();
+      toast(x?"Stock updated successfully.":"Stock added successfully.");
+    };
   }
   function renderPrescriptions(){
     const b = document.getElementById("dynamic-page-content");
