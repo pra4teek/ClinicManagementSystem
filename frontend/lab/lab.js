@@ -86,6 +86,53 @@ function getAvailableDoctorName(){
     return "Dr. Prateek Pradeep";
 }
 
+function getLabTechnicianName(){
+    try{
+        const users = JSON.parse(localStorage.getItem(CMS_KEYS.USERS) || "[]");
+        const technician = users.find(
+            user => String(user.role).toLowerCase().includes("lab") &&
+                typeof user.name === "string" && user.name.trim()
+        );
+
+        if(technician){
+            return technician.name.trim();
+        }
+
+        const currentUser = typeof getCurrentUser === "function" ? getCurrentUser() : null;
+        if(currentUser &&
+            String(currentUser.role).toLowerCase().includes("lab") &&
+            typeof currentUser.name === "string" &&
+            currentUser.name.trim()){
+            return currentUser.name.trim();
+        }
+    }catch(error){
+        return "Malathi Sreekumar";
+    }
+
+    return "Malathi Sreekumar";
+}
+
+function applyLabUserDisplay(){
+    const nameEl = document.getElementById("labUserName");
+    const avatarEl = document.getElementById("labAvatar");
+    const fullName = getLabTechnicianName();
+
+    if(nameEl){
+        nameEl.textContent = fullName;
+    }
+
+    if(avatarEl){
+        const initials = fullName
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(part => part[0])
+            .join("")
+            .toUpperCase() || "MS";
+        avatarEl.textContent = initials.slice(0, 2);
+    }
+}
+
 function getStandardTestMeta(testName){
     const name=String(testName||"").toLowerCase();
 
@@ -1598,6 +1645,7 @@ window.addEventListener(
         loadTestMaster();
 
         loadData();
+        applyLabUserDisplay();
 
         renderOrders();
 
@@ -1615,6 +1663,7 @@ window.addEventListener(
 loadTestMaster();
 
 loadData();
+applyLabUserDisplay();
 
 renderOrders();
 
