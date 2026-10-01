@@ -623,7 +623,7 @@ function renderOrders(){
     if(orders.length===0){
         tableBody.innerHTML=`
             <tr>
-                <td colspan="8">
+                <td colspan="7">
                     No lab tests available
                 </td>
             </tr>
@@ -638,7 +638,6 @@ function renderOrders(){
             <tr>
                 <td>${escapeHtml(order.id)}</td>
                 <td>${escapeHtml(order.patientId)}</td>
-                <td>${escapeHtml(order.doctorId)}</td>
                 <td>${escapeHtml(order.doctorName)}</td>
                 <td>${escapeHtml(test?.testName||"Test unavailable")}</td>
                 <td>${escapeHtml(test?.sampleType||"")}</td>
@@ -808,7 +807,6 @@ function processTest(id){
     document.getElementById("testId").value=order.id;
     document.getElementById("patientId").value=order.patientId;
     document.getElementById("patientName").value=order.patient;
-    document.getElementById("doctorId").value=order.doctorId||"DOC-101";
     document.getElementById("doctorName").value=order.doctorName||"Dr. Prateek Pradeep";
     document.getElementById("testName").value=test.testName;
     document.getElementById("sampleType").value=test.sampleType;
@@ -1076,15 +1074,6 @@ function renderReports(){
                     </div>
 
                     <div>
-
-                        <strong>
-                            Doctor ID:
-                        </strong>
-
-                        ${escapeHtml(report.doctorId)}
-
-                        <br>
-
                         <strong>
                             Doctor Name:
                         </strong>
