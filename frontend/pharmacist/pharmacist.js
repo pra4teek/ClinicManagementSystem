@@ -1443,6 +1443,9 @@ if (typeof module !== "undefined" && module.exports) {
 
   /**
    * Sends the generated pharmacy bill to the receptionist via localStorage.
+   * Writes to both "pending_receptionist_bills" (for the consolidated invoice
+   * search flow) AND to CMS_KEYS.BILLS (so it appears immediately in the
+   * receptionist's main billing table — the same key used by the lab module).
    */
   async function submitPharmacyBillToReceptionist() {
     if (!currentPharmacyBill.prescriptionId || !currentPharmacyBill.items.length) {
@@ -1471,11 +1474,45 @@ if (typeof module !== "undefined" && module.exports) {
       const d = await res.json();
       toast(`Bill #${d.id || payload.prescriptionId} sent to Receptionist.`);
     } catch (_) {
-      // Offline / prototype fallback — write to shared localStorage key
-      const existing = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
+      // Offline / prototype fallback — write to both shared keys
+
+      // 1. Write to pending_receptionist_bills (used by the consolidated invoice search)
+      const pending = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
       payload.id = "PB-" + Date.now();
-      existing.push(payload);
-      localStorage.setItem("pending_receptionist_bills", JSON.stringify(existing));
+      pending.push(payload);
+      localStorage.setItem("pending_receptionist_bills", JSON.stringify(pending));
+
+      // 2. ALSO write to CMS_KEYS.BILLS so the receptionist's billing table
+      //    displays this pharmacy bill immediately (same mechanism as lab bills).
+      const sharedBillEntry = {
+        id:          payload.id,
+        billId:      payload.id,
+        patientId:   currentPharmacyBill.patientId,
+        patientName: currentPharmacyBill.patientName,
+        source:      "Pharmacy",
+        amount:      currentPharmacyBill.totalAmount,
+        status:      "Pending",
+        date:        new Date().toLocaleDateString("en-IN"),
+        prescriptionId: currentPharmacyBill.prescriptionId
+      };
+      const cmsBills = typeof getStorage === "function"
+        ? getStorage(CMS_KEYS.BILLS, [])
+        : JSON.parse(localStorage.getItem(CMS_KEYS.BILLS) || "[]");
+
+      // Avoid duplicate entries if re-submitted
+      const alreadyExists = cmsBills.some(b =>
+        b.prescriptionId === sharedBillEntry.prescriptionId ||
+        b.id === sharedBillEntry.id
+      );
+      if (!alreadyExists) {
+        cmsBills.unshift(sharedBillEntry);
+        if (typeof setStorage === "function") {
+          setStorage(CMS_KEYS.BILLS, cmsBills);
+        } else {
+          localStorage.setItem(CMS_KEYS.BILLS, JSON.stringify(cmsBills));
+        }
+      }
+
       toast(`Bill ${payload.id} forwarded to Receptionist (offline mode).`);
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "✉ Generate & Send to Receptionist"; }
