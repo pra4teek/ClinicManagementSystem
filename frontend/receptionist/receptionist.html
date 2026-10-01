@@ -886,7 +886,6 @@
         </div>
       </div>
 
-      <!-- Search bar -->
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
         <input
           id="billingSearchPatient"
@@ -897,13 +896,11 @@
         />
         <button
           type="button"
-          class="action-btn"
+          class="btn btn-primary"
           onclick="fetchPatientPendingBills()"
-          style="white-space:nowrap"
         >Find Pending Bill</button>
       </div>
 
-      <!-- Consolidated Invoice Card (hidden until a bill is found) -->
       <div id="finalInvoiceCard" style="display:none;background:#fff;border:1px solid #dde1f0;border-radius:14px;padding:22px;box-shadow:0 4px 18px rgba(30,30,80,.07);margin-bottom:1.5rem">
         <h4 style="margin:0 0 14px;font-size:1rem;font-weight:700;color:#1a1a2e">Consolidated Invoice</h4>
 
@@ -942,25 +939,22 @@
           </div>
         </div>
 
-        <!-- Payment controls -->
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <label for="paymentMode" style="font-size:13px;font-weight:600;color:#555">Payment Mode:</label>
           <select id="paymentMode" style="padding:9px 14px;border:1px solid #dde1f0;border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:#fff">
-            <option value="CASH">💵 Cash</option>
-            <option value="CARD">💳 Debit / Credit Card</option>
-            <option value="UPI">📱 UPI / QR</option>
+            <option value="CASH">Cash</option>
+            <option value="CARD">Debit / Credit Card</option>
+            <option value="UPI">UPI / QR</option>
           </select>
           <button
             type="button"
-            class="action-btn"
+            class="btn btn-primary"
             onclick="processFinalPayment()"
-            style="background:#22c55e;color:#fff;border:none"
-          >✅ Settle &amp; Close Invoice</button>
+          >Settle &amp; Close Invoice</button>
           <button
             type="button"
-            class="action-btn"
+            class="btn btn-secondary"
             onclick="document.getElementById('finalInvoiceCard').style.display='none'"
-            style="background:#f1f0fb;color:#4b3fe4"
           >Cancel</button>
         </div>
       </div>
