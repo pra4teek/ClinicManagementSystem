@@ -897,21 +897,25 @@ function handleConsultationSave(e) {
   const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
 
   if (labTests.length > 0) {
-    labList.push({
-      labOrderId: `LAB-${uid}`,
-      consultationId: consultationId,
-      appointmentId: activeAppt.appointmentId,
-      patientId: activeAppt.patientId,
-      patientName: activeAppt.patientName,
-      doctorName: currentUser.name || 'Doctor',
-      date: todayStr,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      createdAt: Date.now(),
-      tests: labTests,
-      remarks: document.getElementById('labRemarks').value.trim(),
-      status: 'Pending'
-    });
-    setStorage(CMS_KEYS.LAB_ORDERS, labList);
+    // Guard against duplicates: skip if a lab order for this appointment already exists
+    const alreadyExists = labList.some(o => o.appointmentId === activeAppt.appointmentId);
+    if (!alreadyExists) {
+      labList.push({
+        labOrderId: `LAB-${uid}`,
+        consultationId: consultationId,
+        appointmentId: activeAppt.appointmentId,
+        patientId: activeAppt.patientId,
+        patientName: activeAppt.patientName,
+        doctorName: currentUser.name || 'Doctor',
+        date: todayStr,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        createdAt: Date.now(),
+        tests: labTests,
+        remarks: document.getElementById('labRemarks').value.trim(),
+        status: 'Pending'
+      });
+      setStorage(CMS_KEYS.LAB_ORDERS, labList);
+    }
   }
 
   // 4. Update Appointment Status to Completed

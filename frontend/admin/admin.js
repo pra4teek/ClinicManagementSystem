@@ -56,9 +56,18 @@ const seedData = {
     medicines: DEFAULT_MEDICINES.map((m,i) => ({
         MedicineId:i+1, MedicineName:m.name, Manufacturer:"Not specified", GenericName:m.name,
         Category:m.type, Dosage:m.dosage, Type:m.type, CostValue:0, MRP:0, Quantity:50
-    })).map(m => m.MedicineName === "Paracetamol"
-        ? {...m, Manufacturer:"ABC Pharma", CostValue:10, MRP:15, Quantity:50}
-        : m),
+    })).map(m => {
+        const prices = {
+            'Paracetamol': {CostValue:10, MRP:15},
+            'Amoxicillin': {CostValue:15, MRP:25},
+            'Cetirizine':  {CostValue:5,  MRP:10},
+            'Metformin':   {CostValue:12, MRP:20},
+            'Omeprazole':  {CostValue:10, MRP:18},
+            'Ibuprofen':   {CostValue:8,  MRP:12},
+            'Azithromycin':{CostValue:30, MRP:45}
+        };
+        return prices[m.MedicineName] ? {...m, ...prices[m.MedicineName]} : m;
+    }),
     auditLogs: []
 };
 
@@ -76,6 +85,9 @@ const sectionInfo = {
 
 let data = loadData();
 syncAllDoctorLogins();
+// Always sync medicine prices to cms_medicines on page load
+// so pharmacist billing has current MRP values
+setTimeout(() => syncAdminMedicinesToCMS(), 0);
 
 let currentSection = "dashboard";
 let editing = null;
@@ -141,15 +153,28 @@ function normalizeData(raw){
             });
         }
     });
-    // Fill dosage/type for existing default medicines when those fields are missing.
+    // Fill dosage/type/prices for existing default medicines when those fields are missing.
+    const DEFAULT_PRICES = {
+        'Paracetamol': {CostValue:10, MRP:15},
+        'Amoxicillin': {CostValue:15, MRP:25},
+        'Cetirizine':  {CostValue:5,  MRP:10},
+        'Metformin':   {CostValue:12, MRP:20},
+        'Omeprazole':  {CostValue:10, MRP:18},
+        'Ibuprofen':   {CostValue:8,  MRP:12},
+        'Azithromycin':{CostValue:30, MRP:45}
+    };
     d.medicines.forEach(med => {
         const preset = DEFAULT_MEDICINES.find(x => x.name.toLowerCase() === String(med.MedicineName||"").toLowerCase());
         if (preset) {
             if (!med.Dosage) med.Dosage = preset.dosage;
             if (!med.Type) med.Type = preset.type;
-            // The default medicines added by the admin module start with stock.
-            // Only repair the zero-quantity values created by the previous seed;
-            // do not overwrite an intentionally edited stock value.
+            // Restore default prices if MRP is still 0
+            const dp = DEFAULT_PRICES[med.MedicineName];
+            if (dp && Number(med.MRP) === 0) {
+                med.CostValue = dp.CostValue;
+                med.MRP = dp.MRP;
+            }
+            // Restore default quantity if everything is still at initial zero seed
             if (med.Quantity === 0 && Number(med.CostValue) === 0 && Number(med.MRP) === 0 && med.Manufacturer === "Not specified") {
                 med.Quantity = 50;
             }
@@ -640,7 +665,10 @@ function login(event){
     document.getElementById("loginError").textContent="";
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("appPage").classList.remove("hidden");
-    document.getElementById("adminIdentity").textContent=user.Name||user.EmailId||user.Username;
+    const displayName = user.Name||user.EmailId||user.Username;
+    document.getElementById("adminIdentity").textContent = displayName;
+    const sidebarName = document.getElementById("adminIdentitySidebar");
+    if (sidebarName) sidebarName.textContent = displayName;
     render();
 }
 function logout() {
@@ -656,7 +684,10 @@ if(localStorage.getItem(LOGIN_KEY)==="true"){
     const admin=data.users.find(u=>roleName(u.RoleId)==="Admin");
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("appPage").classList.remove("hidden");
-    document.getElementById("adminIdentity").textContent=admin?.Name||admin?.EmailId||"Bala Weslin";
+    const displayName = admin?.Name||admin?.EmailId||"Bala Weslin";
+    document.getElementById("adminIdentity").textContent = displayName;
+    const sidebarName = document.getElementById("adminIdentitySidebar");
+    if (sidebarName) sidebarName.textContent = displayName;
     render();
 }
 
