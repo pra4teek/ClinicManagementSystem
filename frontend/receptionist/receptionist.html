@@ -835,17 +835,26 @@
 
         
         <section class="panel" aria-labelledby="patients-title">
-          <div class="panel-heading">
+          <div class="panel-heading" style="flex-wrap:wrap;gap:0.75rem;">
             <div>
               <h2 id="patients-title">Patient registry</h2>
-              <p class="panel-note">All registered patients. Click Book apt to pre-fill the appointment form.</p>
+              <p class="panel-note">Search patients to book an appointment or view details.</p>
             </div>
-            <div class="queue-tools">
+            <div class="queue-tools" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+              <label for="pat-search-filter" class="form-label" style="margin:0;font-size:0.78rem;font-weight:600;white-space:nowrap;">Search by:</label>
+              <select class="form-control" id="pat-search-filter" aria-label="Search by" style="width:auto;min-width:130px;padding:0.4rem 0.65rem;font-size:0.82rem;">
+                <option value="all">Name / ID / Phone</option>
+                <option value="name">Name</option>
+                <option value="id">Patient ID</option>
+                <option value="phone">Phone</option>
+              </select>
               <input class="search-input form-control"
                      id="pat-search"
                      type="search"
-                     placeholder="Search patients"
-                     aria-label="Search patient registry">
+                     placeholder="Search patient..."
+                     aria-label="Search patient registry"
+                     style="width:min(210px,40vw);">
+              <button class="btn btn-primary" id="pat-search-btn" type="button" style="padding:0.42rem 0.85rem;font-size:0.8rem;">Search</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -854,6 +863,7 @@
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
+                  <th>DOB</th>
                   <th>Age / Gender</th>
                   <th>Blood group</th>
                   <th>Phone</th>
@@ -861,7 +871,7 @@
                 </tr>
               </thead>
               <tbody id="pat-body">
-                <tr class="empty-row"><td colspan="6">Loading patients...</td></tr>
+                <tr class="empty-row"><td colspan="7">Enter a patient name, ID, or phone number to search.</td></tr>
               </tbody>
             </table>
           </div>
@@ -884,7 +894,7 @@
             <div class="field form-group">
               <label class="form-label" for="reg-name">Full name</label>
               <input class="form-control" id="reg-name" type="text"
-                placeholder="Joel" autocomplete="name"
+                placeholder="Arjun Ravi" autocomplete="name"
                 minlength="3" maxlength="100" required>
             </div>
             <div class="form-2col">
@@ -1424,20 +1434,21 @@
 
       var tbody = document.getElementById('pat-body');
 
-      if (!filtered.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">' +
-          (q ? 'No patients match your search.' : 'No patients registered yet.') +
-          '</td></tr>';
+      if (!q) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Enter a patient name, ID, or phone number to search.</td></tr>';
+      } else if (!filtered.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No patients found.</td></tr>';
       } else {
         tbody.innerHTML = filtered.map(function(p) {
           return '<tr>' +
             '<td><span class="strong">' + p.patientId + '</span></td>' +
             '<td>' + p.name + '</td>' +
+            '<td>' + (p.dob || '--') + '</td>' +
             '<td>' + (p.dob ? (calculateAge(p.dob) ?? '--') : (p.age != null ? p.age : '--')) + ' / ' + p.gender + '</td>' +
             '<td>' + p.bloodGroup + '</td>' +
             '<td>' + p.phone + '</td>' +
             '<td><button class="row-action" type="button" ' +
-              'onclick="selectPatientForApt(\'' + p.patientId + '\')">Book apt</button></td>' +
+              'onclick="selectPatientForApt(\'' + p.patientId + '\')">Select Patient</button></td>' +
           '</tr>';
         }).join('');
       }

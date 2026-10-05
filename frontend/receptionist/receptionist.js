@@ -3,6 +3,8 @@ const elements = {
   patientBody: document.getElementById("pat-body"),
   appointmentBody: document.getElementById("apt-body"),
   patientSearch: document.getElementById("pat-search"),
+  patientSearchFilter: document.getElementById("pat-search-filter"),
+  patientSearchBtn: document.getElementById("pat-search-btn"),
   appointmentSearch: document.getElementById("apt-search"),
   patientSelect: document.getElementById("apt-patient"),
   statusSelect: document.getElementById("status-apt"),
@@ -152,26 +154,127 @@ function tokenFor(appointment) {
   return appointment.tokenNumber ?? "--";
 }
 
+function formatDob(dob) {
+  if (!dob) return "--";
+  if (typeof dob === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    const parts = dob.split("-").map(Number);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const day = String(parts[2]).padStart(2, "0");
+    const month = months[parts[1] - 1] || "";
+    const year = parts[0];
+    return `${day} ${month} ${year}`;
+  }
+  return String(dob);
+}
+
+function isPatientMatch(patient, query, filterType) {
+  const pid = String(patientId(patient) || "").trim().toLowerCase();
+  const pname = String(patientName(patient) || "").trim().toLowerCase();
+  const rawPhone = String(patient.phone || "").trim().toLowerCase();
+  const pphoneDigits = rawPhone.replace(/\D/g, "");
+  const q = query.toLowerCase();
+  const qDigits = q.replace(/\D/g, "");
+
+  if (filterType === "id") {
+    return pid.includes(q);
+  }
+  if (filterType === "name") {
+    return pname.includes(q);
+  }
+  if (filterType === "phone") {
+    return rawPhone.includes(q) || (qDigits.length > 0 && pphoneDigits.includes(qDigits));
+  }
+  return pid.includes(q) || pname.includes(q) || rawPhone.includes(q) || (qDigits.length > 0 && pphoneDigits.includes(qDigits));
+}
+
+function getMatchScore(patient, query) {
+  const pid = String(patientId(patient) || "").trim().toLowerCase();
+  const pname = String(patientName(patient) || "").trim().toLowerCase();
+  const rawPhone = String(patient.phone || "").trim().toLowerCase();
+  const pphoneDigits = rawPhone.replace(/\D/g, "");
+  const q = query.toLowerCase();
+  const qDigits = q.replace(/\D/g, "");
+
+  if (pid === q) return 1;
+  if (rawPhone === q || (qDigits.length > 0 && pphoneDigits === qDigits)) return 2;
+  if (pname === q) return 3;
+  if (pname.startsWith(q)) return 4;
+  if (pname.includes(q)) return 5;
+  if (rawPhone.includes(q) || (qDigits.length > 0 && pphoneDigits.includes(qDigits))) return 6;
+  if (pid.includes(q)) return 7;
+  return 8;
+}
+
+function populatePatientSelect() {
+  if (!elements.patientSelect) return;
+  const selected = elements.patientSelect.value;
+  elements.patientSelect.innerHTML = `<option value="">Select a patient</option>${state.patients.map(patient => {
+    const age = getPatientAge(patient);
+    const meta = [patientId(patient), age != null ? `${age} yrs` : "", patient.phone].filter(Boolean).join(" · ");
+    return `<option value="${escapeHtml(patientId(patient))}">${escapeHtml(patientName(patient))} (${escapeHtml(meta)})</option>`;
+  }).join("")}`;
+  elements.patientSelect.value = selected;
+  if (elements.patientSelect.value !== selected) {
+    const preview = document.getElementById("patient-preview");
+    if (preview) preview.classList.remove("visible");
+  }
+}
+
 function renderPatients() {
-  const query = elements.patientSearch.value.trim().toLowerCase();
-  const visible = state.patients.filter(patient => [patientName(patient), patientId(patient), patient.phone].join(" ").toLowerCase().includes(query));
-  if (!visible.length) {
-    elements.patientBody.innerHTML = `<tr class="empty-row"><td colspan="6">${state.patients.length ? "No patients match your search." : "No patients registered yet."}</td></tr>`;
-  } else {
-    elements.patientBody.innerHTML = visible.map(patient => `
-      <tr>
-        <td><span class="strong">${escapeHtml(patientId(patient))}</span></td>
-        <td>${escapeHtml(patientName(patient))}</td>
-        <td>${escapeHtml(getPatientAge(patient) ?? "--")} / ${escapeHtml(patient.gender ?? "--")}</td>
+  populatePatientSelect();
+  const searchInput = elements.patientSearch || document.getElementById("pat-search");
+  const filterSelect = document.getElementById("pat-search-filter");
+  const query = searchInput ? searchInput.value.trim() : "";
+  const filterType = filterSelect ? filterSelect.value : "all";
+
+  if (!query) {
+    elements.patientBody.innerHTML = `<tr class="empty-row"><td colspan="7">Enter a patient name, ID, or phone number to search.</td></tr>`;
+    return;
+  }
+
+  const matching = state.patients.filter(patient => isPatientMatch(patient, query, filterType));
+
+  if (!matching.length) {
+    elements.patientBody.innerHTML = `<tr class="empty-row"><td colspan="7">No patients found.</td></tr>`;
+    return;
+  }
+
+  const sorted = matching.sort((a, b) => {
+    const scoreA = getMatchScore(a, query);
+    const scoreB = getMatchScore(b, query);
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    const nameDiff = patientName(a).localeCompare(patientName(b));
+    if (nameDiff !== 0) return nameDiff;
+    return String(patientId(a)).localeCompare(String(patientId(b)));
+  });
+
+  const selectedPatientId = elements.patientSelect ? elements.patientSelect.value : "";
+
+  elements.patientBody.innerHTML = sorted.map(patient => {
+    const pid = patientId(patient);
+    const pname = patientName(patient);
+    const age = getPatientAge(patient);
+    const ageStr = age != null ? `${age} years` : "--";
+    const dobStr = formatDob(patient.dob || patient.DOB);
+    const isSelected = selectedPatientId && String(selectedPatientId) === String(pid);
+
+    return `
+      <tr class="${isSelected ? "patient-selected-row" : ""}" style="${isSelected ? "background:#f0f7ff;" : ""}">
+        <td><span class="strong">${escapeHtml(pid)}</span></td>
+        <td>
+          <span class="strong">${escapeHtml(pname)}</span>
+        </td>
+        <td>${escapeHtml(dobStr)}</td>
+        <td>${escapeHtml(ageStr)} / ${escapeHtml(patient.gender ?? "--")}</td>
         <td>${escapeHtml(patient.bloodGroup ?? "--")}</td>
         <td>${escapeHtml(patient.phone ?? "--")}</td>
-        <td><button class="row-action" type="button" data-book-patient="${escapeHtml(patientId(patient))}">Book apt</button></td>
-      </tr>`).join("");
-  }
-  const selected = elements.patientSelect.value;
-  elements.patientSelect.innerHTML = `<option value="">Select a patient</option>${state.patients.map(patient => `<option value="${escapeHtml(patientId(patient))}">${escapeHtml(patientName(patient))} (${escapeHtml(patientId(patient))})</option>`).join("")}`;
-  elements.patientSelect.value = selected;
-  if (elements.patientSelect.value !== selected) document.getElementById("patient-preview").classList.remove("visible");
+        <td>
+          <button class="row-action" type="button" data-book-patient="${escapeHtml(pid)}" style="${isSelected ? "font-weight:700;color:var(--primary);" : ""}">
+            ${isSelected ? "✓ Selected" : "Select Patient"}
+          </button>
+        </td>
+      </tr>`;
+  }).join("");
 }
 
 function renderAppointments() {
@@ -429,17 +532,38 @@ function bindDashboardEvents() {
     await loadDashboard();
     if (typeof showToast === "function") showToast("Data refreshed.", "success");
   });
-  elements.patientSearch.addEventListener("input", renderPatients);
+  if (elements.patientSearch) {
+    elements.patientSearch.addEventListener("input", renderPatients);
+    elements.patientSearch.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        renderPatients();
+      }
+    });
+  }
+  const searchFilter = document.getElementById("pat-search-filter");
+  if (searchFilter) {
+    searchFilter.addEventListener("change", renderPatients);
+  }
+  const searchBtn = document.getElementById("pat-search-btn");
+  if (searchBtn) {
+    searchBtn.addEventListener("click", renderPatients);
+  }
   elements.appointmentSearch.addEventListener("input", renderAppointments);
   elements.patientForm.addEventListener("submit", registerPatient);
   elements.appointmentForm.addEventListener("submit", bookAppointment);
   elements.statusForm.addEventListener("submit", updateAppointmentStatus);
-  elements.patientSelect.addEventListener("change", updatePatientPreview);
+  elements.patientSelect.addEventListener("change", () => {
+    updatePatientPreview();
+    renderPatients();
+  });
   elements.patientBody.addEventListener("click", event => {
     const button = event.target.closest("[data-book-patient]");
     if (!button) return;
-    elements.patientSelect.value = button.dataset.bookPatient;
+    const selectedId = button.dataset.bookPatient;
+    elements.patientSelect.value = selectedId;
     updatePatientPreview();
+    renderPatients();
     elements.appointmentForm.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   elements.appointmentBody.addEventListener("click", event => {
