@@ -49,6 +49,69 @@ function patientName(patient) {
   return patient.name ?? patient.Name ?? "Unknown patient";
 }
 
+function calculateAge(dob) {
+  if (!dob) return null;
+  let birthYear, birthMonth, birthDay;
+  if (typeof dob === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    const parts = dob.split("-").map(Number);
+    birthYear = parts[0];
+    birthMonth = parts[1] - 1;
+    birthDay = parts[2];
+  } else {
+    const birth = new Date(dob);
+    if (Number.isNaN(birth.getTime())) return null;
+    birthYear = birth.getFullYear();
+    birthMonth = birth.getMonth();
+    birthDay = birth.getDate();
+  }
+  const today = new Date();
+  let age = today.getFullYear() - birthYear;
+  const m = today.getMonth() - birthMonth;
+  if (m < 0 || (m === 0 && today.getDate() < birthDay)) {
+    age--;
+  }
+  return age;
+}
+
+function isFutureDate(dob) {
+  if (!dob) return false;
+  let birthYear, birthMonth, birthDay;
+  if (typeof dob === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    const parts = dob.split("-").map(Number);
+    birthYear = parts[0];
+    birthMonth = parts[1] - 1;
+    birthDay = parts[2];
+  } else {
+    const birth = new Date(dob);
+    if (Number.isNaN(birth.getTime())) return false;
+    birthYear = birth.getFullYear();
+    birthMonth = birth.getMonth();
+    birthDay = birth.getDate();
+  }
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentDay = today.getDate();
+  if (birthYear > currentYear) return true;
+  if (birthYear === currentYear && birthMonth > currentMonth) return true;
+  if (birthYear === currentYear && birthMonth === currentMonth && birthDay > currentDay) return true;
+  return false;
+}
+
+function getPatientAge(patient) {
+  if (!patient) return null;
+  const dob = patient.dob ?? patient.DOB ?? patient.DateOfBirth;
+  if (dob) {
+    const age = calculateAge(dob);
+    if (age !== null && age >= 0) return age;
+  }
+  if (patient.age != null && patient.age !== "") {
+    const parsed = Number(patient.age);
+    return Number.isNaN(parsed) ? patient.age : parsed;
+  }
+  return null;
+}
+
 function appointmentId(appointment) {
   return appointment.appointmentId ?? appointment.AppointmentId ?? appointment.id;
 }
@@ -99,7 +162,7 @@ function renderPatients() {
       <tr>
         <td><span class="strong">${escapeHtml(patientId(patient))}</span></td>
         <td>${escapeHtml(patientName(patient))}</td>
-        <td>${escapeHtml(patient.age ?? "--")} / ${escapeHtml(patient.gender ?? "--")}</td>
+        <td>${escapeHtml(getPatientAge(patient) ?? "--")} / ${escapeHtml(patient.gender ?? "--")}</td>
         <td>${escapeHtml(patient.bloodGroup ?? "--")}</td>
         <td>${escapeHtml(patient.phone ?? "--")}</td>
         <td><button class="row-action" type="button" data-book-patient="${escapeHtml(patientId(patient))}">Book apt</button></td>
@@ -151,7 +214,8 @@ function updatePatientPreview() {
     preview.classList.remove("visible");
     return;
   }
-  document.getElementById("prev-age-gender").textContent = `${patient.age ?? "--"} / ${patient.gender ?? "--"}`;
+  const age = getPatientAge(patient);
+  document.getElementById("prev-age-gender").textContent = `${age ?? "--"} / ${patient.gender ?? "--"}`;
   document.getElementById("prev-blood").textContent = patient.bloodGroup ?? "--";
   document.getElementById("prev-phone").textContent = patient.phone ?? "--";
   document.getElementById("prev-id").textContent = patientId(patient);
@@ -176,7 +240,7 @@ function loadDashboard() {
 function registrationChecks() {
   const name = document.getElementById("reg-name");
   const phone = document.getElementById("reg-phone");
-  const age = document.getElementById("reg-age");
+  const dob = document.getElementById("reg-dob") || document.getElementById("reg-age");
   return [
     () => validateText(name, "Name", 3, 100, /^[A-Za-z ]+$/, "Name must contain only letters and spaces."),
     () => {
@@ -187,9 +251,15 @@ function registrationChecks() {
       return patients.some(patient => String(patient.phone ?? "").trim() === value) ? "A patient with this phone number is already registered." : "";
     },
     () => {
-      const value = age.value.trim();
-      age.value = value;
-      return /^\d{1,3}$/.test(value) && Number(value) >= 0 && Number(value) <= 120 ? "" : "Age must be a whole number between 0 and 120.";
+      if (!dob) return "Date of birth is required.";
+      const value = dob.value.trim();
+      dob.value = value;
+      if (!value) return "Date of birth is required.";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Please enter a valid date of birth.";
+      if (isFutureDate(value)) return "Date of birth cannot be in the future.";
+      const age = calculateAge(value);
+      if (age === null || age < 0 || age > 100) return "Patient age must be between 0 and 100 years.";
+      return "";
     },
     () => document.getElementById("reg-gender").value ? "" : "Gender is required.",
     () => document.getElementById("reg-blood").value ? "" : "Blood group is required."
@@ -207,10 +277,11 @@ async function registerPatient(event) {
     const highestId = patients.reduce((highest, patient) => Math.max(highest, Number(String(patientId(patient)).replace(/\D/g, "")) || 0), 1000);
     const newPatientId = `PAT-${highestId + 1}`;
     if (patients.some(patient => String(patientId(patient)) === newPatientId)) throw new Error("That patient ID already exists. Refresh the dashboard and try again.");
+    const dobInput = document.getElementById("reg-dob") || document.getElementById("reg-age");
     const patient = {
       patientId: newPatientId,
       name: document.getElementById("reg-name").value.trim(),
-      age: Number(document.getElementById("reg-age").value),
+      dob: dobInput ? dobInput.value.trim() : "",
       gender: document.getElementById("reg-gender").value,
       phone: document.getElementById("reg-phone").value.trim(),
       bloodGroup: document.getElementById("reg-blood").value
@@ -644,7 +715,8 @@ function openBillPreview(previewData) {
 
   document.getElementById("invPatId").textContent = previewData.patientId || "--";
   document.getElementById("invPatName").textContent = previewData.patientName || "--";
-  document.getElementById("invPatAgeGender").textContent = [previewData.patientAge ? `${previewData.patientAge} yrs` : "", previewData.patientGender].filter(Boolean).join(" / ") || "--";
+  const patientAgeVal = previewData.patientAge != null && previewData.patientAge !== "" ? `${previewData.patientAge} yrs` : "";
+  document.getElementById("invPatAgeGender").textContent = [patientAgeVal, previewData.patientGender].filter(Boolean).join(" / ") || "--";
   document.getElementById("invPatPhone").textContent = previewData.patientPhone || "--";
 
   document.getElementById("invAptId").textContent = previewData.appointmentId || "--";
@@ -775,7 +847,7 @@ function previewCurrentFinalInvoice() {
     date: todayString(),
     patientId: currentFinalInvoice.patientId,
     patientName: currentFinalInvoice.patientName || (patient ? patientName(patient) : "--"),
-    patientAge: patient?.age,
+    patientAge: getPatientAge(patient),
     patientGender: patient?.gender,
     patientPhone: patient?.phone,
     appointmentId: currentFinalInvoice.consultationId || "--",
@@ -831,7 +903,7 @@ function previewAppointmentBill() {
     date: todayString(),
     patientId: patId,
     patientName: patientName(patient),
-    patientAge: patient.age,
+    patientAge: getPatientAge(patient),
     patientGender: patient.gender,
     patientPhone: patient.phone,
     appointmentId: "Pending Generation",
@@ -895,7 +967,7 @@ function previewTableBill(billId) {
     date: bill.date || todayString(),
     patientId: bill.patientId || (patient ? patientId(patient) : "--"),
     patientName: bill.patientName || (patient ? patientName(patient) : "Patient"),
-    patientAge: patient?.age,
+    patientAge: getPatientAge(patient),
     patientGender: patient?.gender,
     patientPhone: patient?.phone,
     appointmentId: bill.appointmentId || appt?.appointmentId || "--",

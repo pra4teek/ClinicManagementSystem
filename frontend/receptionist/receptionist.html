@@ -889,9 +889,8 @@
             </div>
             <div class="form-2col">
               <div class="field form-group">
-                  <label class="form-label" for="reg-age">Age</label>
-                  <input class="form-control" id="reg-age" type="number"
-                    min="0" max="120" placeholder="" required>
+                <label class="form-label" for="reg-dob">Date of Birth</label>
+                <input class="form-control" id="reg-dob" type="date" required>
               </div>
               <div class="field form-group">
                 <label class="form-label" for="reg-gender">Gender</label>
@@ -1328,6 +1327,30 @@
       return 'APT-' + (Math.max.apply(null, nums) + 1);
     }
 
+    function calculateAge(dob) {
+      if (!dob) return null;
+      var birthYear, birthMonth, birthDay;
+      if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+        var parts = dob.split('-').map(Number);
+        birthYear = parts[0];
+        birthMonth = parts[1] - 1;
+        birthDay = parts[2];
+      } else {
+        var birth = new Date(dob);
+        if (Number.isNaN(birth.getTime())) return null;
+        birthYear = birth.getFullYear();
+        birthMonth = birth.getMonth();
+        birthDay = birth.getDate();
+      }
+      var today = new Date();
+      var age = today.getFullYear() - birthYear;
+      var m = today.getMonth() - birthMonth;
+      if (m < 0 || (m === 0 && today.getDate() < birthDay)) {
+        age--;
+      }
+      return age;
+    }
+
     // ── Status badge helper ──────────────────────────────────────
     function statusBadge(s) {
       var cls = { Scheduled: 'status-scheduled', Completed: 'status-completed', Cancelled: 'status-cancelled' }[s] || '';
@@ -1410,7 +1433,7 @@
           return '<tr>' +
             '<td><span class="strong">' + p.patientId + '</span></td>' +
             '<td>' + p.name + '</td>' +
-            '<td>' + p.age + ' / ' + p.gender + '</td>' +
+            '<td>' + (p.dob ? (calculateAge(p.dob) ?? '--') : (p.age != null ? p.age : '--')) + ' / ' + p.gender + '</td>' +
             '<td>' + p.bloodGroup + '</td>' +
             '<td>' + p.phone + '</td>' +
             '<td><button class="row-action" type="button" ' +
@@ -1468,12 +1491,13 @@
       msg.textContent = '';
 
       var name   = document.getElementById('reg-name').value.trim();
-      var age    = parseInt(document.getElementById('reg-age').value, 10);
+      var dobEl  = document.getElementById('reg-dob') || document.getElementById('reg-age');
+      var dob    = dobEl ? dobEl.value.trim() : '';
       var gender = document.getElementById('reg-gender').value;
       var phone  = document.getElementById('reg-phone').value.trim();
       var blood  = document.getElementById('reg-blood').value;
 
-      if (!name || !age || !gender || !phone || !blood) {
+      if (!name || !dob || !gender || !phone || !blood) {
         msg.textContent = 'Please fill in all required fields.';
         return;
       }
@@ -1483,7 +1507,7 @@
       }
 
       var patients = getStorage(CMS_KEYS.PATIENTS, []);
-      var newPatient = { patientId: nextPatientId(), name: name, age: age, gender: gender, phone: phone, bloodGroup: blood };
+      var newPatient = { patientId: nextPatientId(), name: name, dob: dob, gender: gender, phone: phone, bloodGroup: blood };
       patients.push(newPatient);
       setStorage(CMS_KEYS.PATIENTS, patients);
 
@@ -1503,7 +1527,8 @@
       }
       var preview = document.getElementById('patient-preview');
       if (p) {
-        document.getElementById('prev-age-gender').textContent = p.age + ' / ' + p.gender;
+        var dispAge = p.dob ? (calculateAge(p.dob) ?? '--') : (p.age != null ? p.age : '--');
+        document.getElementById('prev-age-gender').textContent = dispAge + ' / ' + p.gender;
         document.getElementById('prev-blood').textContent = p.bloodGroup;
         document.getElementById('prev-phone').textContent = p.phone;
         document.getElementById('prev-id').textContent = p.patientId;
