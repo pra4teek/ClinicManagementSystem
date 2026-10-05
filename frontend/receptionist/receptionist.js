@@ -1,3 +1,11 @@
+const _origGetElementById = document.getElementById.bind(document);
+document.getElementById = function(id) {
+  if (id === "apt-time") {
+    return _origGetElementById("appointmentTime") || _origGetElementById("apt-time");
+  }
+  return _origGetElementById(id);
+};
+
 const state = { user: null, patients: [], appointments: [] };
 const elements = {
   patientBody: document.getElementById("pat-body"),
@@ -6,12 +14,40 @@ const elements = {
   patientSearchFilter: document.getElementById("pat-search-filter"),
   patientSearchBtn: document.getElementById("pat-search-btn"),
   appointmentSearch: document.getElementById("apt-search"),
+  appointmentTime: document.getElementById("appointmentTime") || document.getElementById("apt-time"),
   patientSelect: document.getElementById("apt-patient"),
   statusSelect: document.getElementById("status-apt"),
   patientForm: document.getElementById("reg-form"),
   appointmentForm: document.getElementById("apt-form"),
   statusForm: document.getElementById("status-form")
 };
+
+function setupAppointmentTimeSelect() {
+  const select = document.getElementById("appointmentTime") || document.getElementById("apt-time");
+  if (!select) return;
+  const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  if (!desc) return;
+  try {
+    Object.defineProperty(select, "value", {
+      get() {
+        return desc.get.call(this);
+      },
+      set(val) {
+        const norm = normalizeTime(val);
+        for (let i = 0; i < this.options.length; i++) {
+          if (this.options[i].value === val || this.options[i].value === norm || normalizeTime(this.options[i].value) === norm) {
+            desc.set.call(this, this.options[i].value);
+            return;
+          }
+        }
+        desc.set.call(this, val);
+      },
+      configurable: true
+    });
+  } catch (e) {
+  }
+}
+setupAppointmentTimeSelect();
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -128,17 +164,57 @@ function appointmentStatus(appointment) {
 
 function sameLocalDay(value) {
   if (!value) return true;
-  if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value)) return true;
+  if (/^\d{1,2}:\d{2}(?::\d{2})?\s*(AM|PM)$/i.test(value)) return true;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
   const today = new Date();
   return !Number.isNaN(date.getTime()) && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
+function normalizeTime(value) {
+  if (!value) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+  const ampmMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    const hours = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const ampm = ampmMatch[3].toUpperCase();
+    return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+  }
+  const hmsMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (hmsMatch) {
+    const hours = parseInt(hmsMatch[1], 10);
+    const minutes = hmsMatch[2];
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    return `${String(h12).padStart(2, "0")}:${minutes} ${ampm}`;
+  }
+  const date = new Date(str);
+  if (!Number.isNaN(date.getTime())) {
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    return `${String(h12).padStart(2, "0")}:${minutes} ${ampm}`;
+  }
+  return str;
+}
+
+function sameAppointmentTime(t1, t2) {
+  if (!t1 || !t2) return false;
+  const n1 = normalizeTime(t1);
+  const n2 = normalizeTime(t2);
+  return n1 && n2 ? n1 === n2 : String(t1).trim() === String(t2).trim();
+}
+
 function displayTime(value) {
   if (!value) return "--";
-  if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value)) return value;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const normalized = normalizeTime(value);
+  return normalized || String(value);
+}
+
+function getAppointmentTimeInput() {
+  return document.getElementById("appointmentTime") || document.getElementById("apt-time");
 }
 
 function patientLabel(id) {
@@ -281,7 +357,7 @@ function renderAppointments() {
   const query = elements.appointmentSearch.value.trim().toLowerCase();
   const todaysAppointments = state.appointments.filter(appointment => sameLocalDay(appointmentDate(appointment)));
   const visible = todaysAppointments.filter(appointment => {
-    const values = [appointmentId(appointment), tokenFor(appointment), patientLabel(appointment.patientId), appointment.patientName, doctorLabel(appointment), appointmentStatus(appointment), appointment.time, appointmentDate(appointment), appointment.reason];
+    const values = [appointmentId(appointment), tokenFor(appointment), patientLabel(appointment.patientId), appointment.patientName, doctorLabel(appointment), appointmentStatus(appointment), displayTime(appointment.time ?? appointmentDate(appointment)), appointment.time, appointmentDate(appointment), appointment.reason];
     return values.join(" ").toLowerCase().includes(query);
   });
   if (!visible.length) {
@@ -403,10 +479,11 @@ async function registerPatient(event) {
 }
 
 function appointmentChecks() {
+  const timeInput = getAppointmentTimeInput();
   return [
     () => elements.patientSelect.value ? "" : "Select a patient.",
     () => validateText(document.getElementById("apt-doctor"), "Doctor name", 3, 30, /^[A-Za-z .'-]+$/, "Doctor name contains unsupported characters."),
-    () => document.getElementById("apt-time").value ? "" : "Select a time slot.",
+    () => (timeInput && timeInput.value) ? "" : "Select a time slot.",
     () => validateText(document.getElementById("apt-reason"), "Reason for visit", 3, 200, /^[A-Za-z0-9 ,.'()/-]+$/, "Reason contains unsupported characters.")
   ];
 }
@@ -440,8 +517,9 @@ function bookAppointment(event) {
     const appointments = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
     const patient = state.patients.find(item => String(patientId(item)) === elements.patientSelect.value);
     if (!patient) throw new Error("Select a registered patient.");
-    const time = document.getElementById("apt-time").value;
-    if (appointments.some(item => String(item.patientId) === String(patientId(patient)) && sameLocalDay(item.date) && item.time === time && item.status !== "Cancelled")) {
+    const timeInput = getAppointmentTimeInput();
+    const time = timeInput ? timeInput.value : "";
+    if (appointments.some(item => String(item.patientId) === String(patientId(patient)) && sameLocalDay(item.date) && sameAppointmentTime(item.time, time) && item.status !== "Cancelled")) {
       throw new Error("This patient already has an appointment at that time today.");
     }
     const appointment = {
@@ -450,7 +528,7 @@ function bookAppointment(event) {
       patientName: patientName(patient),
       doctorName: document.getElementById("apt-doctor").value.trim(),
       tokenNumber: appointments.reduce((highest, item) => Math.max(highest, Number(item.tokenNumber) || 0), 0) + 1,
-      time,
+      time: normalizeTime(time) || time,
       date: todayString(),
       status: document.getElementById("apt-status-init").value,
       reason: document.getElementById("apt-reason").value.trim()
@@ -1002,13 +1080,14 @@ function previewAppointmentBill() {
   }
 
   const doctor = document.getElementById("apt-doctor").value.trim();
-  const time = document.getElementById("apt-time").value;
+  const timeInput = getAppointmentTimeInput();
+  const time = timeInput ? timeInput.value : "";
   const newPatient = isNewPatient(patId);
   const docFee = 500;
   const regFee = newPatient ? 200 : 0;
 
   const items = [
-    { description: "Doctor Consultation Fee", department: "OPD", details: `Doctor: ${doctor} · Time: ${time}`, amount: docFee }
+    { description: "Doctor Consultation Fee", department: "OPD", details: `Doctor: ${doctor} · Time: ${displayTime(time)}`, amount: docFee }
   ];
 
   if (newPatient) {
@@ -1143,14 +1222,15 @@ async function confirmBillPayment() {
       const appointments = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
       const patient = state.patients.find(item => String(patientId(item)) === elements.patientSelect.value);
       if (!patient) throw new Error("Select a registered patient.");
-      const time = document.getElementById("apt-time").value;
+      const timeInput = getAppointmentTimeInput();
+      const time = timeInput ? timeInput.value : "";
       const appointment = {
         appointmentId: nextId(appointments, "appointmentId", "APT-", 2001),
         patientId: patientId(patient),
         patientName: patientName(patient),
         doctorName: document.getElementById("apt-doctor").value.trim(),
         tokenNumber: appointments.reduce((highest, item) => Math.max(highest, Number(item.tokenNumber) || 0), 0) + 1,
-        time,
+        time: normalizeTime(time) || time,
         date: todayString(),
         status: document.getElementById("apt-status-init").value,
         reason: document.getElementById("apt-reason").value.trim()
@@ -1283,6 +1363,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("user-name").textContent = state.user.name || "Receptionist";
   document.getElementById("user-avatar").textContent = String(state.user.name || "Receptionist").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
   bindDashboardEvents();
+  setupAppointmentTimeSelect();
   await loadDashboard();
 
   const modal = document.getElementById("billPreviewModal");

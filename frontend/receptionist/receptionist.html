@@ -985,21 +985,21 @@
 
             <div class="form-2col">
               <div class="field form-group">
-                <label class="form-label" for="apt-time">Time slot</label>
-                <select class="form-control" id="apt-time" required>
+                <label class="form-label" for="appointmentTime">Time</label>
+                <select class="form-control" id="appointmentTime" name="apt-time" required>
                   <option value="">Select time</option>
-                  <option>09:00 AM</option>
-                  <option>09:30 AM</option>
-                  <option>10:00 AM</option>
-                  <option>10:30 AM</option>
-                  <option>11:00 AM</option>
-                  <option>11:30 AM</option>
-                  <option>12:00 PM</option>
-                  <option>02:00 PM</option>
-                  <option>02:30 PM</option>
-                  <option>03:00 PM</option>
-                  <option>03:30 PM</option>
-                  <option>04:00 PM</option>
+                  <option value="09:00 AM">09:00 AM</option>
+                  <option value="09:30 AM">09:30 AM</option>
+                  <option value="10:00 AM">10:00 AM</option>
+                  <option value="10:30 AM">10:30 AM</option>
+                  <option value="11:00 AM">11:00 AM</option>
+                  <option value="11:30 AM">11:30 AM</option>
+                  <option value="12:00 PM">12:00 PM</option>
+                  <option value="02:00 PM">02:00 PM</option>
+                  <option value="02:30 PM">02:30 PM</option>
+                  <option value="03:00 PM">03:00 PM</option>
+                  <option value="03:30 PM">03:30 PM</option>
+                  <option value="04:00 PM">04:00 PM</option>
                 </select>
               </div>
               <div class="field form-group">
@@ -1361,6 +1361,36 @@
       return age;
     }
 
+    function normalizeTime(value) {
+      if (!value) return '';
+      var str = String(value).trim();
+      if (!str) return '';
+      var ampmMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+      if (ampmMatch) {
+        var hours = parseInt(ampmMatch[1], 10);
+        var minutes = ampmMatch[2];
+        var ampm = ampmMatch[3].toUpperCase();
+        return (hours < 10 ? '0' + hours : hours) + ':' + minutes + ' ' + ampm;
+      }
+      var hmsMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (hmsMatch) {
+        var h = parseInt(hmsMatch[1], 10);
+        var m = hmsMatch[2];
+        var ap = h >= 12 ? 'PM' : 'AM';
+        var h12 = h % 12 || 12;
+        return (h12 < 10 ? '0' + h12 : h12) + ':' + m + ' ' + ap;
+      }
+      var date = new Date(str);
+      if (!isNaN(date.getTime())) {
+        var dh = date.getHours();
+        var dm = date.getMinutes();
+        var dap = dh >= 12 ? 'PM' : 'AM';
+        var dh12 = dh % 12 || 12;
+        return (dh12 < 10 ? '0' + dh12 : dh12) + ':' + (dm < 10 ? '0' + dm : dm) + ' ' + dap;
+      }
+      return str;
+    }
+
     // ── Status badge helper ──────────────────────────────────────
     function statusBadge(s) {
       var cls = { Scheduled: 'status-scheduled', Completed: 'status-completed', Cancelled: 'status-cancelled' }[s] || '';
@@ -1393,7 +1423,7 @@
             '<td><span class="strong">' + a.patientName + '</span>' +
               '<span class="subtext">' + a.patientId + '</span></td>' +
             '<td>' + (a.doctorName || '--') + '</td>' +
-            '<td>' + (a.time || '--') + '</td>' +
+            '<td>' + (normalizeTime(a.time) || a.time || '--') + '</td>' +
             '<td style="max-width:180px;white-space:normal">' + (a.reason || '--') + '</td>' +
             '<td>' + statusBadge(a.status) + '</td>' +
             '<td>' +
@@ -1413,7 +1443,7 @@
       statusSelect.innerHTML = '<option value="">Select appointment</option>' +
         apts.map(function(a) {
           return '<option value="' + a.appointmentId + '">' +
-            a.tokenNumber + '. ' + a.patientName + ' \u2013 ' + (a.time || '') +
+            a.tokenNumber + '. ' + a.patientName + ' \u2013 ' + (normalizeTime(a.time) || a.time || '') +
             '</option>';
         }).join('');
       if (prevVal) statusSelect.value = prevVal;
@@ -1558,7 +1588,8 @@
 
       var patientId = document.getElementById('apt-patient').value;
       var doctor    = document.getElementById('apt-doctor').value.trim();
-      var time      = document.getElementById('apt-time').value;
+      var timeEl    = document.getElementById('appointmentTime') || document.getElementById('apt-time');
+      var time      = timeEl ? timeEl.value : '';
       var status    = document.getElementById('apt-status-init').value;
       var reason    = document.getElementById('apt-reason').value.trim();
 
@@ -1578,13 +1609,19 @@
       }
 
       var apts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+      for (var j = 0; j < apts.length; j++) {
+        if (apts[j].patientId === patientId && apts[j].status !== 'Cancelled' && (apts[j].time === time || normalizeTime(apts[j].time) === normalizeTime(time))) {
+          msg.textContent = 'This patient already has an appointment at that time today.';
+          return;
+        }
+      }
       var newApt = {
         appointmentId: nextAptId(),
         patientId: patientId,
         patientName: patient.name,
         doctorName: doctor,
         tokenNumber: nextToken(),
-        time: time,
+        time: normalizeTime(time) || time,
         status: status,
         reason: reason
       };
