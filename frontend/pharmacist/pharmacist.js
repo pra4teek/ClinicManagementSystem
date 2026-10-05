@@ -1066,7 +1066,18 @@ if (typeof module !== "undefined" && module.exports) {
     const names={inventory:"Inventory Management",prescriptions:"Prescriptions",billing:"Pharmacy Billing",reports:"Pharmacy Reports",suppliers:"Suppliers","dispense-log":"Dispense Log","stock-orders":"Stock Orders",returns:"Returns"}; title(names[id]||"Pharmacist Module");
     const renderers={inventory:renderInventory,prescriptions:renderPrescriptions,billing:renderBilling,reports:renderReports,suppliers:renderSuppliers,"dispense-log":renderDispenseLog,"stock-orders":renderOrders,returns:renderReturns};
     if(renderers[id]) renderers[id](); else box.innerHTML='<div class="page-card"><h3>Page not available</h3></div>';
+    // Also update sidebar active state to match programmatic navigation
+    document.querySelectorAll('.nav-link').forEach(el=>{
+      el.classList.toggle('active', el.getAttribute('data-id')===id);
+    });
   }
+  // Expose showPage globally so inline onclick attributes in rendered HTML can call it
+  window._pharmShowPage = function(id){
+    showPage(id);
+  };
+  window.showPage = function(id){
+    showPage(id);
+  };
 
   function pageHead(h,p,action=""){return `<div class="page-heading"><div><h2>${h}</h2><p>${p}</p></div>${action?`<div class="page-actions">${action}</div>`:""}</div>`;}
   function renderInventory(){
@@ -1608,12 +1619,12 @@ if (typeof module !== "undefined" && module.exports) {
         Medicines are automatically populated from the doctor's prescription. Prices are fetched from the Admin medicine catalog.
         To generate a bill, go to <strong>Prescriptions</strong>, find the dispensed prescription, and click <strong>Generate Bill</strong>.
       </p>
-      <button class="btn-primary" onclick="showPage('prescriptions')" style="padding:12px 28px;font-size:15px;">
-        → Go to Prescriptions
+      <button class="btn-primary" id="billing-goto-rx-btn" onclick="window.showPage('prescriptions')" style="padding:12px 28px;font-size:15px;">
+        &#8594; Go to Prescriptions
       </button>
     </div>
     <div class="page-card" style="margin-top:0">
-      <h3 style="margin-bottom:14px;">📋 Bills Sent to Receptionist</h3>
+      <h3 style="margin-bottom:14px;">&#128203; Bills Sent to Receptionist</h3>
       <div class="table-wrap"><table class="data-table">
         <thead><tr><th>Bill ID</th><th>Patient</th><th>Prescription</th><th>Medicines</th><th>Total Amount</th><th>Status</th><th>Date</th></tr></thead>
         <tbody>${pharmacyUI.bills.length ? pharmacyUI.bills.map(x=>`<tr>
@@ -1623,17 +1634,328 @@ if (typeof module !== "undefined" && module.exports) {
           <td style="font-size:12px;max-width:220px;white-space:normal;">${escapeHtml(x.medicine||'—')}</td>
           <td><strong style="color:#4b3fe4;">${money(x.total||x.amount||0)}</strong></td>
           <td><span class="status-badge ${x.status==='Sent'||x.status==='Pending'?'status-info':'status-good'}">${x.status||'Sent'}</span></td>
-          <td>${x.date}</td></tr>`).join('') : '<tr><td colspan="7" class="empty-state">No bills sent yet. Go to Prescriptions to generate bills.</td></tr>'}
+          <td>${x.date}</td></tr>`).join('') : '<tr><td colspan="7" class="empty-state">No bills sent yet. <button class="btn-small" onclick="window.showPage(\'prescriptions\')" style="margin-left:8px;background:#4b3fe4;color:#fff;">Go to Prescriptions &rarr;</button></td></tr>'}
         </tbody>
       </table></div>
     </div>`;
+
+    // Wire up the "Go to Prescriptions" button safely — no inline onclick needed
+    const gotoBtn = document.getElementById('billing-goto-rx-btn');
+    if (gotoBtn) {
+      gotoBtn.addEventListener('click', function() {
+        // Click the sidebar nav link so active state also updates
+        const rxNavBtn = document.querySelector('[data-id="prescriptions"]');
+        if (rxNavBtn) { rxNavBtn.click(); } else { showPage('prescriptions'); }
+      });
+    }
   }
   function renderReports(){const b=document.getElementById("dynamic-page-content"),revenue=pharmacyUI.bills.reduce((a,x)=>a+x.total,0),low=pharmacyUI.inventory.filter(x=>x.quantity<=x.reorderLevel);b.innerHTML=pageHead("Pharmacy Reports","Review revenue and medicines below reorder level.")+`<div class="metric-grid"><div class="metric-card"><span>Total Revenue</span><strong>${money(revenue)}</strong></div><div class="metric-card"><span>Total Bills</span><strong>${pharmacyUI.bills.length}</strong></div><div class="metric-card"><span>Units Dispensed</span><strong>${pharmacyUI.dispenseLog.reduce((a,x)=>a+x.quantity,0)}</strong></div><div class="metric-card"><span>Reorder Alerts</span><strong>${low.length}</strong></div></div><div class="page-card"><h3>Medicines Below Reorder Level</h3><p class="muted">Current quantity is less than or equal to reorder level.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Medicine</th><th>Category</th><th>Current</th><th>Reorder Level</th><th>Action</th></tr></thead><tbody>${low.length?low.map(x=>`<tr><td><strong>${escapeHtml(x.medicine)}</strong></td><td>${escapeHtml(x.category)}</td><td>${x.quantity}</td><td>${x.reorderLevel}</td><td><span class="status-badge status-low">Reorder</span></td></tr>`).join(""):"<tr><td colspan=5 class=empty-state>No reorder alerts.</td></tr>"}</tbody></table></div></div>`;}
   function simpleTable(titleText,subtitle,headers,rows){const b=document.getElementById("dynamic-page-content");b.innerHTML=pageHead(titleText,subtitle)+`<div class="page-card"><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div></div>`;}
   function renderDispenseLog(){simpleTable("Dispense Log","Track completed medicine dispensing transactions.",["ID","Patient","Medicine","Quantity","Date","Pharmacist"],pharmacyUI.dispenseLog.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${x.date}</td><td>${escapeHtml(x.pharmacist)}</td></tr>`).join(""));}
-  function renderOrders(){simpleTable("Stock Orders","Track medicines ordered from suppliers.",["Order ID","Supplier","Medicine","Quantity","Date","Status"],pharmacyUI.stockOrders.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.supplier)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${x.date}</td><td><span class="status-badge ${x.status==="Pending"?"status-low":"status-info"}">${x.status}</span></td></tr>`).join(""));}
   function renderReturns(){simpleTable("Medicine Returns","Review returned or rejected pharmacy items.",["Return ID","Patient","Medicine","Quantity","Reason","Date","Status"],pharmacyUI.returns.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.patient)}</td><td>${escapeHtml(x.medicine)}</td><td>${x.quantity}</td><td>${escapeHtml(x.reason)}</td><td>${x.date}</td><td><span class="status-badge ${x.status==="Pending"?"status-low":"status-good"}">${x.status}</span></td></tr>`).join(""));}
-  function renderSuppliers(){simpleTable("Suppliers","View pharmacy medicine suppliers.",["ID","Supplier","Contact","Email","Catalogue"],pharmacyUI.suppliers.map(x=>`<tr><td>${x.id}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.contact)}</td><td>${escapeHtml(x.email)}</td><td>${x.medicines} medicines</td></tr>`).join(""));}
+
+  /* ========================================================================
+     REORDER WORKFLOW (replaces the old stub renderOrders + renderSuppliers)
+     Storage key: "cms_reorder_requests"   (shared between pharmacist & admin)
+     Each request object:
+     { id, medicineId, medicine, supplier, quantity, note, status,
+       requestedBy, requestedAt,
+       adminAction, adminNote, adminBy, adminAt,
+       receivedQuantity, receivedAt }
+     Status lifecycle: Pending → Approved | Rejected → Received
+     ======================================================================== */
+  const REORDER_KEY = 'cms_reorder_requests';
+
+  function loadReorders() {
+    try { return JSON.parse(localStorage.getItem(REORDER_KEY) || '[]'); } catch(e) { return []; }
+  }
+  function saveReorders(arr) {
+    localStorage.setItem(REORDER_KEY, JSON.stringify(arr));
+  }
+
+  /** Pharmacist: submit a new reorder request */
+  function submitReorderRequest(medicine, supplier, quantity, note) {
+    if (!medicine) { toast('Please select a medicine.'); return false; }
+    if (!quantity || isNaN(+quantity) || +quantity <= 0) { toast('Quantity must be a positive number.'); return false; }
+
+    const existing = loadReorders();
+    const dup = existing.find(r =>
+      r.medicine === medicine && (r.status === 'Pending' || r.status === 'Approved')
+    );
+    if (dup) {
+      toast(`A reorder request for "${medicine}" is already ${dup.status}. Wait for admin action.`);
+      return false;
+    }
+
+    const newReq = {
+      id:          'RO-' + Date.now(),
+      medicine,
+      supplier:    supplier || '(Not specified)',
+      quantity:    +quantity,
+      note:        note || '',
+      status:      'Pending',
+      requestedBy: data.currentUser.name,
+      requestedAt: new Date().toISOString(),
+      adminAction: null, adminNote: '', adminBy: '', adminAt: null,
+      receivedQuantity: null, receivedAt: null
+    };
+
+    existing.unshift(newReq);
+    saveReorders(existing);
+
+    // Audit log entry in shared audit store
+    try {
+      const auditLog = JSON.parse(localStorage.getItem('cms_pharmacy_audit') || '[]');
+      auditLog.unshift({
+        id: 'AL-' + Date.now(), action: 'REORDER_REQUESTED',
+        detail: `${data.currentUser.name} requested reorder of ${medicine} (qty: ${+quantity}) from supplier: ${supplier||'N/A'}`,
+        by: data.currentUser.name, at: new Date().toISOString()
+      });
+      localStorage.setItem('cms_pharmacy_audit', JSON.stringify(auditLog));
+    } catch(e) {}
+
+    toast(`Reorder request for "${medicine}" submitted to Admin.`);
+    return true;
+  }
+
+  /** Pharmacist: mark an approved request as Received and update stock */
+  function markReorderReceived(reqId, receivedQty) {
+    if (!receivedQty || isNaN(+receivedQty) || +receivedQty <= 0) {
+      toast('Enter a valid received quantity (positive number).');
+      return false;
+    }
+    const all = loadReorders();
+    const idx = all.findIndex(r => r.id === reqId);
+    if (idx < 0) { toast('Request not found.'); return false; }
+    const req = all[idx];
+    if (req.status !== 'Approved') {
+      toast('Only Admin-approved requests can be marked as received.');
+      return false;
+    }
+
+    req.status           = 'Received';
+    req.receivedQuantity = +receivedQty;
+    req.receivedAt       = new Date().toISOString();
+    saveReorders(all);
+
+    // Auto-update pharmacist local inventory stock
+    const invItem = pharmacyUI.inventory.find(m =>
+      (m.medicine || '').toLowerCase().includes((req.medicine || '').toLowerCase())
+    );
+    if (invItem) {
+      invItem.quantity += +receivedQty;
+      savePUI();
+      syncPharmacyWithAdminStock();
+    }
+
+    // Audit log
+    try {
+      const auditLog = JSON.parse(localStorage.getItem('cms_pharmacy_audit') || '[]');
+      auditLog.unshift({
+        id: 'AL-' + Date.now(), action: 'STOCK_RECEIVED',
+        detail: `${data.currentUser.name} received ${+receivedQty} units of "${req.medicine}" (Request ${reqId})`,
+        by: data.currentUser.name, at: new Date().toISOString()
+      });
+      localStorage.setItem('cms_pharmacy_audit', JSON.stringify(auditLog));
+    } catch(e) {}
+
+    toast(`Stock updated: +${receivedQty} units of "${req.medicine}" added to inventory.`);
+    return true;
+  }
+
+  /** Render the Stock Orders page — full reorder workflow for pharmacist */
+  function renderOrders() {
+    const b = document.getElementById('dynamic-page-content');
+    const all = loadReorders();
+    const lowStock = pharmacyUI.inventory.filter(x => x.quantity <= x.reorderLevel);
+
+    const statusBadgeClass = s => ({
+      'Pending':  'status-low',
+      'Approved': 'status-good',
+      'Rejected': 'status-out',
+      'Received': 'status-info'
+    }[s] || 'status-info');
+
+    const tableRows = all.length
+      ? all.map(r => {
+          const canReceive = r.status === 'Approved';
+          const actionCell = canReceive
+            ? `<button class="btn-small" style="background:#4b3fe4;color:#fff;" data-receive="${r.id}">Mark Received</button>`
+            : `<span class="muted" style="font-size:12px;">${r.status === 'Received' ? `&#10003; Received (${r.receivedQuantity} units)` : r.status === 'Rejected' ? `&#10007; Rejected` : 'Awaiting admin'}</span>`;
+          const adminNote = r.adminNote ? `<div class="muted" style="font-size:11px;margin-top:3px;">Admin note: ${escapeHtml(r.adminNote)}</div>` : '';
+          return `<tr>
+            <td><strong>${escapeHtml(r.id)}</strong></td>
+            <td><strong>${escapeHtml(r.medicine)}</strong></td>
+            <td>${escapeHtml(r.supplier)}</td>
+            <td>${r.quantity}</td>
+            <td>${escapeHtml(r.requestedBy)}</td>
+            <td>${new Date(r.requestedAt).toLocaleDateString('en-IN')}</td>
+            <td><span class="status-badge ${statusBadgeClass(r.status)}">${r.status}</span>${adminNote}</td>
+            <td>${actionCell}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="8" class="empty-state">No reorder requests yet. Use the form below to request a restock.</td></tr>';
+
+    const lowStockOptions = lowStock.length
+      ? lowStock.map(x => `<option value="${escapeHtml(x.medicine)}">${escapeHtml(x.medicine)} (Stock: ${x.quantity} / Reorder: ${x.reorderLevel})</option>`).join('')
+      : pharmacyUI.inventory.map(x => `<option value="${escapeHtml(x.medicine)}">${escapeHtml(x.medicine)}</option>`).join('');
+
+    const supplierOptions = pharmacyUI.suppliers.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+
+    b.innerHTML = pageHead(
+      'Stock Orders &amp; Reorder Requests',
+      'Request medicine restocks from suppliers. All requests need Admin approval before stock is updated.',
+      `<span class="status-badge status-low" style="font-size:13px;padding:8px 14px;">${lowStock.length} Low/Out of Stock</span>`
+    ) + `
+
+    <!-- Low stock alert banner -->
+    ${lowStock.length > 0 ? `
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:14px 18px;margin-bottom:18px;">
+      <strong style="color:#795548;">&#9888; ${lowStock.length} medicine(s) need restocking:</strong>
+      <span style="color:#795548;font-size:13px;margin-left:8px;">${lowStock.map(x=>`${escapeHtml(x.medicine)} (${x.quantity} left)`).join(' &bull; ')}</span>
+    </div>` : ''}
+
+    <!-- NEW REQUEST FORM -->
+    <div class="page-card" style="margin-bottom:20px;">
+      <h3 style="margin-bottom:4px;">&#43; Request Reorder from Supplier</h3>
+      <p class="muted" style="margin-bottom:18px;">Submit a restock request. Admin must approve before stock is updated.</p>
+      <form id="reorder-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Medicine *</label>
+            <select id="ro-medicine" required>
+              <option value="">Select medicine...</option>
+              ${lowStockOptions}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Preferred Supplier</label>
+            <select id="ro-supplier">
+              <option value="">Select supplier (optional)...</option>
+              ${supplierOptions}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity to Order *</label>
+            <input id="ro-qty" type="number" min="1" placeholder="e.g. 100" required>
+          </div>
+          <div class="form-group">
+            <label>Note for Admin</label>
+            <input id="ro-note" type="text" placeholder="e.g. Urgent — running low before weekend">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="reset" class="btn-secondary">Clear</button>
+          <button type="submit" class="btn-primary" style="background:linear-gradient(135deg,#4b3fe4,#0d9488);">&#128229; Submit Reorder Request to Admin</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- REQUESTS TABLE -->
+    <div class="page-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0 0 4px;">&#128203; All Reorder Requests</h3>
+          <p class="muted">Pending = waiting for admin · Approved = ready to receive · Received = stock updated</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Request ID</th><th>Medicine</th><th>Supplier</th><th>Qty Ordered</th>
+            <th>Requested By</th><th>Date</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody id="reorder-table-body">${tableRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+    // Form submit
+    document.getElementById('reorder-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const medicine  = document.getElementById('ro-medicine').value.trim();
+      const supplier  = document.getElementById('ro-supplier').value.trim();
+      const qty       = document.getElementById('ro-qty').value.trim();
+      const note      = document.getElementById('ro-note').value.trim();
+      if (submitReorderRequest(medicine, supplier, qty, note)) {
+        renderOrders(); // re-render to show the new request
+      }
+    });
+
+    // "Mark Received" buttons
+    document.querySelectorAll('[data-receive]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const reqId = this.dataset.receive;
+        const qtyStr = prompt('Enter the actual quantity received from supplier:');
+        if (qtyStr === null) return; // user cancelled
+        if (markReorderReceived(reqId, qtyStr)) {
+          renderOrders();
+        }
+      });
+    });
+  }
+
+  /** Render Suppliers page — view suppliers + manage reorder from here too */
+  function renderSuppliers() {
+    const b = document.getElementById('dynamic-page-content');
+    const all = loadReorders();
+
+    // Per-supplier order summary
+    const bySupplier = {};
+    all.forEach(r => {
+      const key = r.supplier;
+      if (!bySupplier[key]) bySupplier[key] = { pending: 0, total: 0, lastOrder: '' };
+      bySupplier[key].total++;
+      if (r.status === 'Pending') bySupplier[key].pending++;
+      if (!bySupplier[key].lastOrder || r.requestedAt > bySupplier[key].lastOrder) {
+        bySupplier[key].lastOrder = r.requestedAt;
+      }
+    });
+
+    const supplierRows = pharmacyUI.suppliers.map(s => {
+      const stats = bySupplier[s.name] || { pending: 0, total: 0, lastOrder: '' };
+      return `<tr>
+        <td>${escapeHtml(s.id)}</td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td>${escapeHtml(s.contact)}</td>
+        <td>${escapeHtml(s.email)}</td>
+        <td>${s.medicines} medicines</td>
+        <td>${stats.total} orders${stats.pending > 0 ? ` <span class="status-badge status-low">${stats.pending} pending</span>` : ''}</td>
+        <td>${stats.lastOrder ? new Date(stats.lastOrder).toLocaleDateString('en-IN') : '—'}</td>
+        <td><button class="btn-small" data-reorder-from="${escapeHtml(s.name)}" style="background:#4b3fe4;color:#fff;">+ Reorder</button></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" class="empty-state">No suppliers configured.</td></tr>';
+
+    b.innerHTML = pageHead('Suppliers', 'Manage medicine suppliers and initiate reorder requests.') + `
+    <div class="page-card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>ID</th><th>Supplier Name</th><th>Contact</th><th>Email</th>
+            <th>Medicines</th><th>Orders Placed</th><th>Last Order</th><th>Action</th>
+          </tr></thead>
+          <tbody>${supplierRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+    // Quick-jump to Stock Orders with supplier pre-selected
+    document.querySelectorAll('[data-reorder-from]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const supplierName = this.dataset.reorderFrom;
+        const soBtn = document.querySelector('[data-id="stock-orders"]');
+        if (soBtn) soBtn.click(); else showPage('stock-orders');
+        // Pre-select supplier after re-render
+        setTimeout(() => {
+          const sel = document.getElementById('ro-supplier');
+          if (sel) {
+            const opt = Array.from(sel.options).find(o => o.value === supplierName);
+            if (opt) { sel.value = supplierName; }
+          }
+        }, 100);
+      });
+    });
+  }
 
 
   /* ------------------------------------------------------------------------

@@ -80,7 +80,8 @@ const sectionInfo = {
     doctors:["Doctors","Manage doctors linked to clinic users"],
     "lab-tests":["Lab Tests","Manage laboratory test catalog"],
     medicines:["Medicines","Manage medicine inventory"],
-    "audit-logs":["Audit Logs","Review administrative system activity"]
+    "audit-logs":["Audit Logs","Review administrative system activity"],
+    "reorder-requests":["Reorder Requests","Approve or reject pharmacist stock reorder requests"]
 };
 
 let data = loadData();
@@ -280,13 +281,29 @@ function render(){
     const pages={
         dashboard:dashboardHTML,users:usersHTML,roles:rolesHTML,departments:departmentsHTML,
         staff:staffHTML,doctors:doctorsHTML,"lab-tests":labTestsHTML,medicines:medicinesHTML,
-        "audit-logs":auditLogsHTML
+        "audit-logs":auditLogsHTML,"reorder-requests":reorderRequestsHTML
     };
     content.innerHTML=pages[currentSection]();
+
+    // Show pending reorder badge on nav button
+    const pendingCount = loadAdminReorders().filter(r=>r.status==='Pending').length;
+    const reorderNavBtn = document.querySelector('[data-section="reorder-requests"]');
+    if (reorderNavBtn) {
+        const existing = reorderNavBtn.querySelector('.reorder-badge');
+        if (existing) existing.remove();
+        if (pendingCount > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'reorder-badge';
+            badge.style.cssText = 'background:#e53935;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:1px 6px;margin-left:6px;vertical-align:middle;';
+            badge.textContent = pendingCount;
+            reorderNavBtn.appendChild(badge);
+        }
+    }
 }
 
 function dashboardHTML(){
     const lowStock=data.medicines.filter(m=>Number(m.Quantity)<=10).length;
+    const pendingReorders = loadAdminReorders().filter(r=>r.status==='Pending').length;
     return `
       <div class="stat-grid">
         ${stat("Total Users",data.users.length)}
@@ -298,6 +315,11 @@ function dashboardHTML(){
         ${stat("Low Stock",lowStock)}
         ${stat("Audit Activities",data.auditLogs.length)}
       </div>
+      ${pendingReorders > 0 ? `
+      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:#795548;font-weight:600;">&#9888; ${pendingReorders} pharmacist reorder request${pendingReorders>1?'s':''} awaiting your approval.</span>
+        <button class="btn small" onclick="currentSection='reorder-requests';render()" style="background:#4b3fe4;color:#fff;">Review Now &rarr;</button>
+      </div>` : ''}
       <div class="dashboard-grid">
         <div class="panel">
           <div class="panel-header"><h2>Doctors</h2><button class="btn small secondary" onclick="currentSection='doctors';render()">View All</button></div>
@@ -675,6 +697,176 @@ function logout() {
     localStorage.removeItem(LOGIN_KEY);
     window.location.href = "../index.html";
 }
+// Reorder Requests Workflow for Admin Monitoring
+const REORDER_KEY = 'cms_reorder_requests';
+
+function loadAdminReorders() {
+    try {
+        return JSON.parse(localStorage.getItem(REORDER_KEY) || '[]');
+    } catch(e) {
+        return [];
+    }
+}
+
+function saveAdminReorders(arr) {
+    try {
+        localStorage.setItem(REORDER_KEY, JSON.stringify(arr));
+        window.dispatchEvent(new Event('cms_stock_updated'));
+    } catch(e) {}
+}
+
+let adminReorderFilter = 'All';
+
+function setReorderFilter(filter) {
+    adminReorderFilter = filter;
+    render();
+}
+
+function approveReorderRequest(reqId) {
+    const requests = loadAdminReorders();
+    const req = requests.find(r => r.id === reqId);
+    if (!req) { showToast("Reorder request not found."); return; }
+
+    const adminNote = prompt(`Approve reorder for "${req.medicine}" (${req.quantity} units)? Enter optional admin note:`, "Approved by Admin - Restock authorized");
+    if (adminNote === null) return; // user cancelled
+
+    req.status = 'Approved';
+    req.adminAction = 'Approved';
+    req.adminNote = adminNote || 'Approved by Admin';
+    req.adminBy = (data.users.find(u => roleName(u.RoleId) === "Admin")?.Name) || 'Bala Weslin';
+    req.adminAt = new Date().toISOString();
+
+    saveAdminReorders(requests);
+
+    // Automatically update or add medicine quantity in Admin medicine catalog
+    let med = data.medicines.find(m =>
+        String(m.MedicineName || '').toLowerCase().trim() === String(req.medicine || '').toLowerCase().trim()
+    );
+
+    if (med) {
+        med.Quantity = (Number(med.Quantity) || 0) + Number(req.quantity);
+    } else {
+        const newMedId = nextId('medicines', 'MedicineId');
+        med = {
+            MedicineId: newMedId,
+            MedicineName: req.medicine,
+            Category: 'General',
+            Type: 'Tablet',
+            Dosage: '500mg',
+            Manufacturer: req.supplier || 'Supplier',
+            GenericName: req.medicine,
+            CostValue: 10,
+            MRP: 15,
+            Quantity: Number(req.quantity)
+        };
+        data.medicines.push(med);
+    }
+
+    saveData();
+    addAudit("UPDATE", "Admin", req.id, `Approved reorder request for "${req.medicine}" (${req.quantity} units). Stock updated to ${med.Quantity}.`);
+    showToast(`Reorder request approved! Added ${req.quantity} units to "${req.medicine}" inventory.`);
+    render();
+}
+
+function rejectReorderRequest(reqId) {
+    const requests = loadAdminReorders();
+    const req = requests.find(r => r.id === reqId);
+    if (!req) { showToast("Reorder request not found."); return; }
+
+    const adminNote = prompt(`Reject reorder for "${req.medicine}"? Enter reason for rejection:`, "Out of stock with supplier / Not approved");
+    if (adminNote === null) return; // user cancelled
+
+    req.status = 'Rejected';
+    req.adminAction = 'Rejected';
+    req.adminNote = adminNote || 'Rejected by Admin';
+    req.adminBy = (data.users.find(u => roleName(u.RoleId) === "Admin")?.Name) || 'Bala Weslin';
+    req.adminAt = new Date().toISOString();
+
+    saveAdminReorders(requests);
+    addAudit("UPDATE", "Admin", req.id, `Rejected reorder request for "${req.medicine}". Reason: ${req.adminNote}`);
+    showToast(`Reorder request for "${req.medicine}" rejected.`);
+    render();
+}
+
+function reorderRequestsHTML() {
+    const all = loadAdminReorders();
+    const pending = all.filter(r => r.status === 'Pending').length;
+    const approved = all.filter(r => r.status === 'Approved').length;
+    const rejected = all.filter(r => r.status === 'Rejected').length;
+    const received = all.filter(r => r.status === 'Received').length;
+
+    let filtered = all;
+    if (adminReorderFilter !== 'All') {
+        filtered = all.filter(r => r.status === adminReorderFilter);
+    }
+
+    const badgeClass = s => ({
+        'Pending':  'badge low',
+        'Approved': 'badge stock-ok',
+        'Rejected': 'badge out',
+        'Received': 'badge active'
+    }[s] || 'badge active');
+
+    const rows = filtered.length ? filtered.map(r => {
+        const dateStr = r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        const isPending = r.status === 'Pending';
+        const actions = isPending ? `
+            <button class="btn small success" onclick="approveReorderRequest('${r.id}')">&#10003; Approve &amp; Restock</button>
+            <button class="btn small danger" onclick="rejectReorderRequest('${r.id}')">&#10007; Reject</button>
+        ` : `<span class="text-muted text-xs">${r.adminNote ? esc(r.adminNote) : esc(r.status)}</span>`;
+
+        return `<tr>
+            <td><strong>${esc(r.id)}</strong></td>
+            <td><strong>${esc(r.medicine)}</strong></td>
+            <td>${esc(r.supplier || 'N/A')}</td>
+            <td><strong>${r.quantity}</strong></td>
+            <td>${esc(r.requestedBy || 'Pharmacist')}</td>
+            <td>${dateStr}</td>
+            <td><span class="${badgeClass(r.status)}">${esc(r.status)}</span></td>
+            <td>${actions}</td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="8" class="empty">No ${adminReorderFilter === 'All' ? '' : adminReorderFilter.toLowerCase()} reorder requests found.</td></tr>`;
+
+    return `
+        <div class="stat-grid">
+            <div class="stat-card"><div><div class="label">Total Reorder Requests</div><div class="value">${all.length}</div></div></div>
+            <div class="stat-card"><div><div class="label">Pending Approval</div><div class="value" style="color:#d97706;">${pending}</div></div></div>
+            <div class="stat-card"><div><div class="label">Approved</div><div class="value" style="color:#059669;">${approved}</div></div></div>
+            <div class="stat-card"><div><div class="label">Received &amp; Stocked</div><div class="value" style="color:#0057b8;">${received}</div></div></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Pharmacist Stock Reorder Requests</h2>
+                <div class="toolbar">
+                    <button class="btn small ${adminReorderFilter==='All'?'primary':'secondary'}" onclick="setReorderFilter('All')">All (${all.length})</button>
+                    <button class="btn small ${adminReorderFilter==='Pending'?'primary':'secondary'}" onclick="setReorderFilter('Pending')">Pending (${pending})</button>
+                    <button class="btn small ${adminReorderFilter==='Approved'?'primary':'secondary'}" onclick="setReorderFilter('Approved')">Approved (${approved})</button>
+                    <button class="btn small ${adminReorderFilter==='Received'?'primary':'secondary'}" onclick="setReorderFilter('Received')">Received (${received})</button>
+                    <button class="btn small ${adminReorderFilter==='Rejected'?'primary':'secondary'}" onclick="setReorderFilter('Rejected')">Rejected (${rejected})</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Req ID</th>
+                            <th>Medicine</th>
+                            <th>Supplier</th>
+                            <th>Qty Requested</th>
+                            <th>Requested By</th>
+                            <th>Requested Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
 document.getElementById("loginForm").addEventListener("submit",login);
 document.getElementById("logoutBtn").addEventListener("click",logout);
 document.getElementById("closeModal").addEventListener("click",closeModal);
@@ -691,9 +883,9 @@ if(localStorage.getItem(LOGIN_KEY)==="true"){
     render();
 }
 
-// Cross-tab synchronization: refresh Admin tables if Pharmacist dispenses medicines
+// Cross-tab synchronization: refresh Admin tables if Pharmacist dispenses medicines or submits reorders
 window.addEventListener('storage', function(e) {
-    if (e.key === 'carepointClinicAdminDataV2' || e.key === 'cms_medicines') {
+    if (e.key === 'carepointClinicAdminDataV2' || e.key === 'cms_medicines' || e.key === 'cms_reorder_requests') {
         data = loadData();
         render();
     }
