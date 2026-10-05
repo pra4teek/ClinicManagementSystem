@@ -1,4 +1,6 @@
- 
+/* ========================================================
+   CAREPOINT CLINIC MANAGEMENT SYSTEM - SHARED DATA & LOCALSTORAGE
+   ======================================================== */
 const CMS_KEYS = {
   USERS: 'cms_users',
   CURRENT_USER: 'cms_current_user',
@@ -13,7 +15,7 @@ const CMS_KEYS = {
 };
 
 const DEFAULT_USERS = [
-  { username: 'doctor', password: '123', role: 'Doctor', name: 'Dr. Prateek Pradeep' },
+  { username: 'prateek', password: 'prateek123', role: 'Doctor', name: 'Dr. Prateek Pradeep' },
   { username: 'reception', password: '123', role: 'Receptionist', name: 'Joel Jain' },
   { username: 'pharma', password: '123', role: 'Pharmacist', name: 'Adarsh Chandran' },
   { username: 'labtech', password: '123', role: 'Lab Technician', name: 'Malathi Sreekumar' },
