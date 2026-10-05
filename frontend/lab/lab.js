@@ -4,6 +4,7 @@ let orders=[];
 let reports=[];
 let bills=[];
 let testMaster=[];
+let selectedReportId=null;
 
 const defaultTestMaster=[
     {testId:"LT001",testName:"Blood Count",sampleType:"Blood",normalValue:"4.5-5.5 million/µL",charge:300},
@@ -1059,11 +1060,34 @@ function renderReports(){
         return;
     }
 
+    const searchInput=document.getElementById("reportSearch");
+    const searchTerm=searchInput
+        ?searchInput.value.trim().toLowerCase()
+        :"";
     const sortedReports = [...reports].sort((a, b) => {
         const timeA = Number(a.completedAt || a.reportId) || 0;
         const timeB = Number(b.completedAt || b.reportId) || 0;
         return timeB - timeA;
+    }).filter(report=>{
+        const matchesSelectedReport=selectedReportId===null||
+            String(report.testId)===String(selectedReportId);
+        const patientName=String(report.patientName||"").toLowerCase();
+        const patientId=String(report.patientId||"").toLowerCase();
+        const matchesSearch=!searchTerm||
+            patientName.includes(searchTerm)||
+            patientId.includes(searchTerm);
+
+        return matchesSelectedReport&&matchesSearch;
     });
+
+    if(sortedReports.length===0){
+        container.innerHTML=
+            `<p>${searchTerm
+                ?"No reports match that patient name or ID."
+                :"No report available."
+            }</p>`;
+        return;
+    }
 
     container.innerHTML=
         sortedReports.map(report=>`
@@ -1093,6 +1117,16 @@ function renderReports(){
 
                     <strong>Time:</strong>
                     ${escapeHtml(report.time)}
+
+                    ${selectedReportId!==null?`
+                        <br>
+                        <button
+                            class="btn btn-outline btn-sm"
+                            type="button"
+                            onclick="showSection('reports')">
+                            All Reports
+                        </button>
+                    `:""}
 
                 </div>
 
@@ -1200,6 +1234,11 @@ function renderReports(){
     `).join("");
 }
 
+function filterReports(){
+    selectedReportId=null;
+    renderReports();
+}
+
 function viewReport(testId){
 
     const report=reports.find(
@@ -1211,27 +1250,16 @@ function viewReport(testId){
         return;
     }
 
-    showSection("reports");
+    const searchInput=document.getElementById("reportSearch");
+    if(searchInput){
+        searchInput.value="";
+    }
 
-    setTimeout(()=>{
-
-        const reportCards=
-            document.querySelectorAll(
-                "#reportsContainer .card"
-            );
-
-        const index=reports.findIndex(
-            item=>String(item.testId)===String(testId)
-        );
-
-        if(reportCards[index]){
-            reportCards[index].scrollIntoView({
-                behavior:"smooth",
-                block:"start"
-            });
-        }
-
-    },100);
+    showSection("reports",report.testId);
+    document.getElementById("reportsSection").scrollIntoView({
+        behavior:"smooth",
+        block:"start"
+    });
 }
 
 function loadBillingTests(selectedTestId=null){
@@ -1621,6 +1649,10 @@ function showSection(
         renderQueues();
 
     }else if(section==="reports"){
+
+        selectedReportId=selectedTestId===null
+            ?null
+            :String(selectedTestId);
 
         reportsSection.style.display="block";
 
