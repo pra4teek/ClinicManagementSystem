@@ -247,6 +247,15 @@ function todayString() {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
+function isNewPatient(patId) {
+  if (!patId) return false;
+  const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+  const bills = getStorage(CMS_KEYS.BILLS, []);
+  const existingAppts = appts.filter(a => String(a.patientId) === String(patId) && a.status !== "Cancelled");
+  const existingBills = bills.filter(b => String(b.patientId) === String(patId));
+  return existingAppts.length === 0 && existingBills.length === 0;
+}
+
 function bookAppointment(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -274,12 +283,22 @@ function bookAppointment(event) {
     };
     appointments.push(appointment);
     if (!setStorage(CMS_KEYS.APPOINTMENTS, appointments)) throw new Error("Appointment could not be saved in this browser.");
+
+    const newPat = isNewPatient(patientId(patient));
+    const regFee = newPat ? 200 : 0;
+    const docFee = 500;
+    const totalAmount = docFee + regFee;
     const bill = {
       id: Date.now().toString(),
+      billId: `BILL-${Date.now()}`,
+      patientId: patientId(patient),
       patientName: appointment.patientName,
+      appointmentId: appointment.appointmentId,
       date: todayString(),
-      source: "Registration & Consultation",
-      amount: 700,
+      source: newPat ? "Registration & Consultation" : "Doctor Consultation",
+      regFee: regFee,
+      docFee: docFee,
+      amount: totalAmount,
       status: "Pending"
     };
     const bills = JSON.parse(localStorage.getItem(CMS_KEYS.BILLS)) || [];
@@ -409,8 +428,8 @@ function renderBillingTable() {
     const patientVal = bill.patientName || bill.patient || (bill.patientId ? patientLabel(bill.patientId) : "Unknown");
     const sourceVal = bill.source || bill.department || bill.service || "Consultation";
     const actionHtml = isPaid
-      ? '<span class="subtext">Paid</span>'
-      : `<button class="row-action" type="button" onclick="markAsPaid('${escapeHtml(billId)}')">Mark as Paid</button>`;
+      ? `<button class="row-action" type="button" onclick="previewTableBill('${escapeHtml(billId)}')">View Invoice</button>`
+      : `<button class="row-action" type="button" onclick="previewTableBill('${escapeHtml(billId)}')">Preview Bill</button>`;
     return `<tr>
       <td>${escapeHtml(dateVal)}</td>
       <td><span class="strong">${escapeHtml(patientVal)}</span></td>
@@ -437,26 +456,27 @@ function markAsPaid(billId) {
 
 /* ── Receptionist: Consolidated Final Billing (Pharmacy → Receptionist) ─── */
 
-/** In-memory state for the invoice currently being processed */
 let currentFinalInvoice = {
   patientId: null,
+  patientName: null,
   consultationId: null,
-  doctorFee: 500,   // Default OPD fee; override per real consultation when API is live
+  doctorFee: 500,
+  regFee: 0,
   pharmacyBill: null,
-  grandTotal: 0
+  grandTotal: 0,
+  appointment: null
 };
 
-/**
- * Searches localStorage for a pending pharmacy bill matching the given
- * Patient ID or Prescription/Consultation ID.
- */
 async function fetchPatientPendingBills() {
   const query = (document.getElementById("billingSearchPatient")?.value || "").trim();
-  if (!query) { alert("Please enter a Patient ID or Prescription ID."); return; }
+  if (!query) {
+    if (typeof showToast === "function") showToast("Please enter a Patient ID, Appointment ID, or Prescription ID.", "warning");
+    else alert("Please enter a Patient ID, Appointment ID, or Prescription ID.");
+    return;
+  }
 
   let pharmacyBill = null;
 
-  // 1. Try backend API (production)
   try {
     const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
     const res = await fetch(`/api/receptionist/bills/pending/?search=${encodeURIComponent(query)}`, {
@@ -468,126 +488,585 @@ async function fetchPatientPendingBills() {
         ? data.find(b => b.status === "PENDING_RECEPTIONIST_PAYMENT")
         : null;
     }
-  } catch (_) { /* fall through */ }
+  } catch (_) { }
 
-  // 2. Fallback to shared localStorage (offline / prototype mode)
   if (!pharmacyBill) {
     const stored = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
     pharmacyBill = stored.find(b =>
       b.status === "PENDING_RECEPTIONIST_PAYMENT" &&
-      (String(b.patientId) === query ||
-       String(b.consultationId) === query ||
-       String(b.prescriptionId) === query)
+      (String(b.patientId).toLowerCase() === query.toLowerCase() ||
+       String(b.consultationId).toLowerCase() === query.toLowerCase() ||
+       String(b.prescriptionId).toLowerCase() === query.toLowerCase() ||
+       String(b.id).toLowerCase() === query.toLowerCase())
     );
   }
 
-  if (!pharmacyBill) {
-    alert("No pending pharmacy bill found for this Patient / Prescription ID.");
+  if (pharmacyBill) {
+    renderFinalInvoice(pharmacyBill);
     return;
   }
 
-  renderFinalInvoice(pharmacyBill);
+  const patients = getStorage(CMS_KEYS.PATIENTS, DEFAULT_PATIENTS);
+  const appointments = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
+  const patient = patients.find(p =>
+    String(patientId(p)).toLowerCase() === query.toLowerCase() ||
+    String(p.name || "").toLowerCase() === query.toLowerCase() ||
+    String(p.phone || "") === query
+  );
+
+  let appt = null;
+  if (patient) {
+    appt = appointments.find(a => String(a.patientId) === String(patientId(patient)) && sameLocalDay(a.date));
+  } else {
+    appt = appointments.find(a => String(a.appointmentId || "").toLowerCase() === query.toLowerCase());
+  }
+
+  const resolvedPatient = patient || (appt ? patients.find(p => String(patientId(p)) === String(appt.patientId)) : null);
+
+  if (!resolvedPatient && !appt) {
+    if (typeof showToast === "function") showToast("No patient or pending bill found for this ID.", "warning");
+    else alert("No patient or pending bill found for this ID.");
+    return;
+  }
+
+  renderFinalInvoice(null, resolvedPatient, appt);
 }
 
-/**
- * Builds the consolidated invoice card: Doctor fee + Pharmacy bill.
- */
-function renderFinalInvoice(pharmacyBill) {
-  currentFinalInvoice.patientId      = pharmacyBill.patientId;
-  currentFinalInvoice.consultationId = pharmacyBill.consultationId || pharmacyBill.prescriptionId;
-  currentFinalInvoice.pharmacyBill   = pharmacyBill;
+function renderFinalInvoice(pharmacyBill, patientOverride, apptOverride) {
+  const patId = pharmacyBill?.patientId || (patientOverride ? patientId(patientOverride) : apptOverride?.patientId);
+  const pat = patientOverride || state.patients.find(p => String(patientId(p)) === String(patId));
+  const patName = pharmacyBill?.patientName || (pat ? patientName(pat) : apptOverride?.patientName || "--");
+  const consultId = pharmacyBill?.consultationId || pharmacyBill?.prescriptionId || (apptOverride ? apptOverride.appointmentId : "--");
+
+  const newPatient = isNewPatient(patId);
+  const regFee = newPatient ? 200 : 0;
+  const docFee = 500;
+  const pharmTotal = pharmacyBill ? Number(pharmacyBill.totalAmount || pharmacyBill.total || 0) : 0;
+  const grandTotal = docFee + regFee + pharmTotal;
+
+  currentFinalInvoice = {
+    patientId: patId,
+    patientName: patName,
+    consultationId: consultId,
+    doctorFee: docFee,
+    regFee: regFee,
+    pharmacyBill: pharmacyBill,
+    grandTotal: grandTotal,
+    appointment: apptOverride || null
+  };
 
   const card = document.getElementById("finalInvoiceCard");
   if (!card) return;
 
-  document.getElementById("finalPatientName").textContent  = pharmacyBill.patientName || "--";
-  document.getElementById("finalPatientId").textContent    = pharmacyBill.patientId || "--";
-  document.getElementById("finalConsultationId").textContent = currentFinalInvoice.consultationId || "--";
+  document.getElementById("finalPatientName").textContent = patName;
+  document.getElementById("finalPatientId").textContent = patId || "--";
+  document.getElementById("finalConsultationId").textContent = consultId || "--";
 
   const tbody = document.getElementById("finalBillBreakdownBody");
   tbody.innerHTML = "";
 
-  // Doctor consultation row
   const trDoc = document.createElement("tr");
   trDoc.innerHTML = `
     <td><strong>Doctor Consultation</strong></td>
     <td>OPD / General Checkup</td>
-    <td>₹${currentFinalInvoice.doctorFee.toFixed(2)}</td>`;
+    <td>₹${docFee.toFixed(2)}</td>`;
   tbody.appendChild(trDoc);
 
-  // Pharmacy row (all medicine items summarized)
-  const medSummary = Array.isArray(pharmacyBill.items)
-    ? pharmacyBill.items.map(i => `${i.medicineName} ×${i.quantity}`).join(", ")
-    : (pharmacyBill.medicine || "Medicines");
-  const pharmTotal = Number(pharmacyBill.totalAmount || pharmacyBill.total || 0);
+  if (newPatient) {
+    const trReg = document.createElement("tr");
+    trReg.innerHTML = `
+      <td><strong>Registration Fee</strong></td>
+      <td>New Patient Registration</td>
+      <td>₹${regFee.toFixed(2)}</td>`;
+    tbody.appendChild(trReg);
+  }
+
   const trPharm = document.createElement("tr");
-  trPharm.innerHTML = `
-    <td><strong>Pharmacy / Medicines</strong></td>
-    <td style="font-size:12px;color:#777b98">${escapeHtml(medSummary)}</td>
-    <td>₹${pharmTotal.toFixed(2)}</td>`;
+  if (pharmacyBill) {
+    const medSummary = Array.isArray(pharmacyBill.items)
+      ? pharmacyBill.items.map(i => `${i.medicineName} ×${i.quantity}`).join(", ")
+      : (pharmacyBill.medicine || "Medicines");
+    trPharm.innerHTML = `
+      <td><strong>Pharmacy / Medicines</strong></td>
+      <td style="font-size:12px;color:#777b98">${escapeHtml(medSummary)}</td>
+      <td>₹${pharmTotal.toFixed(2)}</td>`;
+  } else {
+    trPharm.innerHTML = `
+      <td><strong>Pharmacy / Medicines</strong></td>
+      <td style="font-size:12px;color:#777b98">None / Not Prescribed</td>
+      <td>₹0.00</td>`;
+  }
   tbody.appendChild(trPharm);
 
-  const grandTotal = currentFinalInvoice.doctorFee + pharmTotal;
-  currentFinalInvoice.grandTotal = grandTotal;
   document.getElementById("finalGrandTotal").textContent = `₹${grandTotal.toFixed(2)}`;
-
   card.style.display = "block";
   card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-/**
- * Marks the pharmacy bill as PAID and records the payment mode.
- */
-async function processFinalPayment() {
-  if (!currentFinalInvoice.pharmacyBill) { alert("No active invoice to settle."); return; }
+/* ── Professional Bill Preview & Settlement Workflow ─── */
 
-  const mode   = document.getElementById("paymentMode")?.value || "CASH";
-  const billId = currentFinalInvoice.pharmacyBill.id;
+let currentPreviewBill = null;
+let isProcessingPayment = false;
 
-  // 1. Try backend API
-  try {
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-    await fetch(`/api/receptionist/bills/${billId}/settle/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ paymentMode: mode, status: "PAID" })
-    });
-  } catch (_) { /* fall through */ }
-
-  // 2. Update shared localStorage regardless (offline-safe)
-  const stored = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
-  const target = stored.find(b => b.id === billId);
-  if (target) {
-    target.status      = "PAID";
-    target.paymentMode = mode;
-    target.settledAt   = new Date().toISOString();
-    localStorage.setItem("pending_receptionist_bills", JSON.stringify(stored));
+function openBillPreview(previewData) {
+  if (!previewData) {
+    if (typeof showToast === "function") showToast("No billing information available.", "warning");
+    return;
+  }
+  if (!previewData.patientId && !previewData.patientName) {
+    if (typeof showToast === "function") showToast("No patient selected.", "warning");
+    else alert("No patient selected.");
+    return;
+  }
+  if (previewData.grandTotal <= 0 || isNaN(previewData.grandTotal)) {
+    if (typeof showToast === "function") showToast("Invalid billing amount. Total payable must be greater than zero.", "warning");
+    else alert("Invalid billing amount. Total payable must be greater than zero.");
+    return;
+  }
+  if (!previewData.items || previewData.items.length === 0) {
+    if (typeof showToast === "function") showToast("No billing items available to preview.", "warning");
+    else alert("No billing items available to preview.");
+    return;
   }
 
-  // Also push into the shared BILLS key so the billing table picks it up
-  const cmsBills = getStorage(CMS_KEYS.BILLS, []);
-  cmsBills.unshift({
-    billId:      `FINAL-${billId}`,
-    patientId:   currentFinalInvoice.patientId,
-    patientName: currentFinalInvoice.pharmacyBill.patientName,
-    amount:      currentFinalInvoice.grandTotal,
-    status:      "Paid",
-    paymentMode: mode,
-    source:      "Pharmacy + Consultation",
-    date:        new Date().toLocaleDateString("en-IN")
-  });
-  setStorage(CMS_KEYS.BILLS, cmsBills);
+  currentPreviewBill = previewData;
 
-  const grand = currentFinalInvoice.grandTotal;
-  alert(`✅ Payment of ₹${grand.toFixed(2)} settled via ${mode}. Invoice closed.`);
+  const modal = document.getElementById("billPreviewModal");
+  if (!modal) return;
 
-  // Reset UI
-  document.getElementById("finalInvoiceCard").style.display = "none";
-  const inp = document.getElementById("billingSearchPatient");
-  if (inp) inp.value = "";
-  currentFinalInvoice = { patientId: null, consultationId: null, doctorFee: 500, pharmacyBill: null, grandTotal: 0 };
-  renderBillingTable();
-  if (typeof showToast === "function") showToast("Invoice settled successfully.", "success");
+  document.getElementById("invModalId").textContent = previewData.invoiceId || `INV-${Date.now().toString().slice(-6)}`;
+  document.getElementById("invModalDate").textContent = previewData.date || todayString();
+
+  const isPaid = String(previewData.paymentStatus || "").toLowerCase() === "paid";
+  const statusBadge = document.getElementById("invModalStatusBadge");
+  statusBadge.className = isPaid ? "status status-completed" : "status status-scheduled";
+  statusBadge.textContent = isPaid ? "Paid" : "Pending";
+
+  document.getElementById("invPatId").textContent = previewData.patientId || "--";
+  document.getElementById("invPatName").textContent = previewData.patientName || "--";
+  document.getElementById("invPatAgeGender").textContent = [previewData.patientAge ? `${previewData.patientAge} yrs` : "", previewData.patientGender].filter(Boolean).join(" / ") || "--";
+  document.getElementById("invPatPhone").textContent = previewData.patientPhone || "--";
+
+  document.getElementById("invAptId").textContent = previewData.appointmentId || "--";
+  document.getElementById("invAptDoctor").textContent = previewData.doctorName || "Dr. Prateek Pradeep";
+  document.getElementById("invAptDept").textContent = previewData.department || "General Medicine (OPD)";
+  document.getElementById("invAptDate").textContent = previewData.appointmentDate || previewData.date || todayString();
+
+  const tokenEl = document.getElementById("invAptToken");
+  if (previewData.tokenNumber != null && previewData.tokenNumber !== "" && previewData.tokenNumber !== "--") {
+    tokenEl.textContent = `#${previewData.tokenNumber}`;
+    tokenEl.style.display = "inline-block";
+  } else {
+    tokenEl.textContent = isPaid ? "--" : "Generated upon payment";
+  }
+
+  const tbody = document.getElementById("invModalItemsBody");
+  tbody.innerHTML = previewData.items.map((item, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>
+        <strong style="color:var(--text-main);display:block;">${escapeHtml(item.description)}</strong>
+        ${item.details ? `<span class="subtext">${escapeHtml(item.details)}</span>` : ""}
+      </td>
+      <td>${escapeHtml(item.department || "Clinic")}</td>
+      <td style="text-align:right;font-weight:600;">₹${Number(item.amount || 0).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  const subtotal = previewData.subtotal != null ? previewData.subtotal : previewData.grandTotal;
+  const grandTotal = previewData.grandTotal;
+  const amountPaid = isPaid ? grandTotal : (previewData.amountPaid || 0);
+  const balance = Math.max(0, grandTotal - amountPaid);
+
+  document.getElementById("invSubtotal").textContent = `₹${subtotal.toFixed(2)}`;
+  document.getElementById("invGrandTotal").textContent = `₹${grandTotal.toFixed(2)}`;
+  document.getElementById("invAmountPaid").textContent = `₹${amountPaid.toFixed(2)}`;
+
+  const balanceEl = document.getElementById("invBalanceDue");
+  balanceEl.textContent = `₹${balance.toFixed(2)}`;
+  if (balance === 0) {
+    balanceEl.className = "invoice-total-row balance settled";
+  } else {
+    balanceEl.className = "invoice-total-row balance";
+  }
+
+  const modeContainer = document.getElementById("invPaymentModeContainer");
+  const confirmBtn = document.getElementById("btnConfirmBillPayment");
+  const noteEl = document.getElementById("invPaymentNote");
+
+  if (isPaid) {
+    modeContainer.innerHTML = `<span class="strong" style="font-size:0.95rem;color:var(--text-main);">${escapeHtml(previewData.paymentMode || "CASH")}</span>`;
+    confirmBtn.style.display = "none";
+    noteEl.textContent = "Invoice has been settled and closed.";
+  } else {
+    modeContainer.innerHTML = `
+      <select id="invPaymentModeSelect" class="form-control" style="font-weight:600;">
+        <option value="CASH"${(previewData.paymentMode || "CASH") === "CASH" ? " selected" : ""}>Cash</option>
+        <option value="CARD"${previewData.paymentMode === "CARD" ? " selected" : ""}>Debit / Credit Card</option>
+        <option value="UPI"${previewData.paymentMode === "UPI" ? " selected" : ""}>UPI / QR</option>
+      </select>
+    `;
+    confirmBtn.style.display = "inline-flex";
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Confirm Payment';
+    noteEl.textContent = "Review bill charges before confirming payment.";
+  }
+
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeBillPreview() {
+  const modal = document.getElementById("billPreviewModal");
+  if (modal) {
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+  }
+  currentPreviewBill = null;
+  isProcessingPayment = false;
+}
+
+function previewCurrentFinalInvoice() {
+  if (!currentFinalInvoice.patientId && !currentFinalInvoice.pharmacyBill) {
+    const query = (document.getElementById("billingSearchPatient")?.value || "").trim();
+    if (!query) {
+      if (typeof showToast === "function") showToast("No patient selected. Please find a pending bill first.", "warning");
+      else alert("No patient selected. Please find a pending bill first.");
+      return;
+    }
+    fetchPatientPendingBills();
+    return;
+  }
+
+  const patient = state.patients.find(p => String(patientId(p)) === String(currentFinalInvoice.patientId));
+  const newPatient = isNewPatient(currentFinalInvoice.patientId);
+  const selectedMode = document.getElementById("paymentMode")?.value || "CASH";
+
+  const items = [
+    { description: "Doctor Consultation Fee", department: "OPD", details: "OPD General Consultation", amount: currentFinalInvoice.doctorFee }
+  ];
+
+  if (newPatient) {
+    items.push({
+      description: "Registration Fee",
+      department: "Front Desk",
+      details: "New Patient Registration",
+      amount: currentFinalInvoice.regFee || 200
+    });
+  }
+
+  if (currentFinalInvoice.pharmacyBill) {
+    const pharm = currentFinalInvoice.pharmacyBill;
+    const medSummary = Array.isArray(pharm.items)
+      ? pharm.items.map(i => `${i.medicineName} ×${i.quantity}`).join(", ")
+      : (pharm.medicine || "Medicines");
+    items.push({
+      description: "Pharmacy / Medicine Bill",
+      department: "Pharmacy",
+      details: medSummary,
+      amount: Number(pharm.totalAmount || pharm.total || 0)
+    });
+  }
+
+  const grandTotal = items.reduce((sum, item) => sum + item.amount, 0);
+
+  const previewData = {
+    invoiceId: `INV-${Date.now().toString().slice(-6)}`,
+    date: todayString(),
+    patientId: currentFinalInvoice.patientId,
+    patientName: currentFinalInvoice.patientName || (patient ? patientName(patient) : "--"),
+    patientAge: patient?.age,
+    patientGender: patient?.gender,
+    patientPhone: patient?.phone,
+    appointmentId: currentFinalInvoice.consultationId || "--",
+    doctorName: "Dr. Prateek Pradeep",
+    department: "General Medicine (OPD)",
+    appointmentDate: todayString(),
+    tokenNumber: currentFinalInvoice.appointment ? currentFinalInvoice.appointment.tokenNumber : null,
+    items: items,
+    subtotal: grandTotal,
+    grandTotal: grandTotal,
+    amountPaid: 0,
+    balance: grandTotal,
+    paymentMode: selectedMode,
+    paymentStatus: "Pending",
+    sourceType: "FINAL_INVOICE"
+  };
+
+  openBillPreview(previewData);
+}
+
+function previewAppointmentBill() {
+  if (!validateForm(elements.appointmentForm, "apt-message", appointmentChecks())) return;
+  const patId = elements.patientSelect.value;
+  const patient = state.patients.find(item => String(patientId(item)) === patId);
+  if (!patient) {
+    showMessage("apt-message", "Select a registered patient.");
+    return;
+  }
+
+  const doctor = document.getElementById("apt-doctor").value.trim();
+  const time = document.getElementById("apt-time").value;
+  const newPatient = isNewPatient(patId);
+  const docFee = 500;
+  const regFee = newPatient ? 200 : 0;
+
+  const items = [
+    { description: "Doctor Consultation Fee", department: "OPD", details: `Doctor: ${doctor} · Time: ${time}`, amount: docFee }
+  ];
+
+  if (newPatient) {
+    items.push({
+      description: "Registration Fee",
+      department: "Front Desk",
+      details: "New Patient Registration",
+      amount: regFee
+    });
+  }
+
+  const total = docFee + regFee;
+
+  const previewData = {
+    invoiceId: `INV-${Date.now().toString().slice(-6)}`,
+    date: todayString(),
+    patientId: patId,
+    patientName: patientName(patient),
+    patientAge: patient.age,
+    patientGender: patient.gender,
+    patientPhone: patient.phone,
+    appointmentId: "Pending Generation",
+    doctorName: doctor,
+    department: "General Medicine (OPD)",
+    appointmentDate: todayString(),
+    tokenNumber: null,
+    items: items,
+    subtotal: total,
+    grandTotal: total,
+    amountPaid: 0,
+    balance: total,
+    paymentMode: "CASH",
+    paymentStatus: "Pending",
+    sourceType: "APPOINTMENT_FORM"
+  };
+
+  openBillPreview(previewData);
+}
+
+function previewTableBill(billId) {
+  const bills = getStorage(CMS_KEYS.BILLS, []);
+  const bill = bills.find((item, index) => String(item.billId ?? item.id ?? index) === String(billId));
+  if (!bill) {
+    if (typeof showToast === "function") showToast("Bill not found.", "warning");
+    return;
+  }
+
+  const patient = state.patients.find(p => String(patientId(p)) === String(bill.patientId) || patientName(p) === bill.patientName);
+  const appointments = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
+  const appt = appointments.find(a => (bill.appointmentId && String(a.appointmentId) === String(bill.appointmentId)) || (patient && String(a.patientId) === String(patientId(patient))));
+
+  const isPaid = String(bill.status || "").toLowerCase() === "paid";
+  const items = [];
+
+  if (Array.isArray(bill.items) && bill.items.length) {
+    bill.items.forEach(i => {
+      items.push({
+        description: i.medicineName || i.name || i.description || "Service Charge",
+        department: bill.source || "Pharmacy",
+        details: i.dosage ? `${i.dosage} × ${i.quantity || 1}` : (i.details || ""),
+        amount: Number(i.totalPrice || i.amount || 0)
+      });
+    });
+  } else if (bill.docFee || bill.regFee) {
+    if (bill.docFee) items.push({ description: "Doctor Consultation Fee", department: "OPD", details: "OPD Checkup", amount: Number(bill.docFee) });
+    if (bill.regFee) items.push({ description: "Registration Fee", department: "Front Desk", details: "New Patient Registration", amount: Number(bill.regFee) });
+  } else {
+    items.push({
+      description: bill.source || "Consultation Charge",
+      department: bill.department || "OPD",
+      details: bill.details || (bill.medicinesSummary ? bill.medicinesSummary : "Service Charge"),
+      amount: Number(bill.amount || 0)
+    });
+  }
+
+  const total = Number(bill.amount || items.reduce((s, i) => s + i.amount, 0) || 0);
+
+  const previewData = {
+    invoiceId: bill.billId || bill.id || `INV-${Date.now().toString().slice(-6)}`,
+    date: bill.date || todayString(),
+    patientId: bill.patientId || (patient ? patientId(patient) : "--"),
+    patientName: bill.patientName || (patient ? patientName(patient) : "Patient"),
+    patientAge: patient?.age,
+    patientGender: patient?.gender,
+    patientPhone: patient?.phone,
+    appointmentId: bill.appointmentId || appt?.appointmentId || "--",
+    doctorName: bill.doctorName || appt?.doctorName || "Dr. Prateek Pradeep",
+    department: "General Medicine (OPD)",
+    appointmentDate: appt?.date || bill.date || todayString(),
+    tokenNumber: appt?.tokenNumber || null,
+    items: items,
+    subtotal: total,
+    grandTotal: total,
+    amountPaid: isPaid ? total : 0,
+    balance: isPaid ? 0 : total,
+    paymentMode: bill.paymentMode || "CASH",
+    paymentStatus: bill.status || "Pending",
+    sourceType: "TABLE_BILL",
+    sourceRef: bill
+  };
+
+  openBillPreview(previewData);
+}
+
+async function confirmBillPayment() {
+  if (isProcessingPayment) return;
+  if (!currentPreviewBill) {
+    if (typeof showToast === "function") showToast("No active bill preview found.", "warning");
+    return;
+  }
+  if (String(currentPreviewBill.paymentStatus).toLowerCase() === "paid") {
+    if (typeof showToast === "function") showToast("This bill has already been paid.", "warning");
+    return;
+  }
+
+  const modeSelect = document.getElementById("invPaymentModeSelect");
+  const selectedMode = modeSelect ? modeSelect.value : (currentPreviewBill.paymentMode || "CASH");
+  if (!selectedMode) {
+    if (typeof showToast === "function") showToast("Please select a payment method.", "warning");
+    return;
+  }
+
+  isProcessingPayment = true;
+  const confirmBtn = document.getElementById("btnConfirmBillPayment");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Processing...";
+  }
+
+  try {
+    if (currentPreviewBill.sourceType === "APPOINTMENT_FORM") {
+      const appointments = getStorage(CMS_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
+      const patient = state.patients.find(item => String(patientId(item)) === elements.patientSelect.value);
+      if (!patient) throw new Error("Select a registered patient.");
+      const time = document.getElementById("apt-time").value;
+      const appointment = {
+        appointmentId: nextId(appointments, "appointmentId", "APT-", 2001),
+        patientId: patientId(patient),
+        patientName: patientName(patient),
+        doctorName: document.getElementById("apt-doctor").value.trim(),
+        tokenNumber: appointments.reduce((highest, item) => Math.max(highest, Number(item.tokenNumber) || 0), 0) + 1,
+        time,
+        date: todayString(),
+        status: document.getElementById("apt-status-init").value,
+        reason: document.getElementById("apt-reason").value.trim()
+      };
+      appointments.push(appointment);
+      setStorage(CMS_KEYS.APPOINTMENTS, appointments);
+
+      const newPat = isNewPatient(patientId(patient));
+      const regFee = newPat ? 200 : 0;
+      const docFee = 500;
+      const bill = {
+        id: Date.now().toString(),
+        billId: `BILL-${Date.now()}`,
+        patientId: patientId(patient),
+        patientName: appointment.patientName,
+        appointmentId: appointment.appointmentId,
+        date: todayString(),
+        source: newPat ? "Registration & Consultation" : "Doctor Consultation",
+        regFee: regFee,
+        docFee: docFee,
+        amount: currentPreviewBill.grandTotal,
+        status: "Paid",
+        paymentMode: selectedMode,
+        settledAt: new Date().toISOString()
+      };
+      const bills = getStorage(CMS_KEYS.BILLS, []);
+      bills.push(bill);
+      setStorage(CMS_KEYS.BILLS, bills);
+
+      showMessage("apt-message", `${appointment.appointmentId} booked - Token #${appointment.tokenNumber}. Paid via ${selectedMode}.`, true);
+      elements.appointmentForm.reset();
+      document.getElementById("patient-preview").classList.remove("visible");
+
+      currentPreviewBill.appointmentId = appointment.appointmentId;
+      currentPreviewBill.tokenNumber = appointment.tokenNumber;
+    } else if (currentPreviewBill.sourceType === "FINAL_INVOICE") {
+      const billId = currentFinalInvoice.pharmacyBill ? currentFinalInvoice.pharmacyBill.id : `INV-${Date.now()}`;
+
+      try {
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+        await fetch(`/api/receptionist/bills/${billId}/settle/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ paymentMode: selectedMode, status: "PAID" })
+        });
+      } catch (_) { }
+
+      const stored = JSON.parse(localStorage.getItem("pending_receptionist_bills") || "[]");
+      const target = stored.find(b => b.id === billId);
+      if (target) {
+        target.status = "PAID";
+        target.paymentMode = selectedMode;
+        target.settledAt = new Date().toISOString();
+        localStorage.setItem("pending_receptionist_bills", JSON.stringify(stored));
+      }
+
+      const cmsBills = getStorage(CMS_KEYS.BILLS, []);
+      cmsBills.unshift({
+        billId: `FINAL-${billId}`,
+        patientId: currentFinalInvoice.patientId,
+        patientName: currentFinalInvoice.patientName || (currentFinalInvoice.pharmacyBill ? currentFinalInvoice.pharmacyBill.patientName : "--"),
+        amount: currentPreviewBill.grandTotal,
+        status: "Paid",
+        paymentMode: selectedMode,
+        source: currentFinalInvoice.pharmacyBill ? "Pharmacy + Consultation" : "Doctor Consultation",
+        date: new Date().toLocaleDateString("en-IN")
+      });
+      setStorage(CMS_KEYS.BILLS, cmsBills);
+
+      const invoiceCard = document.getElementById("finalInvoiceCard");
+      if (invoiceCard) invoiceCard.style.display = "none";
+      const inp = document.getElementById("billingSearchPatient");
+      if (inp) inp.value = "";
+      currentFinalInvoice = { patientId: null, patientName: null, consultationId: null, doctorFee: 500, regFee: 0, pharmacyBill: null, grandTotal: 0, appointment: null };
+    } else if (currentPreviewBill.sourceType === "TABLE_BILL") {
+      const bills = getStorage(CMS_KEYS.BILLS, []);
+      const target = bills.find((b, idx) => String(b.billId ?? b.id ?? idx) === String(currentPreviewBill.sourceRef?.billId ?? currentPreviewBill.sourceRef?.id));
+      if (target) {
+        target.status = "Paid";
+        target.paymentMode = selectedMode;
+        target.settledAt = new Date().toISOString();
+        setStorage(CMS_KEYS.BILLS, bills);
+      }
+    }
+
+    currentPreviewBill.paymentStatus = "Paid";
+    currentPreviewBill.paymentMode = selectedMode;
+    currentPreviewBill.amountPaid = currentPreviewBill.grandTotal;
+    currentPreviewBill.balance = 0;
+
+    loadDashboard();
+    renderBillingTable();
+    openBillPreview(currentPreviewBill);
+
+    if (typeof showToast === "function") {
+      showToast(`Payment of ₹${currentPreviewBill.grandTotal.toFixed(2)} confirmed via ${selectedMode}.`, "success");
+    }
+  } catch (error) {
+    if (typeof showToast === "function") showToast(error.message, "danger");
+    else alert(error.message);
+  } finally {
+    isProcessingPayment = false;
+  }
+}
+
+async function processFinalPayment() {
+  if (!currentFinalInvoice.pharmacyBill && !currentFinalInvoice.patientId) {
+    if (typeof showToast === "function") showToast("No active invoice to settle.", "warning");
+    else alert("No active invoice to settle.");
+    return;
+  }
+  previewCurrentFinalInvoice();
 }
 
 window.switchSection = switchSection;
@@ -595,6 +1074,12 @@ window.renderBillingTable = renderBillingTable;
 window.markAsPaid = markAsPaid;
 window.fetchPatientPendingBills = fetchPatientPendingBills;
 window.processFinalPayment = processFinalPayment;
+window.openBillPreview = openBillPreview;
+window.closeBillPreview = closeBillPreview;
+window.previewCurrentFinalInvoice = previewCurrentFinalInvoice;
+window.previewAppointmentBill = previewAppointmentBill;
+window.previewTableBill = previewTableBill;
+window.confirmBillPayment = confirmBillPayment;
 
 document.addEventListener("DOMContentLoaded", async () => {
   state.user = requireAuth(["Receptionist"], "../index.html");
@@ -603,4 +1088,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("user-avatar").textContent = String(state.user.name || "Receptionist").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
   bindDashboardEvents();
   await loadDashboard();
+
+  const modal = document.getElementById("billPreviewModal");
+  if (modal) {
+    modal.addEventListener("click", e => {
+      if (e.target === modal) closeBillPreview();
+    });
+  }
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && modal && modal.classList.contains("show")) {
+      closeBillPreview();
+    }
+  });
 });

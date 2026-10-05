@@ -457,6 +457,204 @@
       .form-2col { grid-template-columns: 1fr; }
       .patient-preview.visible { grid-template-columns: 1fr; }
     }
+
+    /* ── Professional Invoice Bill Preview Modal ── */
+    .invoice-modal-container {
+      max-width: 740px;
+      width: 95%;
+      border-radius: var(--radius-lg);
+      background: #ffffff;
+      box-shadow: 0 24px 60px rgba(13, 27, 42, 0.28);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin: 1.5rem auto;
+    }
+    .invoice-paper {
+      padding: 1.75rem 2rem;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .invoice-brand {
+      display: flex;
+      gap: 0.85rem;
+      align-items: flex-start;
+    }
+    .invoice-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0,87,184,0.25);
+    }
+    .invoice-clinic-name {
+      margin: 0;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+    .invoice-clinic-sub {
+      margin: 2px 0 0;
+      font-size: 0.78rem;
+      color: var(--secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .invoice-clinic-contact {
+      margin: 4px 0 0;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .invoice-meta-top {
+      text-align: right;
+      font-size: 0.82rem;
+      background: #f8fafc;
+      padding: 0.65rem 0.95rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      min-width: 190px;
+    }
+    .invoice-badge-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+    }
+    .invoice-meta-item {
+      margin-bottom: 0.2rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+    .invoice-meta-item strong {
+      color: var(--text-main);
+    }
+    .invoice-divider {
+      height: 1px;
+      background: var(--border);
+    }
+    .invoice-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .invoice-card-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+    }
+    .invoice-box-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      border-bottom: 1px dashed var(--border);
+      padding-bottom: 0.25rem;
+    }
+    .invoice-kv-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.35rem;
+      gap: 0.5rem;
+    }
+    .invoice-kv-row span {
+      color: var(--text-muted);
+    }
+    .invoice-kv-row strong {
+      color: var(--text-main);
+      text-align: right;
+    }
+    .invoice-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .invoice-table th {
+      background: #f1f5f9;
+      font-size: 0.72rem;
+      padding: 0.6rem 0.85rem;
+    }
+    .invoice-table td {
+      padding: 0.65rem 0.85rem;
+      font-size: 0.82rem;
+    }
+    .invoice-summary-section {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(240px, 280px);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    .invoice-payment-method-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+    }
+    .invoice-totals-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      font-size: 0.84rem;
+    }
+    .invoice-total-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+      color: var(--text-body);
+    }
+    .invoice-total-row.grand {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--primary);
+      border-top: 1.5px solid var(--border);
+      padding-top: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .invoice-total-row.balance {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--danger);
+    }
+    .invoice-total-row.balance.settled {
+      color: var(--success);
+    }
+    .invoice-modal-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    @media (max-width: 600px) {
+      .invoice-grid-2col { grid-template-columns: 1fr; }
+      .invoice-summary-section { grid-template-columns: 1fr; }
+      .invoice-paper { padding: 1.25rem 1rem; }
+    }
   </style>
 </head>
 <body>
@@ -815,7 +1013,10 @@
             </div>
 
             <p class="form-message" id="apt-message" role="status" aria-live="polite"></p>
-            <button class="btn btn-primary" id="apt-submit" type="submit">Book appointment</button>
+            <div style="display:flex;gap:0.75rem;align-items:center;">
+              <button class="btn btn-primary" id="apt-submit" type="submit" style="flex:1;">Book appointment</button>
+              <button class="btn btn-outline" id="apt-preview-btn" type="button" onclick="previewAppointmentBill()">Preview Bill</button>
+            </div>
           </form>
         </section>
 
@@ -949,6 +1150,12 @@
           <button
             type="button"
             class="btn btn-primary"
+            id="btnPreviewFinalInvoice"
+            onclick="previewCurrentFinalInvoice()"
+          >Preview Bill</button>
+          <button
+            type="button"
+            class="btn btn-outline"
             onclick="processFinalPayment()"
           >Settle &amp; Close Invoice</button>
           <button
@@ -962,6 +1169,110 @@
     </section>
 
   </main>
+
+  <!-- ══════════════════════════════════════════════════
+       BILL PREVIEW MODAL
+  ══════════════════════════════════════════════════ -->
+  <div id="billPreviewModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="billPreviewTitle">
+    <div class="modal-content invoice-modal-container">
+      <div class="invoice-paper">
+        <!-- Clinic Header -->
+        <div class="invoice-header">
+          <div class="invoice-brand">
+            <div class="invoice-logo-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div>
+              <h2 class="invoice-clinic-name" id="billPreviewTitle">CarePoint Clinic</h2>
+              <p class="invoice-clinic-sub">Healthcare &amp; Diagnostic Centre</p>
+              <p class="invoice-clinic-contact">CarePoint Clinic, Thiruvananthapuram &bull; Ph: +91 98765 00000</p>
+            </div>
+          </div>
+          <div class="invoice-meta-top">
+            <div class="invoice-badge-title">TAX INVOICE / BILL</div>
+            <div class="invoice-meta-item"><span>Invoice No:</span> <strong id="invModalId">--</strong></div>
+            <div class="invoice-meta-item"><span>Date:</span> <strong id="invModalDate">--</strong></div>
+            <div class="invoice-meta-item"><span>Status:</span> <span id="invModalStatusBadge" class="status status-scheduled">Pending</span></div>
+          </div>
+        </div>
+
+        <div class="invoice-divider"></div>
+
+        <!-- Details Grid: Patient & Appointment -->
+        <div class="invoice-grid-2col">
+          <div class="invoice-card-box">
+            <div class="invoice-box-title">Patient Information</div>
+            <div class="invoice-kv-row"><span>Patient ID:</span> <strong id="invPatId">--</strong></div>
+            <div class="invoice-kv-row"><span>Patient Name:</span> <strong id="invPatName">--</strong></div>
+            <div class="invoice-kv-row"><span>Age / Gender:</span> <span id="invPatAgeGender">--</span></div>
+            <div class="invoice-kv-row"><span>Phone Number:</span> <span id="invPatPhone">--</span></div>
+          </div>
+          <div class="invoice-card-box">
+            <div class="invoice-box-title">Appointment / Consultation</div>
+            <div class="invoice-kv-row"><span>Appointment ID:</span> <strong id="invAptId">--</strong></div>
+            <div class="invoice-kv-row"><span>Doctor:</span> <strong id="invAptDoctor">--</strong></div>
+            <div class="invoice-kv-row"><span>Department:</span> <span id="invAptDept">General Medicine (OPD)</span></div>
+            <div class="invoice-kv-row"><span>Appointment Date:</span> <span id="invAptDate">--</span></div>
+            <div class="invoice-kv-row"><span>Token Number:</span> <span id="invAptToken" class="token-chip">--</span></div>
+          </div>
+        </div>
+
+        <!-- Bill Items Table -->
+        <div class="table-wrap invoice-table-wrap">
+          <table class="rec-table invoice-table" aria-label="Invoice breakdown">
+            <thead>
+              <tr>
+                <th style="width:36px;">#</th>
+                <th>Charge / Description</th>
+                <th>Department</th>
+                <th style="text-align:right;">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="invModalItemsBody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Summary & Payment Info -->
+        <div class="invoice-summary-section">
+          <div class="invoice-payment-method-box">
+            <label for="invPaymentModeSelect" class="invoice-box-title" style="margin-bottom:0.4rem;display:block;">Payment Method</label>
+            <div id="invPaymentModeContainer">
+              <select id="invPaymentModeSelect" class="form-control" style="font-weight:600;">
+                <option value="CASH">Cash</option>
+                <option value="CARD">Debit / Credit Card</option>
+                <option value="UPI">UPI / QR</option>
+              </select>
+            </div>
+            <p id="invPaymentNote" style="font-size:0.75rem;color:var(--text-muted);margin:0.5rem 0 0;">Review bill charges before confirming payment.</p>
+          </div>
+
+          <div class="invoice-totals-box">
+            <div class="invoice-total-row"><span>Subtotal:</span> <span id="invSubtotal">₹0.00</span></div>
+            <div class="invoice-total-row grand"><span>Total Payable:</span> <span id="invGrandTotal">₹0.00</span></div>
+            <div class="invoice-total-row"><span>Amount Paid:</span> <span id="invAmountPaid">₹0.00</span></div>
+            <div class="invoice-total-row balance"><span>Balance:</span> <span id="invBalanceDue">₹0.00</span></div>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="invoice-modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeBillPreview()">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Edit / Back
+          </button>
+          <div style="display:flex;gap:0.6rem;align-items:center;">
+            <button type="button" class="btn btn-primary" id="btnConfirmBillPayment" onclick="confirmBillPayment()">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirm Payment
+            </button>
+            <button type="button" class="btn btn-outline" onclick="closeBillPreview()">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <footer>CarePoint Clinic &middot; Reception Portal</footer>
     </div>

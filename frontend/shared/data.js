@@ -1,7 +1,4 @@
-/* ========================================================
-   CAREPOINT CLINIC MANAGEMENT SYSTEM - SHARED DATA & LOCALSTORAGE
-   ======================================================== */
-
+ 
 const CMS_KEYS = {
   USERS: 'cms_users',
   CURRENT_USER: 'cms_current_user',
@@ -124,7 +121,6 @@ function initCMSStorage() {
     setStorage(CMS_KEYS.CONSULTATIONS, consList);
   }
 
-  // Automatically update to Indian names, 2 patients, reset all patients and completely clear orphan lab tests
   if (!localStorage.getItem('cms_two_patients_clean_v13')) {
     setStorage(CMS_KEYS.USERS, DEFAULT_USERS);
     setStorage(CMS_KEYS.PATIENTS, DEFAULT_PATIENTS);
@@ -163,7 +159,6 @@ function resetAllToScheduled() {
   // 3. Clear prescriptions
   setStorage(CMS_KEYS.PRESCRIPTIONS, []);
 
-  // 4. Completely clear all lab orders and lab reports (patients have NO lab tests before seeing the doctor)
   setStorage(CMS_KEYS.LAB_ORDERS, []);
   setStorage(CMS_KEYS.LAB_REPORTS, []);
 

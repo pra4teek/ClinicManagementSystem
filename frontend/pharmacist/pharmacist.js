@@ -1,33 +1,3 @@
-/* ==========================================================================
-   CMS PHARMACY MODULE — SINGLE SCRIPT FILE
-   mock-data.js + dashboard.js merged into one file, in load order
-   ========================================================================== */
-
-/**
- * ==========================================================================
- * CMS PHARMACY MODULE — MOCK DATA ARCHITECTURE
- * Structured identically to Django REST Framework (DRF) serialized response
- * ==========================================================================
- */
-
-// FUTURE API INTEGRATION:
-// Replace this mock data source with a fetch() call to the Django REST Framework API.
-// Example:
-// export async function fetchDashboardData() {
-//   const response = await fetch('/api/v1/pharmacy/dashboard/', {
-//     headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-//   });
-//   return await response.json();
-// }
-
-/* ==========================================================================
-   SHARED DATA BRIDGE
-   Reads the SAME localStorage data every other CMS module (Admin, Doctor,
-   Receptionist, Lab) reads via data.js — so a patient or doctor named here
-   is the exact same patient/doctor they see. Requires data.js to be loaded
-   BEFORE this file (see pharmacist.html). Falls back to safe placeholder
-   values if data.js is missing, so this page still renders standalone.
-   ========================================================================== */
 const SHARED = (function () {
   const hasSharedData = typeof getStorage === "function" && typeof CMS_KEYS !== "undefined";
 
@@ -59,7 +29,7 @@ const CMS_PHARMACY_DATA = {
   },
 
   dateInfo: {
-    formattedDate: "Thursday, October 01, 2026",
+    formattedDate: "Thursday, October 04, 2026",
     rawTimestamp: "2026-09-29T08:30:00Z"
   },
   navigation: [
