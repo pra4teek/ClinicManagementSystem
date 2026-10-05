@@ -121,12 +121,15 @@ function normalizeData(raw){
     }
 
     if (Array.isArray(raw.doctors) && raw.doctors.length) {
-        d.doctors = raw.doctors.map((x,i)=>({
-            DoctorId:Number(x.DoctorId)||i+1, Name:x.Name||"Doctor",
-            Qualification:x.Qualification||"Not specified",
-            Specialization:x.Specialization||departmentNameRaw(x.DepartmentId,d.departments),
-            UserId:Number(x.UserId)||null, DepartmentId:Number(x.DepartmentId)||1
-        }));
+        d.doctors = raw.doctors
+            .filter(x => x && x.Name && !/^\d+$/.test(String(x.Name).trim()))
+            .map((x,i)=>({
+                DoctorId:Number(x.DoctorId)||i+1, Name:x.Name||"Doctor",
+                Qualification:x.Qualification||"Not specified",
+                Specialization:x.Specialization||departmentNameRaw(x.DepartmentId,d.departments),
+                UserId:Number(x.UserId)||null, DepartmentId:Number(x.DepartmentId)||1
+            }));
+        if (!d.doctors.length) d.doctors = clone(seedData.doctors);
     }
     if (Array.isArray(raw.staff) && raw.staff.length) {
         d.staff = raw.staff.map((x,i)=>({
@@ -439,8 +442,8 @@ const fields = {
     roles:[["RoleName","text","Role Name",true]],
     departments:[["DepartmentName","text","Department Name",true]],
     doctors:[
-      ["Name","text","Doctor Name",true],["Qualification","text","Qualification",true],
-      ["Specialization","text","Specialization",true],["UserId","select","Linked User",true,()=>data.users.filter(u=>roleName(u.RoleId)==="Doctor").map(u=>[u.UserId,`${u.Name} (${u.Username})`])],
+      ["Name","text","Doctor Name",true],["Qualification","text","Qualification (e.g. MBBS, MD)",true],
+      ["Specialization","text","Specialization (e.g. Cardiology)",true],
       ["DepartmentId","select","Department",true,()=>data.departments.map(d=>[d.DepartmentId,d.DepartmentName])]
     ],
     labTests:[
@@ -491,39 +494,100 @@ function primaryId(collection){
 
 function validateRecord(collection,record){
     const error=document.getElementById("formError");
-    const required=["Name","Username","DOB","Address","PhoneNumber","EmailId","DepartmentId","RoleId"];
+    error.textContent = "";
+
     if(collection==="users"){
+      const required=["Name","Username","DOB","Address","PhoneNumber","EmailId","DepartmentId","RoleId"];
       for(const field of required){
         if(record[field]===undefined || record[field]===null || String(record[field]).trim()===""){ error.textContent="Please fill all required fields."; return false; }
       }
+      const name = String(record.Name || "").trim();
+      if(/\d/.test(name)){ error.textContent="Name cannot contain numbers."; return false; }
+      if(!/^[a-zA-Z\s.,'-]{2,60}$/.test(name)){ error.textContent="Name must contain valid letters (at least 2 characters)."; return false; }
       if(editing.id==null && !String(record.Password||"").trim()){error.textContent="Password is required.";return false}
       if(/\s/.test(record.Username)){error.textContent="Username cannot contain spaces.";return false}
+      if(String(record.Username).length < 3){error.textContent="Username must be at least 3 characters.";return false}
       if(editing.id==null && /\s/.test(record.Password)){error.textContent="Password cannot contain spaces.";return false}
+      if(editing.id==null && String(record.Password).length < 3){error.textContent="Password must be at least 3 characters.";return false}
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.EmailId)){error.textContent="Enter a valid email address.";return false}
       if(!/^\d{10}$/.test(record.PhoneNumber)){error.textContent="Phone number must contain exactly 10 digits.";return false}
+      if(!/[a-zA-Z]/.test(String(record.Address || ""))){error.textContent="Address must contain descriptive text/letters.";return false}
       const age=ageFromDOB(record.DOB);
       if(age==="" || age<23 || age>56){
-      error.textContent="User age must be between 23 and 56 years.";
-      return false;
-}
-
+        error.textContent="User age must be between 23 and 56 years.";
+        return false;
+      }
       if(new Date(record.DOB)>new Date()){
-      error.textContent="Date of birth cannot be in the future.";
-      return false;
-}
+        error.textContent="Date of birth cannot be in the future.";
+        return false;
+      }
       const duplicate=data.users.find(u=>u.Username.toLowerCase()===record.Username.toLowerCase() && Number(u.UserId)!==Number(editing.id));
       if(duplicate){error.textContent="Username already exists.";return false}
       const dupEmail=data.users.find(u=>u.EmailId.toLowerCase()===record.EmailId.toLowerCase() && Number(u.UserId)!==Number(editing.id));
       if(dupEmail){error.textContent="Email ID already exists.";return false}
     }
-    if(collection==="roles" && !String(record.RoleName||"").trim()){error.textContent="Role name is required.";return false}
-    if(collection==="departments" && !String(record.DepartmentName||"").trim()){error.textContent="Department name is required.";return false}
+
+    if(collection==="roles"){
+      const role = String(record.RoleName||"").trim();
+      if(!role){error.textContent="Role name is required.";return false}
+      if(/\d/.test(role)){error.textContent="Role name cannot contain numbers.";return false}
+      if(!/^[a-zA-Z\s]{2,40}$/.test(role)){error.textContent="Role name must contain valid letters.";return false}
+      const dupRole=data.roles.find(r=>r.RoleName.toLowerCase()===role.toLowerCase() && Number(r.RoleId)!==Number(editing.id));
+      if(dupRole){error.textContent="Role already exists.";return false}
+    }
+
+    if(collection==="departments"){
+      const dept = String(record.DepartmentName||"").trim();
+      if(!dept){error.textContent="Department name is required.";return false}
+      if(/\d/.test(dept)){error.textContent="Department name cannot contain numbers.";return false}
+      if(!/^[a-zA-Z\s.,'-]{2,50}$/.test(dept)){error.textContent="Department name must contain valid letters.";return false}
+      const dupDept=data.departments.find(d=>d.DepartmentName.toLowerCase()===dept.toLowerCase() && Number(d.DepartmentId)!==Number(editing.id));
+      if(dupDept){error.textContent="Department already exists.";return false}
+    }
+
     if(collection==="doctors"){
-      if(["Name","Qualification","Specialization"].some(k=>!String(record[k]||"").trim())||!record.DepartmentId||!record.UserId){error.textContent="Please fill all required doctor fields.";return false}
+      const name = String(record.Name || "").trim();
+      const qual = String(record.Qualification || "").trim();
+      const spec = String(record.Specialization || "").trim();
+      const deptId = Number(record.DepartmentId);
+
+      if(!name){error.textContent="Doctor Name is required.";return false}
+      if(/\d/.test(name)){error.textContent="Doctor Name cannot contain numbers.";return false}
+      if(!/^[a-zA-Z\s.,'-]{2,60}$/.test(name)){error.textContent="Doctor Name must contain valid letters (e.g. Dr. John Doe).";return false}
+
+      if(!qual){error.textContent="Qualification is required.";return false}
+      if(/^\d+$/.test(qual) || !/[a-zA-Z]/.test(qual)){error.textContent="Qualification must contain medical degree letters (e.g. MBBS, MD).";return false}
+
+      if(!spec){error.textContent="Specialization is required.";return false}
+      if(/\d/.test(spec)){error.textContent="Specialization cannot contain numbers.";return false}
+      if(!/^[a-zA-Z\s.,'-]{2,60}$/.test(spec)){error.textContent="Specialization must contain valid letters (e.g. Cardiology).";return false}
+
+      if(!deptId || deptId <= 0 || isNaN(deptId)){error.textContent="Please select a valid Department.";return false}
     }
+
     if(collection==="labTests"){
-      if(["TestName","SampleType","NormalValue"].some(k=>!String(record[k]||"").trim())||Number(record.TestCost)<=0){error.textContent="Please provide valid lab test details.";return false}
+      const tName = String(record.TestName||"").trim();
+      const sType = String(record.SampleType||"").trim();
+      const nVal  = String(record.NormalValue||"").trim();
+      const cost  = Number(record.TestCost);
+
+      if(!tName){error.textContent="Test Name is required.";return false}
+      if(!/[a-zA-Z]/.test(tName)){error.textContent="Test Name must contain letters.";return false}
+
+      if(!sType){error.textContent="Sample Type is required.";return false}
+      if(/\d/.test(sType)){error.textContent="Sample Type cannot contain numbers (e.g. Blood, Urine).";return false}
+      if(!/[a-zA-Z]/.test(sType)){error.textContent="Sample Type must contain letters.";return false}
+
+      if(!nVal){error.textContent="Normal Reference Value is required.";return false}
+
+      if(record.TestCost==="" || record.TestCost===null || isNaN(cost) || cost <= 0){
+        error.textContent="Test Cost must be greater than ₹0.";
+        return false;
+      }
+      const dupTest=data.labTests.find(t=>t.TestName.toLowerCase()===tName.toLowerCase() && Number(t.LabtestId)!==Number(editing.id));
+      if(dupTest){error.textContent="Lab Test name already exists.";return false}
     }
+
     if(collection==="medicines"){
       const strFields = [
         ["MedicineName", "Medicine Name"],
@@ -534,8 +598,13 @@ function validateRecord(collection,record){
         ["Type", "Type"]
       ];
       for(const [k, lbl] of strFields){
-        if(!String(record[k]||"").trim()){
+        const val = String(record[k]||"").trim();
+        if(!val){
           error.textContent = `${lbl} is mandatory. Please fill all fields.`;
+          return false;
+        }
+        if(["MedicineName","Manufacturer","GenericName","Category","Type"].includes(k) && !/[a-zA-Z]/.test(val)){
+          error.textContent = `${lbl} must contain valid letters.`;
           return false;
         }
       }
@@ -629,6 +698,9 @@ function saveForm(event){
       else if(type==="select") record[name]=Number(el.value);
       else if(name==="Password" && id!=null && el.value==="") { /* keep existing password */ }
       else record[name]=el.value.trim();
+    }
+    if(collection==="doctors" && record.UserId === undefined){
+      record.UserId = null;
     }
     if(!validateRecord(collection,record)) return;
 
