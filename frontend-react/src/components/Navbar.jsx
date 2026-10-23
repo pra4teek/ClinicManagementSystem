@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import authService from '../services/authService';
+import { MedicalCrossIcon } from './Icons';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -14,8 +15,19 @@ export default function Navbar() {
   return (
     <header className="navbar">
       <div className="nav-container">
-        <Link to="/dashboard" className="nav-brand">
-          <span style={{ fontSize: '1.5rem' }}>⚕️</span>
+        <Link to="/dashboard" className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--primary)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <MedicalCrossIcon size={20} color="#fff" />
+          </div>
           <div>
             <span className="brand-name">CarePoint</span>
             <span className="brand-badge" style={{ marginLeft: '0.5rem' }}>Clinic System</span>
@@ -39,4 +51,3 @@ export default function Navbar() {
     </header>
   );
 }
-

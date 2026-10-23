@@ -1,6 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import authService from '../services/authService';
+import {
+  StethoscopeIcon,
+  CalendarIcon,
+  UsersIcon,
+  PillIcon,
+  FlaskIcon,
+  SettingsIcon
+} from '../components/Icons';
 
 export default function Dashboard() {
   const user = authService.getCurrentUser() || { name: 'Doctor', role: 'Doctor' };
@@ -19,7 +27,19 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
         {/* Doctor Module Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🩺</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(0,87,184,0.1)',
+            color: 'var(--primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <StethoscopeIcon size={24} color="var(--primary)" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Doctor Workspace</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             Patient queue, clinical examination, vitals, prescriptions, and lab orders.
@@ -33,7 +53,19 @@ export default function Dashboard() {
 
         {/* Appointments Card (Receptionist) */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📅</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(245,158,11,0.1)',
+            color: '#f59e0b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <CalendarIcon size={24} color="#f59e0b" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Appointments (Reception)</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             View today's scheduled tokens, queue check-in, and slot booking.
@@ -46,7 +78,19 @@ export default function Dashboard() {
 
         {/* Patients Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>👥</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(16,185,129,0.1)',
+            color: '#10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <UsersIcon size={24} color="#10b981" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Patient Directory</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             Registered patients, medical histories, demographics, and registration.
@@ -59,7 +103,19 @@ export default function Dashboard() {
 
         {/* Pharmacy Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>💊</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(99,102,241,0.1)',
+            color: '#6366f1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <PillIcon size={24} color="#6366f1" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Pharmacy & Medicines</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             Medicine inventory, stock levels, dosages, batches, and dispensing.
@@ -72,7 +128,19 @@ export default function Dashboard() {
 
         {/* Lab Tests Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔬</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(236,72,153,0.1)',
+            color: '#ec4899',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <FlaskIcon size={24} color="#ec4899" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Laboratory Tests</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             Diagnostic catalog, reference ranges, specimen tests, and report entry.
@@ -85,7 +153,19 @@ export default function Dashboard() {
 
         {/* Admin Card */}
         <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⚙️</div>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(100,116,139,0.1)',
+            color: '#64748b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem'
+          }}>
+            <SettingsIcon size={24} color="#64748b" />
+          </div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Clinic Administration</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
             Department setup, staff management, role permissions, and clinic oversight.
