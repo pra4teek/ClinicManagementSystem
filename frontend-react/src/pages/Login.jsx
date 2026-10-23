@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import {
+  MedicalCrossIcon,
+  StethoscopeIcon,
+  ClipboardIcon,
+  PillIcon,
+  FlaskIcon,
+  SettingsIcon
+} from '../components/Icons';
 
 export default function Login() {
-  const [username, setUsername] = useState('doctor');
-  const [password, setPassword] = useState('123');
+  const [username, setUsername] = useState('prateek');
+  const [password, setPassword] = useState('prateek123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -15,12 +23,24 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await authService.login(username, password);
-      navigate('/dashboard');
+      const res = await authService.login(username, password);
+      const role = res.user?.role;
+      if (role === 'Doctor') {
+        navigate('/doctor');
+      } else if (role === 'Receptionist') {
+        navigate('/appointments');
+      } else if (role === 'Pharmacist') {
+        navigate('/medicines');
+      } else if (role === 'Lab Technician') {
+        navigate('/lab-tests');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(
+        err.message || 
         err.response?.data?.error || 
-        'Django backend not connected on :8000. Use one of the Quick Demo Logins below to test each module directly!'
+        'Invalid credentials. Please verify your username and password.'
       );
     } finally {
       setLoading(false);
@@ -29,7 +49,7 @@ export default function Login() {
 
   // Quick Demo Access for each role
   const loginAsRole = (name, role, path) => {
-    localStorage.setItem('token', `demo-token-${role.toLowerCase()}`);
+    localStorage.setItem('token', `demo-token-${role.toLowerCase()}-${Date.now()}`);
     localStorage.setItem('user', JSON.stringify({ name, role, username: role.toLowerCase() }));
     navigate(path);
   };
@@ -45,12 +65,25 @@ export default function Login() {
     }}>
       <div className="card" style={{ maxWidth: '460px', width: '100%', padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>⚕️</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--primary)',
+            color: '#fff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem',
+            boxShadow: '0 4px 14px rgba(0,87,184,0.25)'
+          }}>
+            <MedicalCrossIcon size={30} color="#fff" />
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', margin: 0 }}>
             CarePoint Clinic
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Sign in to access your portal
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+            Sign in to access your clinical portal
           </p>
         </div>
 
@@ -77,7 +110,7 @@ export default function Login() {
               className="form-control"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. doctor"
+              placeholder="e.g. prateek or doctor"
               required
             />
           </div>
@@ -100,61 +133,66 @@ export default function Login() {
             style={{ width: '100%', padding: '0.75rem' }}
             disabled={loading}
           >
-            {loading ? 'Connecting to Django...' : 'Sign In via Django API'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         {/* Quick Access Grid for All Roles */}
         <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
-            ⚡ Quick Demo Access by Role
+            Quick 1-Click Access by Role
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
             <button
               type="button"
               className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600 }}
+              style={{ justifyContent: 'center', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               onClick={() => loginAsRole('Dr. Prateek Pradeep', 'Doctor', '/doctor')}
             >
-              🩺 Doctor
+              <StethoscopeIcon size={14} color="var(--primary)" />
+              Doctor
             </button>
 
             <button
               type="button"
               className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center' }}
+              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               onClick={() => loginAsRole('Joel Jain', 'Receptionist', '/appointments')}
             >
-              📋 Receptionist
+              <ClipboardIcon size={14} />
+              Receptionist
             </button>
 
             <button
               type="button"
               className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center' }}
-              onClick={() => loginAsRole('Adarsh Chandran', 'Pharmacist', '/prescriptions')}
+              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => loginAsRole('Adarsh Chandran', 'Pharmacist', '/medicines')}
             >
-              💊 Pharmacist
+              <PillIcon size={14} />
+              Pharmacist
             </button>
 
             <button
               type="button"
               className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center' }}
-              onClick={() => loginAsRole('Malathi Sreekumar', 'Lab Technician', '/doctor')}
+              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => loginAsRole('Malathi Sreekumar', 'Lab Technician', '/lab-tests')}
             >
-              🔬 Lab Tech
+              <FlaskIcon size={14} />
+              Lab Tech
             </button>
           </div>
 
           <button
             type="button"
             className="btn btn-sm btn-outline"
-            style={{ width: '100%', marginTop: '0.5rem', justifyContent: 'center' }}
+            style={{ width: '100%', marginTop: '0.5rem', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             onClick={() => loginAsRole('Bala Weslin', 'Admin', '/dashboard')}
           >
-            ⚙️ Administrator (All Modules Dashboard)
+            <SettingsIcon size={14} />
+            Administrator (All Modules)
           </button>
         </div>
       </div>

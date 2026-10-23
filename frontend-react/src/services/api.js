@@ -13,7 +13,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-    if (token) {
+    // Only attach Authorization header if it's a real JWT token (format: xxx.yyy.zzz)
+    if (token && typeof token === 'string' && token.includes('.')) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -21,19 +22,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401 unauthenticated
+// Response interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Only redirect to /login if a REAL JWT token expired
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      console.warn('API returned 401 Unauthorized for:', error.config?.url);
+      const token = localStorage.getItem('token');
+      if (token && typeof token === 'string' && token.includes('.')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
 );
 
 export default api;
-
