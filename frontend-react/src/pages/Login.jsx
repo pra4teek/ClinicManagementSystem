@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 
@@ -142,7 +142,7 @@ export default function Login() {
               type="button"
               className="btn btn-sm btn-outline"
               style={{ justifyContent: 'center' }}
-              onClick={() => loginAsRole('Malathi Sreekumar', 'Lab Technician', '/doctor')}
+              onClick={() => loginAsRole('Malathi Sreekumar', 'Lab Technician', '/lab-tests')}
             >
               🔬 Lab Tech
             </button>
