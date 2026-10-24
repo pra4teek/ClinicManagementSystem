@@ -1,36 +1,37 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './components/AppLayout';
-import ProtectedRoute from './components/ProtectedRoute';
-
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import AppLayout from "./components/AppLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import ReceptionistLayout from "./components/ReceptionistLayout";
+import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 // Pages
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 
 // Doctor Module
-import DoctorDashboard from './pages/DoctorDashboard';
-import ConsultationForm from './pages/ConsultationForm';
-import ConsultationList from './pages/ConsultationList';
-import PrescriptionList from './pages/PrescriptionList';
+import DoctorDashboard from "./pages/DoctorDashboard";
+import ConsultationForm from "./pages/ConsultationForm";
+import ConsultationList from "./pages/ConsultationList";
+import PrescriptionList from "./pages/PrescriptionList";
 
 // Receptionist Module
-import AppointmentList from './pages/AppointmentList';
-import AppointmentForm from './pages/AppointmentForm';
-import PatientList from './pages/PatientList';
-import PatientForm from './pages/PatientForm';
+import AppointmentList from "./pages/AppointmentList";
+import AppointmentForm from "./pages/AppointmentForm";
+import PatientList from "./pages/PatientList";
+import PatientForm from "./pages/PatientForm";
 
 // Pharmacist Module
-import MedicineList from './pages/MedicineList';
-import MedicineForm from './pages/MedicineForm';
+import MedicineList from "./pages/MedicineList";
+import MedicineForm from "./pages/MedicineForm";
 
 // Lab Technician Module
-import LabTestList from './pages/LabTestList';
-import LabReportForm from './pages/LabReportForm';
+import LabTestList from "./pages/LabTestList";
+import LabReportForm from "./pages/LabReportForm";
 
 // Admin Module
-import DepartmentList from './pages/DepartmentList';
-import DepartmentForm from './pages/DepartmentForm';
+import DepartmentList from "./pages/DepartmentList";
+import DepartmentForm from "./pages/DepartmentForm";
 
-import './styles/style.css';
+import "./styles/style.css";
 
 export default function App() {
   return (
@@ -45,10 +46,14 @@ export default function App() {
           {/* Doctor Module has its own full-screen layout with dark sidebar matching original frontend/doctor */}
           <Route path="/doctor" element={<DoctorDashboard />} />
 
+          {/* Receptionist module has an isolated full-screen portal layout. */}
+          <Route element={<ReceptionistLayout />}>
+            <Route path="/receptionist" element={<ReceptionistDashboard />} />
+          </Route>
+
           {/* Shared AppLayout for other modules */}
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            
             {/* Doctor Supporting Pages for course requirements */}
             <Route path="/consultations" element={<ConsultationList />} />
             <Route path="/consultations/new" element={<ConsultationForm />} />
@@ -74,7 +79,14 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<h2 style={{ padding: '2rem', textAlign: 'center' }}>404 - Page Not Found</h2>} />
+        <Route
+          path="*"
+          element={
+            <h2 style={{ padding: "2rem", textAlign: "center" }}>
+              404 - Page Not Found
+            </h2>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

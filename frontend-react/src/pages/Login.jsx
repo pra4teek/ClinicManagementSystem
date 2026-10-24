@@ -28,7 +28,7 @@ export default function Login() {
       if (role === 'Doctor') {
         navigate('/doctor');
       } else if (role === 'Receptionist') {
-        navigate('/appointments');
+        navigate('/receptionist');
       } else if (role === 'Pharmacist') {
         navigate('/medicines');
       } else if (role === 'Lab Technician') {
@@ -158,7 +158,7 @@ export default function Login() {
               type="button"
               className="btn btn-sm btn-outline"
               style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Joel Jain', 'Receptionist', '/appointments')}
+              onClick={() => loginAsRole('Joel Jain', 'Receptionist', '/receptionist')}
             >
               <ClipboardIcon size={14} />
               Receptionist
