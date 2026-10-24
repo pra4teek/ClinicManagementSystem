@@ -1656,7 +1656,7 @@ export default function DoctorDashboard() {
                                 }}
                                 title="View Prescription"
                               >
-                                Rx
+                                View
                               </button>
                             </div>
                           </div>
