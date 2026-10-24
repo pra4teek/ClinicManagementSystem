@@ -1518,7 +1518,9 @@ export default function DoctorDashboard() {
                               'Lipid Profile',
                               'Urine Routine Examination',
                               'Thyroid Profile (T3, T4, TSH)',
-                              'Chest X-Ray PA View'
+                              'Chest X-Ray PA View',
+                              'Serum Creatinine',
+                              'Liver Function Test (LFT)'
                             ].map((testName) => (
                               <label key={testName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: activeAppt.status === 'Completed' ? 'not-allowed' : 'pointer' }}>
                                 <input
@@ -2341,7 +2343,9 @@ export default function DoctorDashboard() {
                       'Lipid Profile',
                       'Urine Routine Examination',
                       'Thyroid Profile (T3, T4, TSH)',
-                      'Chest X-Ray PA View'
+                      'Chest X-Ray PA View',
+                      'Serum Creatinine',
+                      'Liver Function Test (LFT)'
                     ].map((testName) => (
                       <label key={testName} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', cursor: 'pointer' }}>
                         <input
