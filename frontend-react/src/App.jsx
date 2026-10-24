@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ReceptionistLayout from "./components/ReceptionistLayout";
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 // Pages
 import Login from "./pages/Login";
@@ -45,12 +46,14 @@ export default function App() {
           {/* Doctor Module has its own full-screen layout with dark sidebar matching original frontend/doctor */}
           <Route path="/doctor" element={<DoctorDashboard />} />
 
+          {/* Receptionist module has an isolated full-screen portal layout. */}
+          <Route element={<ReceptionistLayout />}>
+            <Route path="/receptionist" element={<ReceptionistDashboard />} />
+          </Route>
+
           {/* Shared AppLayout for other modules */}
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-              {/* Receptionist Dashboard */}
-
-            <Route path="/receptionist" element={<ReceptionistDashboard />} /> 
             {/* Doctor Supporting Pages for course requirements */}
             <Route path="/consultations" element={<ConsultationList />} />
             <Route path="/consultations/new" element={<ConsultationForm />} />
