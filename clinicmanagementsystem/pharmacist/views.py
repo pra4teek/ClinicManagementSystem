@@ -36,7 +36,7 @@ class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = MasterMedicine.objects.all().order_by("MedicineName")
     serializer_class = MasterMedicineSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     filter_backends = [filters.SearchFilter]
     search_fields = ["MedicineName", "GenericName"]
 

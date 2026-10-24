@@ -1,6 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, filters, permissions
 from apibackendapp.models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
 from .serializers import DoctorSerializer,ConsultationSerializer,PrescriptionSerializer,PrescriptionCreateSerializer,PrescriptionItemSerializer,LabPrescriptionSerializer
 
@@ -8,7 +7,7 @@ from .serializers import DoctorSerializer,ConsultationSerializer,PrescriptionSer
 # Create your views here.
 
 class DoctorViewSet(viewsets.ModelViewSet):
-    # permission_classes=[IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     queryset=Doctor.objects.all()
     serializer_class=DoctorSerializer
     filter_backends=[filters.SearchFilter]
@@ -16,7 +15,7 @@ class DoctorViewSet(viewsets.ModelViewSet):
 
 
 class ConsultationViewSet(viewsets.ModelViewSet):
-    permission_classes=[IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     queryset=Consultation.objects.all()
     serializer_class=ConsultationSerializer
     filter_backends=[filters.SearchFilter]
@@ -39,7 +38,7 @@ class ConsultationViewSet(viewsets.ModelViewSet):
 
 
 class PrescriptionViewSet(viewsets.ModelViewSet):
-    permission_classes=[IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     queryset=Prescription.objects.all()
     filter_backends=[filters.SearchFilter]
     search_fields=['Status']
@@ -51,14 +50,14 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
 
 
 class PrescriptionItemViewSet(viewsets.ModelViewSet):
-    permission_classes=[IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     queryset=PrescriptionItem.objects.all()
     serializer_class=PrescriptionItemSerializer
 
 
 class LabPrescriptionViewSet(viewsets.ModelViewSet):
-    permission_classes=[IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     queryset=LabPrescription.objects.all()
     serializer_class=LabPrescriptionSerializer
     filter_backends=[filters.SearchFilter]
-    search_fields=['Status', 'SampleType']
+    search_fields=['Status', 'SampleType']

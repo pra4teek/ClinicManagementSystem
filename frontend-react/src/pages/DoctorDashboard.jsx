@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import doctorService from '../services/doctorService';
 import '../styles/doctor.css';
 
 // SVG Icons matching original doctor portal
@@ -299,12 +300,12 @@ export default function DoctorDashboard() {
     };
   }, []);
 
-  const refreshAllData = () => {
+  const refreshAllData = async () => {
     // Default fallback appointments matching original
     const defaultAppts = [
       {
-        appointmentId: 'APT-2001',
-        patientId: 'PAT-1001',
+        appointmentId: 'APT-1',
+        patientId: 'PAT-1',
         patientName: 'Arjun Ravi',
         doctorName: 'Dr. Prateek Pradeep',
         tokenNumber: 1,
@@ -313,8 +314,8 @@ export default function DoctorDashboard() {
         reason: 'Frequent headaches and mild fever'
       },
       {
-        appointmentId: 'APT-2002',
-        patientId: 'PAT-1002',
+        appointmentId: 'APT-2',
+        patientId: 'PAT-2',
         patientName: 'Rohit Krishna',
         doctorName: 'Dr. Prateek Pradeep',
         tokenNumber: 2,
@@ -323,8 +324,8 @@ export default function DoctorDashboard() {
         reason: 'Severe throat irritation & dry cough'
       },
       {
-        appointmentId: 'APT-2003',
-        patientId: 'PAT-1003',
+        appointmentId: 'APT-3',
+        patientId: 'PAT-3',
         patientName: 'Priya Nair',
         doctorName: 'Dr. Prateek Pradeep',
         tokenNumber: 3,
@@ -335,44 +336,60 @@ export default function DoctorDashboard() {
     ];
 
     const defaultPatients = [
-      { patientId: 'PAT-1001', name: 'Arjun Ravi', age: 45, gender: 'Male', phone: '9876543210', bloodGroup: 'O+' },
-      { patientId: 'PAT-1002', name: 'Rohit Krishna', age: 29, gender: 'Male', phone: '9845123456', bloodGroup: 'A+' },
-      { patientId: 'PAT-1003', name: 'Priya Nair', age: 38, gender: 'Female', phone: '9895012345', bloodGroup: 'B+' }
+      { patientId: 'PAT-1', name: 'Arjun Ravi', age: 47, gender: 'Male', phone: '9876543210', bloodGroup: 'O+' },
+      { patientId: 'PAT-2', name: 'Rohit Krishna', age: 31, gender: 'Male', phone: '9845123456', bloodGroup: 'A+' },
+      { patientId: 'PAT-3', name: 'Priya Nair', age: 40, gender: 'Female', phone: '9895012345', bloodGroup: 'B+' }
     ];
 
     const defaultMeds = [
-      { id: 'MED-001', name: 'Paracetamol', dosage: '500mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-002', name: 'Amoxicillin', dosage: '250mg', type: 'Capsule', quantity: 45 },
-      { id: 'MED-003', name: 'Cetirizine', dosage: '10mg', type: 'Tablet', quantity: 60 },
-      { id: 'MED-004', name: 'Metformin', dosage: '500mg', type: 'Tablet', quantity: 30 },
-      { id: 'MED-005', name: 'Omeprazole', dosage: '20mg', type: 'Capsule', quantity: 40 },
-      { id: 'MED-006', name: 'Ibuprofen', dosage: '400mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-007', name: 'Azithromycin', dosage: '500mg', type: 'Tablet', quantity: 25 },
-      { id: 'MED-008', name: 'Pantoprazole', dosage: '40mg', type: 'Tablet', quantity: 70 },
-      { id: 'MED-009', name: 'Salbutamol Inhaler', dosage: '100mcg', type: 'Inhaler', quantity: 12 }
+      { id: 'MED-1', name: 'Paracetamol 500mg', dosage: '500mg', type: 'Tablet', quantity: 50 },
+      { id: 'MED-2', name: 'Amoxicillin 500mg', dosage: '500mg', type: 'Capsule', quantity: 45 },
+      { id: 'MED-3', name: 'Cetirizine 10mg', dosage: '10mg', type: 'Tablet', quantity: 60 },
+      { id: 'MED-4', name: 'Metformin 500mg', dosage: '500mg', type: 'Tablet', quantity: 30 },
+      { id: 'MED-5', name: 'Omeprazole 20mg', dosage: '20mg', type: 'Capsule', quantity: 40 },
+      { id: 'MED-6', name: 'Ibuprofen 400mg', dosage: '400mg', type: 'Tablet', quantity: 50 },
+      { id: 'MED-7', name: 'Azithromycin 500mg', dosage: '500mg', type: 'Tablet', quantity: 25 },
+      { id: 'MED-8', name: 'Pantoprazole 40mg', dosage: '40mg', type: 'Tablet', quantity: 70 },
+      { id: 'MED-9', name: 'Cough Syrup (Ascoril-D)', dosage: '10ml', type: 'Syrup', quantity: 15 },
+      { id: 'MED-10', name: 'Salbutamol Inhaler 100mcg', dosage: '100mcg', type: 'Inhaler', quantity: 12 }
     ];
 
-    const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, null);
-    if (!storedAppts || storedAppts.length === 0) {
-      setStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
-      setAppointments(defaultAppts);
-    } else {
+    try {
+      const [backendAppts, backendPatients, backendMeds, backendLabs, backendCons] = await Promise.all([
+        doctorService.getAppointments(),
+        doctorService.getPatients(),
+        doctorService.getMedicineCatalog(),
+        doctorService.getLabCatalog(),
+        doctorService.getAllConsultations()
+      ]);
+
+      if (Array.isArray(backendAppts) && backendAppts.length > 0) {
+        setAppointments(backendAppts);
+      } else {
+        const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
+        setAppointments(storedAppts);
+      }
+
+      if (Array.isArray(backendPatients) && backendPatients.length > 0) {
+        setPatients(backendPatients);
+      } else {
+        const storedPatients = getStorage(CMS_KEYS.PATIENTS, defaultPatients);
+        setPatients(storedPatients);
+      }
+
+      if (Array.isArray(backendMeds) && backendMeds.length > 0) {
+        setMedicines(backendMeds);
+      } else {
+        const storedMeds = getStorage(CMS_KEYS.MEDICINES, defaultMeds);
+        setMedicines(storedMeds);
+      }
+    } catch (err) {
+      console.warn('Backend live data sync error; using local storage:', err);
+      const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
       setAppointments(storedAppts);
-    }
-
-    const storedPatients = getStorage(CMS_KEYS.PATIENTS, null);
-    if (!storedPatients || storedPatients.length === 0) {
-      setStorage(CMS_KEYS.PATIENTS, defaultPatients);
-      setPatients(defaultPatients);
-    } else {
+      const storedPatients = getStorage(CMS_KEYS.PATIENTS, defaultPatients);
       setPatients(storedPatients);
-    }
-
-    const storedMeds = getStorage(CMS_KEYS.MEDICINES, null);
-    if (!storedMeds || storedMeds.length === 0) {
-      setStorage(CMS_KEYS.MEDICINES, defaultMeds);
-      setMedicines(defaultMeds);
-    } else {
+      const storedMeds = getStorage(CMS_KEYS.MEDICINES, defaultMeds);
       setMedicines(storedMeds);
     }
   };
@@ -717,6 +734,13 @@ export default function DoctorDashboard() {
     const drafts = getStorage(CMS_KEYS.DRAFTS, {});
     delete drafts[activeAppt.appointmentId];
     setStorage(CMS_KEYS.DRAFTS, drafts);
+
+    // Sync to MySQL Backend via doctorService
+    doctorService.createConsultation(
+      newCons,
+      { items: rxItems },
+      { tests: selectedLabs }
+    ).catch((err) => console.warn('Background sync to backend failed:', err));
 
     showToast(`Consultation completed for ${activeAppt.patientName}.`, 'success');
     window.dispatchEvent(new Event('cms_rx_updated'));
