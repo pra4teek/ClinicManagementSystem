@@ -230,7 +230,11 @@ function setStorage(key, val) {
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
-  const currentUser = authService.getCurrentUser() || { name: 'Dr. Prateek Pradeep', role: 'Doctor' };
+  const loggedUser = authService.getCurrentUser();
+  const currentDoctor = (loggedUser && loggedUser.role === 'Doctor')
+    ? loggedUser
+    : { name: 'Dr. Prateek Pradeep', role: 'Doctor', specialization: 'General Medicine' };
+  const currentUser = currentDoctor;
 
   // Navigation tab state: 'dashboard' | 'history' | 'labrequests' | 'labresults'
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -364,7 +368,16 @@ export default function DoctorDashboard() {
       ]);
 
       if (Array.isArray(backendAppts) && backendAppts.length > 0) {
-        setAppointments(backendAppts);
+        const localAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
+        const mergedAppts = backendAppts.map((b) => {
+          const loc = localAppts.find((l) => l.appointmentId === b.appointmentId || String(l.rawId) === String(b.rawId));
+          if (loc && loc.status === 'Completed') {
+            return { ...b, status: 'Completed' };
+          }
+          return b;
+        });
+        setAppointments(mergedAppts);
+        setStorage(CMS_KEYS.APPOINTMENTS, mergedAppts);
       } else {
         const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
         setAppointments(storedAppts);
@@ -612,7 +625,7 @@ export default function DoctorDashboard() {
   };
 
   // Save and Complete Consultation
-  const handleSaveConsultation = (e) => {
+  const handleSaveConsultation = async (e) => {
     e.preventDefault();
     if (!activeAppt) {
       showToast('Please select a patient first!', 'warning');
@@ -734,16 +747,22 @@ export default function DoctorDashboard() {
     const drafts = getStorage(CMS_KEYS.DRAFTS, {});
     delete drafts[activeAppt.appointmentId];
     setStorage(CMS_KEYS.DRAFTS, drafts);
+    showToast('Consultation completed for ' + activeAppt.patientName + '.', 'success');
 
-    // Sync to MySQL Backend via doctorService
-    doctorService.createConsultation(
-      newCons,
-      { items: rxItems },
-      { tests: selectedLabs }
-    ).catch((err) => console.warn('Background sync to backend failed:', err));
+    // Await backend sync to MySQL so backend AppointmentStatus is updated to Completed
+    try {
+      await doctorService.createConsultation(
+        newCons,
+        { items: rxItems },
+        { tests: selectedLabs }
+      );
+    } catch (err) {
+      console.warn('Backend sync failed, saved locally:', err);
+    }
 
-    showToast(`Consultation completed for ${activeAppt.patientName}.`, 'success');
+    // Now dispatch so Pharmacist and Lab Technician portals update
     window.dispatchEvent(new Event('cms_rx_updated'));
+    window.dispatchEvent(new Event('cms_stock_updated'));
   };
 
   // Sign out

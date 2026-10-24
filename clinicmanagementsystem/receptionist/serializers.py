@@ -87,7 +87,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "AppointmentStatus",
             "AppointmentDateTime",
         ]
-        read_only_fields = ["AppointmentId", "AppointmentStatus"]
+        read_only_fields = ["AppointmentId"]
 
     def validate(self, data):
         doctor = data.get("DoctorId")

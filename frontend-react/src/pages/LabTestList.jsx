@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
-import { getLabTest, loadLabData, saveLabData } from '../services/labService';
-import '../styles/labPages.css';
+import { getLabTest, loadLabData, saveLabData, syncLabOrders } from '../services/labService';import '../styles/labPages.css';
 
 const SECTIONS = [
   ['orders', '⚗', 'Lab Tests'],
@@ -50,10 +49,26 @@ export default function LabTestList() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const refresh = () => setData(loadLabData());
+    let isMounted = true;
+    const refresh = async () => {
+      try {
+        await syncLabOrders();
+      } catch (e) {}
+      if (isMounted) {
+        setData(loadLabData());
+      }
+    };
+    refresh();
     window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
-  }, []);
+    window.addEventListener('storage', refresh);
+    window.addEventListener('cms_rx_updated', refresh);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('cms_rx_updated', refresh);
+    };
+  }, [location]);
 
   const counts = useMemo(() => ({
     total: data.orders.length,

@@ -289,7 +289,15 @@ const doctorService = {
             };
           });
         if (rxList.length > 0) {
-          saveLocal(STORAGE_KEYS.PRESCRIPTIONS, rxList);
+          const currentRx = getLocal(STORAGE_KEYS.PRESCRIPTIONS, []);
+          const mergedRx = [...rxList];
+          currentRx.forEach((r) => {
+            const rId = r.prescriptionId || r.id;
+            if (!mergedRx.some((m) => m.prescriptionId === rId || m.id === rId)) {
+              mergedRx.unshift(r);
+            }
+          });
+          saveLocal(STORAGE_KEYS.PRESCRIPTIONS, mergedRx);
         }
 
         // Sync Lab Orders and Lab Reports to localStorage
@@ -341,7 +349,15 @@ const doctorService = {
         });
 
         if (labOrders.length > 0) {
-          saveLocal(STORAGE_KEYS.LAB_ORDERS, labOrders);
+          const currentOrders = getLocal(STORAGE_KEYS.LAB_ORDERS, []);
+          const mergedOrders = [...labOrders];
+          currentOrders.forEach((o) => {
+            const oId = o.labOrderId || o.id;
+            if (!mergedOrders.some((m) => m.labOrderId === oId || m.id === oId || (m.appointmentId && o.appointmentId && m.appointmentId === o.appointmentId))) {
+              mergedOrders.unshift(o);
+            }
+          });
+          saveLocal(STORAGE_KEYS.LAB_ORDERS, mergedOrders);
         }
         if (labReports.length > 0) {
           saveLocal('cms_lab_reports', labReports);
@@ -415,7 +431,10 @@ const doctorService = {
           const testsList = Array.isArray(testsRes.data) ? testsRes.data : [];
 
           for (const testName of labData.tests) {
-            const matchedTest = testsList.find((t) => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
+            let matchedTest = testsList.find((t) => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
+            if (!matchedTest && testsList.length > 0) {
+              matchedTest = testsList[0];
+            }
             if (matchedTest) {
               await api.post('/lab/lab-prescriptions/', {
                 ConsultationId: createdConsId,

@@ -1,3 +1,5 @@
+import api from './api';
+
 const KEYS = {
   orders: 'cms_lab_orders',
   patients: 'cms_patients',
@@ -170,4 +172,50 @@ export function saveLabData(data) {
   localStorage.setItem(KEYS.reports, JSON.stringify(data.reports));
   localStorage.setItem(KEYS.bills, JSON.stringify([...bills.filter((bill) => bill.source !== 'Lab'), ...data.bills]));
   localStorage.setItem(KEYS.tests, JSON.stringify(data.testMaster));
+}
+
+export async function syncLabOrders() {
+  try {
+    const res = await api.get('/lab/lab-prescriptions/');
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      const [testsRes, patsRes] = await Promise.all([
+        api.get('/lab/lab-tests/').catch(() => ({ data: [] })),
+        api.get('/receptionist/patients/').catch(() => ({ data: [] }))
+      ]);
+      const tests = Array.isArray(testsRes.data) ? testsRes.data : [];
+      const patients = Array.isArray(patsRes.data) ? patsRes.data : [];
+
+      const currentOrders = getStored(KEYS.orders, []);
+      const merged = [...currentOrders];
+
+      res.data.forEach((lp) => {
+        const orderId = 'LAB-' + lp.LabPrescriptionId;
+        const matchedTest = tests.find((t) => t.LabtestId === lp.LabTestId);
+        const matchedPat = patients.find((p) => p.PatientId === lp.PatientId);
+        const testName = matchedTest?.TestName || 'Diagnostic Evaluation';
+
+        if (!merged.some((m) => String(m.labOrderId) === orderId || String(m.id) === orderId || String(m.rawId) === String(lp.LabPrescriptionId))) {
+          merged.unshift({
+            labOrderId: orderId,
+            id: orderId,
+            rawId: lp.LabPrescriptionId,
+            patientId: matchedPat ? 'PAT-' + matchedPat.PatientId : 'PAT-' + lp.PatientId,
+            patientName: matchedPat?.Name || ('Patient #' + lp.PatientId),
+            doctorName: 'Dr. Prateek Pradeep',
+            date: lp.LabTestDate ? lp.LabTestDate.split('T')[0] : new Date().toISOString().split('T')[0],
+            time: '10:00 AM',
+            createdAt: Date.now(),
+            tests: [testName],
+            testName: testName,
+            status: lp.Status || 'Pending',
+            remarks: 'Suggested by Doctor'
+          });
+        }
+      });
+
+      localStorage.setItem(KEYS.orders, JSON.stringify(merged));
+    }
+  } catch (e) {
+    console.warn('syncLabOrders fallback:', e);
+  }
 }

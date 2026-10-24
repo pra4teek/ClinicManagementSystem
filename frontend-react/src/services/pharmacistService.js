@@ -162,98 +162,80 @@ export const pharmacistService = {
 
   // 2. Prescriptions Queue & Dispensing
   getPrescriptions: async () => {
+    let backendList = [];
     try {
       const res = await api.get('/pharmacist/prescriptions/');
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        return res.data;
+        backendList = res.data.map((p) => {
+          const items = Array.isArray(p.items) ? p.items.map((it) => ({
+            id: it.PrescriptionItemId,
+            prescriptionItemId: it.PrescriptionItemId,
+            medicineId: 'MED-' + String(it.MedicineId).padStart(3, '0'),
+            rawMedicineId: it.MedicineId,
+            medicineName: it.MedicineName || 'Prescribed Medicine',
+            dosage: it.Dosage || '500mg',
+            frequency: it.Frequency || '1-0-1',
+            duration: it.Duration || '5 Days',
+            quantity: 10,
+            unitPrice: 15.0
+          })) : [];
+
+          let formattedDate = 'Today';
+          if (p.PrescriptionDateTime) {
+            try {
+              formattedDate = new Date(p.PrescriptionDateTime).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (e) {}
+          }
+
+          return {
+            id: 'RX-' + p.PrescriptionId,
+            prescriptionId: 'RX-' + p.PrescriptionId,
+            rawId: p.PrescriptionId,
+            patientId: 'PAT-' + p.PatientId,
+            patientName: p.PatientName || ('Patient #' + p.PatientId),
+            patientAge: 45,
+            patientGender: 'Male',
+            patientPhone: '—',
+            doctorId: 'DOC-' + p.DoctorId,
+            doctorName: p.DoctorName ? (p.DoctorName.startsWith('Dr.') ? p.DoctorName : 'Dr. ' + p.DoctorName) : 'Dr. Prateek Pradeep',
+            doctorDept: 'General Medicine',
+            date: formattedDate,
+            diagnosis: 'Prescribed by Doctor',
+            notes: 'Dispense as directed',
+            status: p.Status || 'Pending',
+            items
+          };
+        });
       }
-    } catch {
-      // Backend not running or no Django records; proceed with shared local storage
+    } catch (err) {
+      console.warn('Backend prescriptions fetch fallback:', err);
     }
 
+    // Merge with local storage prescriptions
+    let localRx = [];
     try {
-      const localRx = localStorage.getItem(PHARMACY_STORAGE_KEYS.PRESCRIPTIONS);
-      const parsed = localRx ? JSON.parse(localRx) : [];
-      if (parsed.length > 0) return parsed;
-    } catch {
-      // ignore
-    }
+      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.PRESCRIPTIONS);
+      if (stored) localRx = JSON.parse(stored);
+    } catch {}
 
-    // Default sample prescriptions if none yet created by Doctor
-    const SAMPLE_RX = [
-      {
-        id: 'RX-2025-081',
-        prescriptionId: 'RX-2025-081',
-        patientId: 'PT-1002',
-        patientName: 'Amina Begum',
-        patientAge: 42,
-        patientGender: 'Female',
-        patientPhone: '+91 98471 23456',
-        doctorId: 'DOC-01',
-        doctorName: 'Dr. Prateek Pradeep',
-        doctorDept: 'General Medicine',
-        date: '2026-10-24 10:15 AM',
-        diagnosis: 'Upper Respiratory Infection & Acute Bronchitis',
-        notes: 'Take medicines after food. Plenty of warm fluids.',
-        status: 'Pending',
-        items: [
-          { medicineId: 'MED-002', medicineName: 'Amoxicillin 500mg', dosage: '500mg', frequency: '1-0-1 (Twice daily)', duration: '5 Days', quantity: 10, unitPrice: 18.0 },
-          { medicineId: 'MED-001', medicineName: 'Paracetamol 500mg', dosage: '500mg', frequency: '1-1-1 (Thrice daily)', duration: '3 Days', quantity: 9, unitPrice: 5.0 },
-          { medicineId: 'MED-011', medicineName: 'Cough Syrup (Ascoril)', dosage: '10ml', frequency: '1-0-1 (After food)', duration: '5 Days', quantity: 1, unitPrice: 98.0 }
-        ]
-      },
-      {
-        id: 'RX-2025-082',
-        prescriptionId: 'RX-2025-082',
-        patientId: 'PT-1005',
-        patientName: 'Karthik Subramanian',
-        patientAge: 56,
-        patientGender: 'Male',
-        patientPhone: '+91 94462 87654',
-        doctorId: 'DOC-02',
-        doctorName: 'Dr. Arun',
-        doctorDept: 'Endocrinology',
-        date: '2026-10-24 10:45 AM',
-        diagnosis: 'Type 2 Diabetes Mellitus & Dyslipidemia',
-        notes: 'Regular blood glucose monitoring advised.',
-        status: 'Pending',
-        items: [
-          { medicineId: 'MED-004', medicineName: 'Metformin 500mg', dosage: '500mg', frequency: '1-0-1 (Twice daily)', duration: '30 Days', quantity: 60, unitPrice: 10.0 },
-          { medicineId: 'MED-010', medicineName: 'Atorvastatin 10mg', dosage: '10mg', frequency: '0-0-1 (At bedtime)', duration: '30 Days', quantity: 30, unitPrice: 18.0 }
-        ]
-      },
-      {
-        id: 'RX-2025-080',
-        prescriptionId: 'RX-2025-080',
-        patientId: 'PT-1001',
-        patientName: 'Devika Pillai',
-        patientAge: 29,
-        patientGender: 'Female',
-        patientPhone: '+91 97451 98765',
-        doctorId: 'DOC-01',
-        doctorName: 'Dr. Prateek Pradeep',
-        doctorDept: 'General Medicine',
-        date: '2026-10-24 09:20 AM',
-        diagnosis: 'Acute Gastritis & Acid Reflux',
-        notes: 'Avoid spicy meals and late-night snacks.',
-        status: 'Dispensed',
-        dispensedBy: 'Adarsh Chandran',
-        dispensedAt: '2026-10-24 09:35 AM',
-        billNumber: 'PB-2025-042',
-        billTotal: 275.0,
-        items: [
-          { medicineId: 'MED-005', medicineName: 'Omeprazole 20mg', dosage: '20mg', frequency: '1-0-0 (Before breakfast)', duration: '14 Days', quantity: 14, unitPrice: 12.0 },
-          { medicineId: 'MED-008', medicineName: 'Pantoprazole 40mg', dosage: '40mg', frequency: '1-0-0 (Early morning)', duration: '7 Days', quantity: 7, unitPrice: 15.0 }
-        ]
+    const combined = [...backendList];
+    localRx.forEach((lr) => {
+      const id = lr.prescriptionId || lr.id;
+      if (!combined.some((c) => c.prescriptionId === id || c.id === id || (c.rawId && lr.rawId && String(c.rawId) === String(lr.rawId)))) {
+        combined.unshift({
+          ...lr,
+          id: lr.id || lr.prescriptionId,
+          prescriptionId: lr.prescriptionId || lr.id,
+          status: lr.status || 'Pending'
+        });
       }
-    ];
+    });
 
-    try {
-      localStorage.setItem(PHARMACY_STORAGE_KEYS.PRESCRIPTIONS, JSON.stringify(SAMPLE_RX));
-    } catch {
-      // ignore
+    if (combined.length > 0) {
+      return combined;
     }
-    return SAMPLE_RX;
+
+    return [];
   },
 
   dispensePrescription: async (rxId, pharmacistUser = 'Adarsh Chandran') => {

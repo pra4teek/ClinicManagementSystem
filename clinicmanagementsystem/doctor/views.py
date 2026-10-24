@@ -28,10 +28,17 @@ class ConsultationViewSet(viewsets.ModelViewSet):
             queryset=queryset.filter(DoctorId=doctor_id)
         return queryset
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        if instance.ConsultationStatus == 'Completed' and instance.AppointmentId:
+            appointment = instance.AppointmentId
+            appointment.AppointmentStatus = 'Completed'
+            appointment.save(update_fields=['AppointmentStatus'])
+
     def perform_update(self, serializer):
         instance = serializer.save()
         # Auto-update appointment status when consultation is completed
-        if instance.ConsultationStatus == 'Completed':
+        if instance.ConsultationStatus == 'Completed' and instance.AppointmentId:
             appointment = instance.AppointmentId
             appointment.AppointmentStatus = 'Completed'
             appointment.save(update_fields=['AppointmentStatus'])

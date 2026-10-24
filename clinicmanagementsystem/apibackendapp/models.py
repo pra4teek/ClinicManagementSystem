@@ -214,6 +214,7 @@ class PrescriptionItem(models.Model):
     
 class LabPrescription(models.Model):
     STATUS_CHOICES=[
+        ('Pending','Pending'),
         ('Sample collected','Sample collected'),
         ('In Progress','In Progress'),
         ('Completed','Completed'),
