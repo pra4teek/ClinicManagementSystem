@@ -40,13 +40,18 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* Protected Application Routes wrapped in AppLayout */}
+        {/* Protected Application Routes */}
         <Route element={<ProtectedRoute />}>
+          {/* Doctor Module has its own full-screen layout with dark sidebar matching original frontend/doctor */}
+          <Route path="/doctor" element={<DoctorDashboard />} />
+
+          {/* Shared AppLayout for other modules */}
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/receptionist" element={<ReceptionistDashboard />} />
-            {/* Doctor Module Routes */}
-            <Route path="/doctor" element={<DoctorDashboard />} />
+              {/* Receptionist Dashboard */}
+
+            <Route path="/receptionist" element={<ReceptionistDashboard />} /> 
+            {/* Doctor Supporting Pages for course requirements */}
             <Route path="/consultations" element={<ConsultationList />} />
             <Route path="/consultations/new" element={<ConsultationForm />} />
             <Route path="/prescriptions" element={<PrescriptionList />} />
