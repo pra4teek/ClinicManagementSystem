@@ -171,8 +171,8 @@ export default function Dashboard() {
             Department setup, staff management, role permissions, and clinic oversight.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Link to="/departments" className="btn btn-sm btn-outline">Departments</Link>
-            <Link to="/departments/new" className="btn btn-sm btn-primary">+ Add Dept</Link>
+            <Link to="/admin" className="btn btn-sm btn-primary">Admin Portal</Link>
+            <Link to="/admin?tab=departments" className="btn btn-sm btn-outline">Departments</Link>
           </div>
         </div>
       </div>

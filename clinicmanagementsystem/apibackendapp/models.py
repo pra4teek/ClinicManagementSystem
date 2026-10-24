@@ -15,6 +15,14 @@ class User(models.Model):
     RoleId=models.ForeignKey(Role,on_delete=models.CASCADE)
     isActive=models.BooleanField(default=True)
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
     def __str__(self):
         return self.Username
 

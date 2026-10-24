@@ -12,6 +12,10 @@ const api = axios.create({
 // Request interceptor to attach JWT token
 api.interceptors.request.use(
   (config) => {
+    // Never send Authorization header on login endpoints
+    if (config.url && config.url.includes('/login/')) {
+      return config;
+    }
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     // Only attach Authorization header if it's a real JWT token (format: xxx.yyy.zzz)
     if (token && typeof token === 'string' && token.includes('.')) {

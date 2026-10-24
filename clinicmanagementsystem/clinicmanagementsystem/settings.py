@@ -11,8 +11,20 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
-# pyrefly: ignore [missing-import]
-from decouple import config
+try:
+    from decouple import config
+except ImportError:
+    import os
+    def config(key, default='', cast=None):
+        val = os.environ.get(key, default)
+        if cast is bool and isinstance(val, str):
+            return val.lower() in ('true', '1', 't', 'yes')
+        elif cast and val != default:
+            try:
+                return cast(val)
+            except Exception:
+                return val
+        return val
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,17 +95,27 @@ WSGI_APPLICATION = 'clinicmanagementsystem.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': 3306,
+DB_NAME = config('DB_NAME', default='')
+USE_SQLITE = config('USE_SQLITE', default=not bool(DB_NAME), cast=bool)
 
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': DB_NAME,
+            'USER': config('DB_USER', default='root'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default=3306, cast=int),
+        }
+    }
 
 
 # Password validation
@@ -145,7 +167,10 @@ MAILERS = {
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'adminapp.authentication.ClinicJWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
     ],
 }
 CORS_ALLOW_ALL_ORIGINS = True

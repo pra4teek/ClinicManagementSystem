@@ -6,10 +6,51 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apibackendapp.models import User
 
 
-class AdminJWTAuthentication(BaseAuthentication):
+class ClinicJWTAuthentication(BaseAuthentication):
+    """
+    General authentication class used across all clinic endpoints.
+    If the Authorization header is missing, malformed, expired, or a demo token,
+    it returns None instead of raising AuthenticationFailed.
+    This allows endpoints with AllowAny permissions to function without 401 errors.
+    """
 
     def authenticate(self, request):
+        auth_header = request.headers.get('Authorization')
 
+        if not auth_header:
+            return None
+
+        parts = auth_header.split()
+
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return None
+
+        token = parts[1]
+
+        try:
+            access_token = AccessToken(token)
+            user_id = access_token.get('user_id')
+            if not user_id:
+                return None
+
+            user = User.objects.get(UserId=user_id)
+            if not user.isActive:
+                return None
+
+            return (user, token)
+
+        except Exception:
+            # Stale, invalid, or demo token: return None so AllowAny endpoints succeed
+            return None
+
+
+class AdminJWTAuthentication(BaseAuthentication):
+    """
+    Dedicated authentication class for administrator endpoints.
+    Enforces valid JWT tokens and checks that the user has the Admin role.
+    """
+
+    def authenticate(self, request):
         auth_header = request.headers.get('Authorization')
 
         if not auth_header:
@@ -25,7 +66,9 @@ class AdminJWTAuthentication(BaseAuthentication):
 
             access_token = AccessToken(token)
 
-            user_id = access_token['user_id']
+            user_id = access_token.get('user_id')
+            if not user_id:
+                raise AuthenticationFailed("Invalid token payload: missing user_id.")
 
             user = User.objects.get(UserId=user_id)
 

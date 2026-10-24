@@ -33,6 +33,8 @@ export default function Login() {
         navigate('/pharmacist');
       } else if (role === 'Lab Technician') {
         navigate('/lab-tests');
+      } else if (role === 'Admin') {
+        navigate('/admin');
       } else {
         navigate('/dashboard');
       }
@@ -189,7 +191,10 @@ export default function Login() {
             type="button"
             className="btn btn-sm btn-outline"
             style={{ width: '100%', marginTop: '0.5rem', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            onClick={() => loginAsRole('Bala Weslin', 'Admin', '/dashboard')}
+            onClick={async () => {
+              await authService.loginAdminDemo();
+              navigate('/admin');
+            }}
           >
             <SettingsIcon size={14} />
             Administrator (All Modules)

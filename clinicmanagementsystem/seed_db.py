@@ -114,21 +114,20 @@ def seed():
     ]
     patient_objs = []
     for name, gender, dob, phone, addr, bg, wt, ht in patients_data:
-        p, created = Patient.objects.get_or_create(
-            PhoneNumber=phone,
-            defaults={
-                'Name': name,
-                'Gender': gender,
-                'DOB': dob,
-                'Address': addr,
-                'BloodGroup': bg,
-                'Weight': wt,
-                'Height': ht
-            }
-        )
-        patient_objs.append(p)
-        if created:
+        p = Patient.objects.filter(PhoneNumber=phone).first()
+        if not p:
+            p = Patient.objects.create(
+                Name=name,
+                Gender=gender,
+                DOB=dob,
+                PhoneNumber=phone,
+                Address=addr,
+                BloodGroup=bg,
+                Weight=wt,
+                Height=ht
+            )
             print(f"Created Patient: {name} ({bg})")
+        patient_objs.append(p)
 
     # 7. APPOINTMENTS & TOKENS
     receptionist_staff = staff_objs['reception']

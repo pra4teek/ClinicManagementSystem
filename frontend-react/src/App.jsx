@@ -29,6 +29,7 @@ import LabTestList from "./pages/LabTestList";
 import LabReportForm from "./pages/LabReportForm";
 
 // Admin Module
+import AdminDashboard from "./pages/AdminDashboard";
 import DepartmentList from "./pages/DepartmentList";
 import DepartmentForm from "./pages/DepartmentForm";
 
@@ -56,6 +57,9 @@ export default function App() {
           <Route element={<ReceptionistLayout />}>
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
           </Route>
+
+          {/* Admin Module has its own full-screen portal layout matching Doctor, Pharmacist, Receptionist */}
+          <Route path="/admin" element={<AdminDashboard />} />
 
           {/* Shared AppLayout for other modules */}
           <Route element={<AppLayout />}>
