@@ -10,6 +10,29 @@ const SECTIONS = [
   ['billing', '▣', 'Billing'],
 ];
 
+function formatOrderDateTime(order) {
+  if (order.createdAt) {
+    const timestamp = order.createdAt;
+    const date = new Date(typeof timestamp === 'number' || /^\d+$/.test(String(timestamp))
+      ? Number(timestamp) : timestamp);
+    return Number.isNaN(date.getTime())
+      ? '—'
+      : date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+  }
+
+  if (!order.date) return '—';
+  const date = new Date(order.date);
+  if (Number.isNaN(date.getTime())) return '—';
+  const formattedDate = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return order.time ? `${formattedDate}, ${order.time}` : formattedDate;
+}
+
 export default function LabTestList() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -192,15 +215,15 @@ export default function LabTestList() {
             <div className="card-header"><h2 className="card-title">All Lab Tests</h2></div>
             <div className="card-body table-responsive">
               <table className="table">
-                <thead><tr><th>Test ID</th><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Test Name</th><th>Sample Type</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Test ID</th><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Requested Date &amp; Time</th><th>Test Name</th><th>Sample Type</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {!filteredOrders.length && <tr><td colSpan="8" className="lab-empty">
+                  {!filteredOrders.length && <tr><td colSpan="9" className="lab-empty">
                     {data.orders.length ? 'No lab tests match that patient name or ID.' : 'No lab tests available'}
                   </td></tr>}
                   {filteredOrders.map((order) => {
                     const test = getLabTest(order.testId, data.testMaster);
                     return <tr key={order.id}>
-                      <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td><td>{test.testName}</td><td>{test.sampleType}</td>
+                      <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td><td>{formatOrderDateTime(order)}</td><td>{test.testName}</td><td>{test.sampleType}</td>
                       <td><StatusBadge status={order.status} /></td>
                       <td>{order.status === 'Completed'
                         ? <button className="btn btn-sm btn-outline" onClick={() => openSection('reports')}>View Report</button>
