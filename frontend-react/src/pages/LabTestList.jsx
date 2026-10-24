@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import authService from '../services/authService';
 import { getLabTest, loadLabData, saveLabData } from '../services/labService';
 import '../styles/labPages.css';
 
@@ -36,6 +37,10 @@ function formatOrderDateTime(order) {
 export default function LabTestList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const currentUser = authService.getCurrentUser();
+  const displayName = currentUser?.name || 'Malathi Sreekumar';
+  const displayRole = currentUser?.role || 'Lab Technician';
+  const userInitials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const [data, setData] = useState(() => loadLabData());
   const [section, setSection] = useState(() => location.state?.section || 'orders');
   const [reportSearch, setReportSearch] = useState('');
@@ -172,7 +177,7 @@ export default function LabTestList() {
           ))}
         </nav>
         <div className="lab-sidebar-footer">
-          <div className="lab-user"><span className="lab-avatar">LT</span><span><strong>Lab Technician</strong><small>CarePoint Clinic</small></span></div>
+          <div className="lab-user"><span className="lab-avatar">{userInitials}</span><span><strong>{displayName}</strong><small>{displayRole}</small></span></div>
           <button className="lab-signout" onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('accessToken'); localStorage.removeItem('user'); navigate('/login'); }}>⇥ Sign Out</button>
         </div>
       </aside>
