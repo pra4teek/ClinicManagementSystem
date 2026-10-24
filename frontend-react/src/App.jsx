@@ -50,6 +50,7 @@ export default function App() {
           {/* Pharmacist Module has its own full-screen layout with dark navy sidebar matching Doctor & Lab */}
           <Route path="/pharmacist" element={<PharmacistDashboard />} />
           <Route path="/medicines" element={<PharmacistDashboard />} />
+          <Route path="/lab-tests" element={<LabTestList />} />
 
           {/* Receptionist module has an isolated full-screen portal layout. */}
           <Route element={<ReceptionistLayout />}>
@@ -75,7 +76,6 @@ export default function App() {
             <Route path="/medicines/new" element={<MedicineForm />} />
 
             {/* Lab Technician Routes */}
-            <Route path="/lab-tests" element={<LabTestList />} />
             <Route path="/lab-reports/new" element={<LabReportForm />} />
 
             {/* Admin Routes */}

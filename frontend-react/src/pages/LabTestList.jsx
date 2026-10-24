@@ -162,7 +162,7 @@ export default function LabTestList() {
   return (
     <div className="lab-page">
       <aside className="lab-sidebar">
-        <div className="lab-sidebar-brand"><span className="lab-brand-icon">⚕</span><span><strong>CarePoint</strong><small>Lab Technician</small></span></div>
+        <div className="lab-sidebar-brand"><span className="lab-brand-icon">⚗</span><span><strong>CarePoint</strong><small>Lab Technician</small></span></div>
         <p className="lab-nav-label">Workspace</p>
         <nav className="lab-sidebar-nav" aria-label="Lab technician navigation">
           {SECTIONS.map(([id, icon, title]) => (

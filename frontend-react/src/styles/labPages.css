@@ -1,20 +1,21 @@
 .lab-page {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
-  align-items: start;
-  gap: 1.5rem;
+  grid-template-columns: 276px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg-main);
 }
 
 .lab-sidebar {
-  position: sticky;
-  top: 80px;
-  min-height: calc(100vh - 100px);
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 276px;
+  min-height: 100vh;
   padding: 1rem .7rem;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-lg);
   background: #0d1b2a;
   color: #fff;
+  z-index: 10;
 }
 
 .lab-sidebar-brand,
@@ -54,11 +55,13 @@
 .lab-nav-label { margin: 1rem .55rem .3rem; color: rgba(255,255,255,.35); font-size: .63rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
 .lab-sidebar-nav { display: grid; gap: .2rem; }
 .lab-nav-item {
-  padding: .6rem .65rem;
+  min-height: 36px;
+  padding: .45rem .55rem;
   display: flex;
   align-items: center;
   gap: .6rem;
   border: 0;
+  border-left: 3px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
   color: rgba(255,255,255,.65);
@@ -67,16 +70,28 @@
   text-align: left;
 }
 .lab-nav-item:hover,
-.lab-nav-item.active { background: rgba(0,87,184,.4); color: #fff; }
-.lab-sidebar-footer { margin-top: auto; padding-top: .8rem; border-top: 1px solid rgba(255,255,255,.1); }
+.lab-nav-item.active { background: rgba(0,87,184,.38); color: #fff; }
+.lab-nav-item.active { border-left-color: var(--primary); font-weight: 600; }
+.lab-sidebar-footer { margin: auto -.7rem 0; padding: .8rem .7rem 0; border-top: 1px solid rgba(255,255,255,.1); }
 .lab-user { padding: .4rem .25rem; }
 .lab-user strong { color: #fff; font-size: .77rem; }
 .lab-signout { width: 100%; padding: .55rem; border: 0; border-radius: var(--radius-sm); background: transparent; color: rgba(255,255,255,.6); cursor: pointer; text-align: left; }
 .lab-signout:hover { background: rgba(220,38,38,.18); color: #fca5a5; }
-.lab-main { min-width: 0; }
-.lab-page-header { align-items: center; }
-.lab-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.lab-main { grid-column: 2; min-width: 0; padding: 2rem 1.75rem 3rem; }
+.lab-page-header { align-items: center; margin-bottom: 2rem; }
+.lab-page-header .page-title { font-size: 1.5rem; }
+.lab-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+.lab-stats .stat-card { min-height: 98px; padding: 1rem 1.25rem; gap: .8rem; border-radius: 14px; }
+.lab-stats .stat-icon { width: 24px; height: 24px; border-radius: 0; background: transparent; color: #334155; font-size: 1.3rem; }
+.lab-stats .stat-value { display: block; font-size: 1.75rem; }
+.lab-stats .stat-label { display: block; margin-top: .2rem; font-size: .78rem; }
 .lab-card { margin-bottom: 1rem; }
+.lab-card .card-header { padding: .9rem 1.25rem; background: #fff; }
+.lab-card .card-title { font-size: .95rem; }
+.lab-card .card-body { padding: 1.25rem; }
+.lab-card .table th { padding: .7rem 1rem; }
+.lab-card .table td { padding: .8rem 1rem; font-size: .84rem; }
+.lab-card .table-responsive { border-radius: 0; }
 .lab-empty { padding: 1.4rem !important; color: var(--text-muted) !important; text-align: center; }
 .lab-message,
 .lab-validation { margin: 0 0 1rem; padding: .75rem 1rem; border: 1px solid #bae6fd; border-radius: var(--radius-sm); background: #f0f9ff; color: #075985; font-size: .82rem; }
@@ -104,16 +119,20 @@
 .lab-form-page { max-width: 900px; margin: 0 auto; }
 .lab-form-header { margin-bottom: 1.25rem; }
 
-@media (max-width: 900px) {
-  .lab-page { grid-template-columns: 190px minmax(0, 1fr); gap: 1rem; }
-  .lab-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .lab-page { grid-template-columns: 200px minmax(0, 1fr); }
+  .lab-sidebar { width: 200px; }
+  .lab-main { padding: 1.5rem; }
+  .lab-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
 }
 
 @media (max-width: 700px) {
   .lab-page { display: block; }
-  .lab-sidebar { position: static; min-height: 0; margin-bottom: 1rem; }
+  .lab-sidebar { position: static; width: 100%; min-height: 0; margin-bottom: 1rem; }
   .lab-sidebar-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lab-sidebar-footer { margin-top: .75rem; }
+  .lab-main { margin-left: 0; padding: 1.25rem 1rem 2rem; }
+  .lab-page-header { align-items: flex-start; }
   .lab-stats { grid-template-columns: 1fr; }
   .lab-param-row { grid-template-columns: minmax(0, 1fr) minmax(120px, 1fr); }
   .lab-unit { grid-column: 2; justify-self: start; }
