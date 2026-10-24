@@ -187,13 +187,13 @@ export default function LabTestList() {
 
         <div className="stats-grid lab-stats">
           {[
-            ['⚗', counts.total, 'Total Lab Tests', 'blue'],
-            ['◷', counts.pending, 'Pending Tests', 'amber'],
-            ['⇄', counts.progress, 'In Progress', 'teal'],
-            ['✓', counts.completed, 'Completed Tests', 'green'],
-            ['▤', counts.reports, 'Reports', 'indigo'],
-          ].map(([icon, count, label, tone]) => <div className="stat-card" key={label}>
-            <span className={`stat-icon ${tone}`}>{icon}</span><span><strong className="stat-value">{count}</strong><span className="stat-label">{label}</span></span>
+            ['flask', counts.total, 'Total Lab Tests'],
+            ['clock', counts.pending, 'Pending Tests'],
+            ['progress', counts.progress, 'In Progress'],
+            ['check', counts.completed, 'Completed Tests'],
+            ['report', counts.reports, 'Reports'],
+          ].map(([icon, count, label]) => <div className="stat-card" key={label}>
+            <LabStatIcon name={icon} /><span><strong className="stat-value">{count}</strong><span className="stat-label">{label}</span></span>
           </div>)}
         </div>
 
@@ -303,6 +303,22 @@ export default function LabTestList() {
         </>}
       </main>
     </div>
+  );
+}
+
+function LabStatIcon({ name }) {
+  const iconPaths = {
+    flask: <><path d="M10 2v7.5a2 2 0 0 1-.2.9L4.7 20.6a1 1 0 0 0 .9 1.4h12.8a1 1 0 0 0 .9-1.4l-5.1-10.2a2 2 0 0 1-.2-.9V2" /><path d="M8 2h8M7 16h10" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    progress: <><path d="M7 3v18M17 3v18M7 8h10M7 12h10M7 16h10" /></>,
+    check: <path d="m5 12 4 4L19 6" />,
+    report: <><path d="M6 3h9l4 4v14H6z" /><path d="M15 3v5h4M9 12h6M9 16h6" /></>,
+  };
+
+  return (
+    <svg className="lab-stat-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {iconPaths[name]}
+    </svg>
   );
 }
 
