@@ -189,11 +189,23 @@ class AdminLoginView(APIView):
         access_token["username"] = user.Username
         access_token["role"] = user.RoleId.RoleName
 
+        user_payload = {
+            "userId": user.UserId,
+            "UserId": user.UserId,
+            "username": user.Username,
+            "Username": user.Username,
+            "role": user.RoleId.RoleName,
+            "Role": user.RoleId.RoleName,
+            "name": "Bala Weslin" if user.Username == "admin" else user.Username,
+            "Name": "Bala Weslin" if user.Username == "admin" else user.Username,
+        }
+
         return Response(
             {
                 "message": "Admin login successful.",
                 "access": str(access_token),
-                "token": str(access_token)
+                "token": str(access_token),
+                "user": user_payload
             },
             status=status.HTTP_200_OK
         )

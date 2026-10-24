@@ -1,112 +1,106 @@
 import api from './api.js';
 
-const TEAM_USERS = [
-  { username: 'prateek', password: 'prateek123', role: 'Doctor', name: 'Dr. Prateek Pradeep' },
-  { username: 'doctor', password: '123', role: 'Doctor', name: 'Dr. Prateek Pradeep' },
-  { username: 'Dr.Arun', password: 'arun123', role: 'Doctor', name: 'Dr. Arun' },
-  { username: 'reception', password: '123', role: 'Receptionist', name: 'Joel Jain' },
-  { username: 'pharma', password: '123', role: 'Pharmacist', name: 'Adarsh Chandran' },
-  { username: 'labtech', password: '123', role: 'Lab Technician', name: 'Malathi Sreekumar' },
-  { username: 'admin', password: '123', role: 'Admin', name: 'Bala Weslin' },
-];
-
 const authService = {
   login: async (username, password) => {
     const trimmedUser = (username || '').trim();
     const trimmedPass = (password || '').trim();
 
-    // 1. If logging in as admin or general user, prioritize Django backend login for real JWT token
+    if (!trimmedUser || !trimmedPass) {
+      throw new Error('Please enter both username and password.');
+    }
+
+    // Try general login endpoint first (/api/login/), fallback to /api/admin/login/
+    let response = null;
+    let lastError = null;
+
     try {
-      const response = await api.post('/admin/login/', {
+      response = await api.post('/login/', {
         Username: trimmedUser,
         Password: trimmedPass,
       });
-
-      if (response.data && (response.data.access || response.data.token)) {
-        const token = response.data.access || response.data.token;
-        const userObj = {
-          username: trimmedUser,
-          role: 'Admin',
-          name: trimmedUser.toLowerCase() === 'admin' ? 'Bala Weslin' : trimmedUser,
-        };
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userObj));
-        return { success: true, user: userObj, token };
-      }
     } catch (err) {
-      // If admin login failed with admin123, retry with 123 (from seed_db.py)
-      if (trimmedUser.toLowerCase() === 'admin' && (trimmedPass === 'admin123' || trimmedPass === '123')) {
-        try {
-          const altPass = trimmedPass === 'admin123' ? '123' : 'admin123';
-          const retryRes = await api.post('/admin/login/', {
-            Username: 'admin',
-            Password: altPass,
-          });
-          if (retryRes.data && (retryRes.data.access || retryRes.data.token)) {
-            const token = retryRes.data.access || retryRes.data.token;
-            const userObj = {
-              username: 'admin',
-              role: 'Admin',
-              name: 'Bala Weslin',
-            };
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(userObj));
-            return { success: true, user: userObj, token };
-          }
-        } catch {}
-      }
-
-      const errorMsg = err.response?.data?.error || err.response?.data?.detail;
-      if (err.response && err.response.status === 403) {
-        throw new Error(errorMsg || 'Admin access required.');
+      lastError = err;
+      // If general /login/ endpoint failed or was not reachable, try /admin/login/
+      try {
+        response = await api.post('/admin/login/', {
+          Username: trimmedUser,
+          Password: trimmedPass,
+        });
+      } catch (adminErr) {
+        lastError = adminErr;
       }
     }
 
-    // 2. Check local team credentials fallback (for offline demo mode)
-    const localMatch = TEAM_USERS.find(
-      (u) => u.username.toLowerCase() === trimmedUser.toLowerCase() && (u.password === trimmedPass || (trimmedUser.toLowerCase() === 'admin' && trimmedPass === 'admin123'))
-    );
+    // If still failed and user is admin trying with admin123, retry with 123
+    if (!response && trimmedUser.toLowerCase() === 'admin' && trimmedPass === 'admin123') {
+      try {
+        response = await api.post('/admin/login/', {
+          Username: 'admin',
+          Password: '123',
+        });
+      } catch (retryErr) {
+        lastError = retryErr;
+      }
+    }
 
-    if (localMatch) {
-      // Non-dotted demo token string so api.js never attaches forged Authorization headers
-      const token = `demo-token-${localMatch.role.toLowerCase().replace(/\s+/g, '')}-${Date.now()}`;
+    if (response?.data && (response.data.access || response.data.token)) {
+      const token = response.data.access || response.data.token;
+      const returnedUser = response.data.user || {};
+      const userObj = {
+        userId: returnedUser.userId || returnedUser.UserId,
+        username: returnedUser.username || returnedUser.Username || trimmedUser,
+        role: returnedUser.role || returnedUser.Role || (trimmedUser.toLowerCase() === 'admin' ? 'Admin' : 'Staff'),
+        name: returnedUser.name || returnedUser.Name || (trimmedUser.toLowerCase() === 'admin' ? 'Bala Weslin' : trimmedUser),
+      };
+
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(localMatch));
-      return { success: true, user: localMatch, token };
+      localStorage.setItem('user', JSON.stringify(userObj));
+      return { success: true, user: userObj, token };
     }
 
-    throw new Error('Invalid username or password. Check credentials or use 1-Click Quick Demo Access below.');
+    const errorMsg =
+      lastError?.response?.data?.error ||
+      lastError?.response?.data?.detail ||
+      lastError?.message ||
+      'Invalid username or password.';
+    throw new Error(errorMsg);
   },
 
   // 1-Click Administrator Login helper
   loginAdminDemo: async () => {
-    const adminUser = { name: 'Bala Weslin', role: 'Admin', username: 'admin' };
-    
-    // Call POST /admin/login/ with { Username: 'admin', Password: '123' } first to get real signed JWT!
+    // Authenticate directly against the MySQL User row created by seed_db.py
     const credentialPairs = [
       { Username: 'admin', Password: '123' },
-      { Username: 'admin', Password: 'admin123' }
+      { Username: 'admin', Password: 'admin123' },
     ];
 
+    let lastError = null;
     for (const cred of credentialPairs) {
       try {
         const response = await api.post('/admin/login/', cred);
         if (response.data && (response.data.access || response.data.token)) {
           const token = response.data.access || response.data.token;
+          const returnedUser = response.data.user || {};
+          const userObj = {
+            userId: returnedUser.userId || returnedUser.UserId || 1,
+            username: returnedUser.username || returnedUser.Username || 'admin',
+            role: returnedUser.role || returnedUser.Role || 'Admin',
+            name: returnedUser.name || returnedUser.Name || 'Bala Weslin',
+          };
           localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(adminUser));
-          return { success: true, user: adminUser, token };
+          localStorage.setItem('user', JSON.stringify(userObj));
+          return { success: true, user: userObj, token };
         }
-      } catch {
-        // Try next credential
+      } catch (err) {
+        lastError = err;
       }
     }
 
-    // Offline fallback demo token without dots
-    const demoToken = `demo-token-admin-${Date.now()}`;
-    localStorage.setItem('token', demoToken);
-    localStorage.setItem('user', JSON.stringify(adminUser));
-    return { success: true, user: adminUser, token: demoToken };
+    throw new Error(
+      lastError?.response?.data?.error ||
+        lastError?.response?.data?.detail ||
+        'Unable to connect to Django MySQL backend. Please verify server is running on port 8000.'
+    );
   },
 
   logout: () => {

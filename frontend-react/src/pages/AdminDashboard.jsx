@@ -191,11 +191,13 @@ export default function AdminDashboard() {
 
   const [auditActionFilter, setAuditActionFilter] = useState('All');
   const [auditUserFilter, setAuditUserFilter] = useState('');
+  const [backendError, setBackendError] = useState(null);
 
   // Load all admin data
   const loadAdminData = async () => {
     try {
       setLoading(true);
+      setBackendError(null);
       const [
         metricsData,
         usersData,
@@ -206,39 +208,42 @@ export default function AdminDashboard() {
         medsData,
         dosagesData,
         testsData,
+        reordersData,
         aptsData,
         patientsData,
         auditData
       ] = await Promise.all([
-        adminService.getDashboardMetrics(),
-        adminService.getUsers(),
-        adminService.getRoles(),
-        adminService.getDepartments(),
-        adminService.getDoctors(),
-        adminService.getStaff(),
-        adminService.getMedicines(),
-        adminService.getDosages(),
-        adminService.getLabTests(),
-        adminService.getAppointments(),
-        adminService.getPatients(),
-        adminService.getAuditLogs()
+        adminService.getDashboardMetrics().catch(() => ({ users: { total: 0, active: 0, inactive: 0 }, appointments: { today: 0, waiting: 0, completed: 0 }, patients_registered: 0, recent_audit_activity: [] })),
+        adminService.getUsers().catch(() => []),
+        adminService.getRoles().catch(() => []),
+        adminService.getDepartments().catch(() => []),
+        adminService.getDoctors().catch(() => []),
+        adminService.getStaff().catch(() => []),
+        adminService.getMedicines().catch(() => []),
+        adminService.getDosages().catch(() => []),
+        adminService.getLabTests().catch(() => []),
+        adminService.getReorderRequests().catch(() => []),
+        adminService.getAppointments().catch(() => []),
+        adminService.getPatients().catch(() => []),
+        adminService.getAuditLogs().catch(() => [])
       ]);
 
-      setDashboardMetrics(metricsData);
-      setUsers(usersData);
-      setRoles(rolesData);
-      setDepartments(deptData);
-      setDoctors(docsData);
-      setStaff(staffData);
-      setMedicines(medsData);
-      setDosages(dosagesData);
-      setLabTests(testsData);
-      setReorders(adminService.getReorderRequests());
-      setAppointments(aptsData);
-      setPatients(patientsData);
-      setAuditLogs(auditData);
+      setDashboardMetrics(metricsData || { users: { total: 0, active: 0, inactive: 0 }, appointments: { today: 0, waiting: 0, completed: 0 }, patients_registered: 0, recent_audit_activity: [] });
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      setRoles(Array.isArray(rolesData) ? rolesData : []);
+      setDepartments(Array.isArray(deptData) ? deptData : []);
+      setDoctors(Array.isArray(docsData) ? docsData : []);
+      setStaff(Array.isArray(staffData) ? staffData : []);
+      setMedicines(Array.isArray(medsData) ? medsData : []);
+      setDosages(Array.isArray(dosagesData) ? dosagesData : []);
+      setLabTests(Array.isArray(testsData) ? testsData : []);
+      setReorders(Array.isArray(reordersData) ? reordersData : []);
+      setAppointments(Array.isArray(aptsData) ? aptsData : []);
+      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      setAuditLogs(Array.isArray(auditData) ? auditData : []);
     } catch (err) {
       console.error('Error loading admin data:', err);
+      setBackendError('Unable to connect to the MySQL backend server. Please verify Django is running on http://127.0.0.1:8000.');
     } finally {
       setLoading(false);
     }
@@ -248,9 +253,17 @@ export default function AdminDashboard() {
     loadAdminData();
 
     // Listen for cross-module events from Pharmacist or Receptionist
-    const handleStockUpdate = () => {
-      setMedicines(adminService.getLocalData().medicines || []);
-      setReorders(adminService.getReorderRequests());
+    const handleStockUpdate = async () => {
+      try {
+        const [medsData, reordersData] = await Promise.all([
+          adminService.getMedicines().catch(() => []),
+          adminService.getReorderRequests().catch(() => [])
+        ]);
+        setMedicines(Array.isArray(medsData) ? medsData : []);
+        setReorders(Array.isArray(reordersData) ? reordersData : []);
+      } catch (e) {
+        console.warn('Live stock update error:', e);
+      }
     };
 
     window.addEventListener('cms_stock_updated', handleStockUpdate);
@@ -269,7 +282,7 @@ export default function AdminDashboard() {
 
   // Pending reorders count
   const pendingReordersCount = useMemo(() => {
-    return reorders.filter(r => r.status === 'Ordered' || r.status === 'Pending Approval').length;
+    return (Array.isArray(reorders) ? reorders : []).filter(r => r.status === 'Ordered' || r.status === 'Pending Approval').length;
   }, [reorders]);
 
   // Form states for modals
@@ -610,12 +623,13 @@ export default function AdminDashboard() {
         <div className="admin-sidebar-footer">
           <div className="admin-sidebar-user">
             <div className="admin-sidebar-avatar">
-              {(currentUser.name || 'BW')
+              {String(currentUser?.name || 'BW')
                 .split(' ')
+                .filter(Boolean)
                 .map((n) => n[0])
                 .slice(0, 2)
                 .join('')
-                .toUpperCase()}
+                .toUpperCase() || 'AD'}
             </div>
             <div>
               <span className="admin-sidebar-user-name">
@@ -652,6 +666,21 @@ export default function AdminDashboard() {
         </div>
 
         <div className="admin-main-content">
+          {backendError && (
+            <div className="admin-alert-banner" style={{ background: '#fee2e2', borderColor: '#f87171', color: '#991b1b', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>⚠️</span>
+                <div>
+                  <strong>Backend Connection Error</strong>
+                  <div style={{ fontSize: '0.82rem' }}>{backendError}</div>
+                </div>
+              </div>
+              <button className="btn btn-sm btn-outline" style={{ color: '#991b1b', borderColor: '#f87171' }} onClick={loadAdminData}>
+                Retry Connection
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: DASHBOARD OVERVIEW */}
           {activeTab === 'dashboard' && (
             <div>
@@ -701,9 +730,9 @@ export default function AdminDashboard() {
                     <UsersIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{dashboardMetrics?.users?.total || users.length}</span>
+                    <span className="admin-stat-val">{Number(dashboardMetrics?.users?.total ?? (Array.isArray(users) ? users.length : 0))}</span>
                     <span className="admin-stat-label">
-                      {dashboardMetrics?.users?.active || users.filter(u => u.isActive).length} Active Users
+                      {Number(dashboardMetrics?.users?.active ?? (Array.isArray(users) ? users.filter(u => u.isActive).length : 0))} Active Users
                     </span>
                   </div>
                 </div>
@@ -713,9 +742,9 @@ export default function AdminDashboard() {
                     <StethoscopeIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{doctors.length + staff.length}</span>
+                    <span className="admin-stat-val">{(Array.isArray(doctors) ? doctors.length : 0) + (Array.isArray(staff) ? staff.length : 0)}</span>
                     <span className="admin-stat-label">
-                      {doctors.length} Doctors · {staff.length} Staff
+                      {Array.isArray(doctors) ? doctors.length : 0} Doctors · {Array.isArray(staff) ? staff.length : 0} Staff
                     </span>
                   </div>
                 </div>
@@ -725,9 +754,9 @@ export default function AdminDashboard() {
                     <BuildingIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{departments.length}</span>
+                    <span className="admin-stat-val">{Array.isArray(departments) ? departments.length : 0}</span>
                     <span className="admin-stat-label">
-                      {departments.filter(d => d.isActive).length} Active Departments
+                      {(Array.isArray(departments) ? departments : []).filter(d => d.isActive).length} Active Departments
                     </span>
                   </div>
                 </div>
@@ -737,9 +766,9 @@ export default function AdminDashboard() {
                     <ActivityMonitorIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{dashboardMetrics?.appointments?.today || appointments.length}</span>
+                    <span className="admin-stat-val">{Number(dashboardMetrics?.appointments?.today ?? (Array.isArray(appointments) ? appointments.length : 0))}</span>
                     <span className="admin-stat-label">
-                      {dashboardMetrics?.appointments?.waiting || 0} Waiting Tokens
+                      {Number(dashboardMetrics?.appointments?.waiting ?? 0)} Waiting Tokens
                     </span>
                   </div>
                 </div>
@@ -749,7 +778,7 @@ export default function AdminDashboard() {
                     <BadgeContactIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{dashboardMetrics?.patients_registered || patients.length}</span>
+                    <span className="admin-stat-val">{Number(dashboardMetrics?.patients_registered ?? (Array.isArray(patients) ? patients.length : 0))}</span>
                     <span className="admin-stat-label">Registered Patients</span>
                   </div>
                 </div>
@@ -759,9 +788,9 @@ export default function AdminDashboard() {
                     <PillIcon size={22} />
                   </div>
                   <div>
-                    <span className="admin-stat-val">{medicines.length + labTests.length}</span>
+                    <span className="admin-stat-val">{(Array.isArray(medicines) ? medicines.length : 0) + (Array.isArray(labTests) ? labTests.length : 0)}</span>
                     <span className="admin-stat-label">
-                      {medicines.length} Meds · {labTests.length} Lab Tests
+                      {Array.isArray(medicines) ? medicines.length : 0} Meds · {Array.isArray(labTests) ? labTests.length : 0} Lab Tests
                     </span>
                   </div>
                 </div>
@@ -791,23 +820,23 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(dashboardMetrics?.recent_audit_activity || auditLogs).slice(0, 5).map((log, i) => (
-                          <tr key={log.AuditId || i}>
+                        {((Array.isArray(dashboardMetrics?.recent_audit_activity) && dashboardMetrics.recent_audit_activity.length > 0) ? dashboardMetrics.recent_audit_activity : (Array.isArray(auditLogs) ? auditLogs : [])).slice(0, 5).map((log, i) => (
+                          <tr key={log.AuditId || log.id || i}>
                             <td>
                               <span className={`adm-badge ${
-                                log.ActionType === 'CREATE' ? 'adm-badge-active' :
-                                log.ActionType === 'DELETE' || log.ActionType === 'DEACTIVATE' ? 'adm-badge-inactive' :
-                                log.ActionType === 'LOGIN' ? 'adm-badge-info' : 'adm-badge-warning'
+                                (log.ActionType || log.actionType) === 'CREATE' ? 'adm-badge-active' :
+                                (log.ActionType || log.actionType) === 'DELETE' || (log.ActionType || log.actionType) === 'DEACTIVATE' ? 'adm-badge-inactive' :
+                                (log.ActionType || log.actionType) === 'LOGIN' ? 'adm-badge-info' : 'adm-badge-warning'
                               }`}>
-                                {log.ActionType}
+                                {log.ActionType || log.actionType || 'EVENT'}
                               </span>
                             </td>
-                            <td><strong>{log.TableAffected}</strong> #{log.RecordId}</td>
+                            <td><strong>{log.TableAffected || log.tableAffected || 'System'}</strong> #{log.RecordId || log.recordId || ''}</td>
                             <td style={{ maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {log.Details}
+                              {log.Details || log.details || '—'}
                             </td>
                             <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                              {new Date(log.action_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {log.action_time || log.timestamp ? new Date(log.action_time || log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                             </td>
                           </tr>
                         ))}
@@ -838,14 +867,14 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {departments.map(dept => {
-                          const deptDocs = doctors.filter(d => d.DepartmentId === dept.DepartmentId);
+                        {(Array.isArray(departments) ? departments : []).map(dept => {
+                          const deptDocs = (Array.isArray(doctors) ? doctors : []).filter(d => (d.DepartmentId || d.departmentId) === (dept.DepartmentId || dept.id));
                           return (
-                            <tr key={dept.DepartmentId}>
-                              <td><strong>{dept.DepartmentName}</strong></td>
+                            <tr key={dept.DepartmentId || dept.id}>
+                              <td><strong>{dept.DepartmentName || dept.name}</strong></td>
                               <td>
                                 {deptDocs.length > 0 ? (
-                                  deptDocs.map(d => d.Name).join(', ')
+                                  deptDocs.map(d => d.Name || d.name).filter(Boolean).join(', ')
                                 ) : (
                                   <span style={{ color: 'var(--text-muted)' }}>No doctors assigned</span>
                                 )}
@@ -901,8 +930,8 @@ export default function AdminDashboard() {
                 </div>
                 <select className="admin-select" value={userRoleFilter} onChange={(e) => setUserRoleFilter(e.target.value)}>
                   <option value="All">All Roles</option>
-                  {roles.map(r => (
-                    <option key={r.RoleId} value={r.RoleId}>{r.RoleName}</option>
+                  {(Array.isArray(roles) ? roles : []).map(r => (
+                    <option key={r.RoleId || r.id} value={r.RoleId || r.id}>{r.RoleName || r.name}</option>
                   ))}
                 </select>
                 <select className="admin-select" value={userStatusFilter} onChange={(e) => setUserStatusFilter(e.target.value)}>
@@ -926,23 +955,25 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users
+                      {(Array.isArray(users) ? users : [])
                         .filter(u => {
-                          const matchSearch = (u.Username || '').toLowerCase().includes(userSearch.toLowerCase()) ||
-                            String(u.UserId).includes(userSearch);
-                          const matchRole = userRoleFilter === 'All' || String(u.RoleId) === String(userRoleFilter);
+                          const usernameStr = String(u.Username || u.username || '').toLowerCase();
+                          const userSearchStr = String(userSearch || '').toLowerCase();
+                          const matchSearch = usernameStr.includes(userSearchStr) ||
+                            String(u.UserId || u.id || '').includes(userSearchStr);
+                          const matchRole = userRoleFilter === 'All' || String(u.RoleId || u.roleId) === String(userRoleFilter);
                           const matchStatus = userStatusFilter === 'All' || (userStatusFilter === 'Active' ? u.isActive : !u.isActive);
                           return matchSearch && matchRole && matchStatus;
                         })
                         .map(u => {
-                          const role = roles.find(r => r.RoleId === u.RoleId);
+                          const role = (Array.isArray(roles) ? roles : []).find(r => (r.RoleId || r.id) === (u.RoleId || u.roleId));
                           return (
-                            <tr key={u.UserId}>
-                              <td><strong>#{u.UserId}</strong></td>
-                              <td><code>{u.Username}</code></td>
-                              <td>{u.Name || '—'}</td>
+                            <tr key={u.UserId || u.id}>
+                              <td><strong>#{u.UserId || u.id}</strong></td>
+                              <td><code>{u.Username || u.username}</code></td>
+                              <td>{u.Name || u.name || '—'}</td>
                               <td>
-                                <span className="adm-badge adm-badge-info">{role?.RoleName || `Role ${u.RoleId}`}</span>
+                                <span className="adm-badge adm-badge-info">{role?.RoleName || role?.name || `Role ${u.RoleId || u.roleId}`}</span>
                               </td>
                               <td>
                                 <span className={`adm-badge ${u.isActive ? 'adm-badge-active' : 'adm-badge-inactive'}`}>
@@ -954,15 +985,15 @@ export default function AdminDashboard() {
                                   <button className="btn btn-sm btn-outline" onClick={() => openModal('user', u)}>
                                     Edit
                                   </button>
-                                  {u.UserId !== 1 && (
+                                  {(u.UserId || u.id) !== 1 && (
                                     <>
                                       {u.isActive ? (
                                         <button
                                           className="btn btn-sm btn-outline"
                                           style={{ color: '#dc2626', borderColor: '#fca5a5' }}
                                           onClick={async () => {
-                                            await adminService.deactivateUser(u.UserId);
-                                            showToast(`User ${u.Username} deactivated.`);
+                                            await adminService.deactivateUser(u.UserId || u.id);
+                                            showToast(`User ${u.Username || u.username} deactivated.`);
                                             loadAdminData();
                                           }}
                                         >
@@ -973,8 +1004,8 @@ export default function AdminDashboard() {
                                           className="btn btn-sm btn-outline"
                                           style={{ color: '#16a34a', borderColor: '#86efac' }}
                                           onClick={async () => {
-                                            await adminService.activateUser(u.UserId);
-                                            showToast(`User ${u.Username} activated.`);
+                                            await adminService.activateUser(u.UserId || u.id);
+                                            showToast(`User ${u.Username || u.username} activated.`);
                                             loadAdminData();
                                           }}
                                         >
@@ -985,8 +1016,8 @@ export default function AdminDashboard() {
                                         className="btn btn-sm btn-outline"
                                         style={{ color: '#dc2626' }}
                                         onClick={async () => {
-                                          if (confirm(`Delete user account ${u.Username}?`)) {
-                                            await adminService.deleteUser(u.UserId);
+                                          if (confirm(`Delete user account ${u.Username || u.username}?`)) {
+                                            await adminService.deleteUser(u.UserId || u.id);
                                             showToast(`User deleted.`);
                                             loadAdminData();
                                           }
@@ -1034,13 +1065,13 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {roles.map(r => {
-                        const userCount = users.filter(u => u.RoleId === r.RoleId).length;
-                        const staffCount = staff.filter(s => s.RoleId === r.RoleId).length;
+                      {(Array.isArray(roles) ? roles : []).map(r => {
+                        const userCount = (Array.isArray(users) ? users : []).filter(u => (u.RoleId || u.roleId) === (r.RoleId || r.id)).length;
+                        const staffCount = (Array.isArray(staff) ? staff : []).filter(s => (s.RoleId || s.roleId) === (r.RoleId || r.id)).length;
                         return (
-                          <tr key={r.RoleId}>
-                            <td><strong>#{r.RoleId}</strong></td>
-                            <td><strong style={{ color: 'var(--primary)' }}>{r.RoleName}</strong></td>
+                          <tr key={r.RoleId || r.id}>
+                            <td><strong>#{r.RoleId || r.id}</strong></td>
+                            <td><strong style={{ color: 'var(--primary)' }}>{r.RoleName || r.name}</strong></td>
                             <td>{userCount} User{userCount === 1 ? '' : 's'}</td>
                             <td>{staffCount} Staff Member{staffCount === 1 ? '' : 's'}</td>
                             <td style={{ textAlign: 'right' }}>
@@ -1048,13 +1079,13 @@ export default function AdminDashboard() {
                                 <button className="btn btn-sm btn-outline" onClick={() => openModal('role', r)}>
                                   Edit
                                 </button>
-                                {r.RoleId > 5 && (
+                                {(r.RoleId || r.id) > 5 && (
                                   <button
                                     className="btn btn-sm btn-outline"
                                     style={{ color: '#dc2626' }}
                                     onClick={async () => {
-                                      if (confirm(`Delete role ${r.RoleName}?`)) {
-                                        await adminService.deleteRole(r.RoleId);
+                                      if (confirm(`Delete role ${r.RoleName || r.name}?`)) {
+                                        await adminService.deleteRole(r.RoleId || r.id);
                                         showToast(`Role deleted.`);
                                         loadAdminData();
                                       }
@@ -1115,16 +1146,16 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {departments
-                        .filter(d => (d.DepartmentName || '').toLowerCase().includes(deptSearch.toLowerCase()))
+                      {(Array.isArray(departments) ? departments : [])
+                        .filter(d => String(d.DepartmentName || d.name || '').toLowerCase().includes(String(deptSearch || '').toLowerCase()))
                         .map(d => {
-                          const deptDocs = doctors.filter(doc => doc.DepartmentId === d.DepartmentId);
-                          const deptTests = labTests.filter(t => t.DepartmentId === d.DepartmentId);
+                          const deptDocs = (Array.isArray(doctors) ? doctors : []).filter(doc => (doc.DepartmentId || doc.departmentId) === (d.DepartmentId || d.id));
+                          const deptTests = (Array.isArray(labTests) ? labTests : []).filter(t => (t.DepartmentId || t.departmentId) === (d.DepartmentId || d.id));
                           return (
-                            <tr key={d.DepartmentId}>
-                              <td><strong>#{d.DepartmentId}</strong></td>
-                              <td><strong>{d.DepartmentName}</strong></td>
-                              <td>{deptDocs.map(doc => doc.Name).join(', ') || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
+                            <tr key={d.DepartmentId || d.id}>
+                              <td><strong>#{d.DepartmentId || d.id}</strong></td>
+                              <td><strong>{d.DepartmentName || d.name}</strong></td>
+                              <td>{deptDocs.map(doc => doc.Name || doc.name).filter(Boolean).join(', ') || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
                               <td>{deptTests.length} Diagnostic Tests</td>
                               <td>
                                 <span className={`adm-badge ${d.isActive ? 'adm-badge-active' : 'adm-badge-inactive'}`}>
@@ -1212,8 +1243,8 @@ export default function AdminDashboard() {
                 </div>
                 <select className="admin-select" value={doctorDeptFilter} onChange={(e) => setDoctorDeptFilter(e.target.value)}>
                   <option value="All">All Departments</option>
-                  {departments.map(d => (
-                    <option key={d.DepartmentId} value={d.DepartmentId}>{d.DepartmentName}</option>
+                  {(Array.isArray(departments) ? departments : []).map(d => (
+                    <option key={d.DepartmentId || d.id} value={d.DepartmentId || d.id}>{d.DepartmentName || d.name}</option>
                   ))}
                 </select>
               </div>
@@ -1234,27 +1265,28 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {doctors
+                      {(Array.isArray(doctors) ? doctors : [])
                         .filter(doc => {
-                          const matchSearch = (doc.Name || '').toLowerCase().includes(doctorSearch.toLowerCase()) ||
-                            (doc.Specialization || '').toLowerCase().includes(doctorSearch.toLowerCase()) ||
-                            (doc.Qualification || '').toLowerCase().includes(doctorSearch.toLowerCase());
-                          const matchDept = doctorDeptFilter === 'All' || String(doc.DepartmentId) === String(doctorDeptFilter);
+                          const sQuery = String(doctorSearch || '').toLowerCase();
+                          const matchSearch = String(doc.Name || doc.name || '').toLowerCase().includes(sQuery) ||
+                            String(doc.Specialization || doc.specialization || '').toLowerCase().includes(sQuery) ||
+                            String(doc.Qualification || doc.qualification || '').toLowerCase().includes(sQuery);
+                          const matchDept = doctorDeptFilter === 'All' || String(doc.DepartmentId || doc.departmentId) === String(doctorDeptFilter);
                           return matchSearch && matchDept;
                         })
                         .map(doc => {
-                          const dept = departments.find(d => d.DepartmentId === doc.DepartmentId);
-                          const linkedUser = users.find(u => u.UserId === doc.UserId);
+                          const dept = (Array.isArray(departments) ? departments : []).find(d => (d.DepartmentId || d.id) === (doc.DepartmentId || doc.departmentId));
+                          const linkedUser = (Array.isArray(users) ? users : []).find(u => (u.UserId || u.id) === (doc.UserId || doc.userId));
                           return (
-                            <tr key={doc.DoctorId}>
-                              <td><strong>#{doc.DoctorId}</strong></td>
-                              <td><strong style={{ color: 'var(--primary)' }}>{doc.Name}</strong></td>
-                              <td>{dept?.DepartmentName || `Dept ${doc.DepartmentId}`}</td>
-                              <td>{doc.Qualification || 'MBBS'}</td>
-                              <td>{doc.Specialization || 'General'}</td>
+                            <tr key={doc.DoctorId || doc.id}>
+                              <td><strong>#{doc.DoctorId || doc.id}</strong></td>
+                              <td><strong style={{ color: 'var(--primary)' }}>{doc.Name || doc.name}</strong></td>
+                              <td>{dept?.DepartmentName || dept?.name || `Dept ${doc.DepartmentId || doc.departmentId}`}</td>
+                              <td>{doc.Qualification || doc.qualification || 'MBBS'}</td>
+                              <td>{doc.Specialization || doc.specialization || 'General'}</td>
                               <td>
                                 {linkedUser ? (
-                                  <code>{linkedUser.Username}</code>
+                                  <code>{linkedUser.Username || linkedUser.username}</code>
                                 ) : (
                                   <span style={{ color: '#d97706', fontSize: '0.8rem' }}>Unlinked</span>
                                 )}
@@ -1274,7 +1306,7 @@ export default function AdminDashboard() {
                                       className="btn btn-sm btn-outline"
                                       style={{ color: '#dc2626' }}
                                       onClick={async () => {
-                                        await adminService.deactivateDoctor(doc.DoctorId);
+                                        await adminService.deactivateDoctor(doc.DoctorId || doc.id);
                                         showToast(`Doctor deactivated.`);
                                         loadAdminData();
                                       }}
@@ -1286,7 +1318,7 @@ export default function AdminDashboard() {
                                       className="btn btn-sm btn-outline"
                                       style={{ color: '#16a34a' }}
                                       onClick={async () => {
-                                        await adminService.activateDoctor(doc.DoctorId);
+                                        await adminService.activateDoctor(doc.DoctorId || doc.id);
                                         showToast(`Doctor activated.`);
                                         loadAdminData();
                                       }}
@@ -1298,8 +1330,8 @@ export default function AdminDashboard() {
                                     className="btn btn-sm btn-outline"
                                     style={{ color: '#dc2626' }}
                                     onClick={async () => {
-                                      if (confirm(`Delete doctor record ${doc.Name}?`)) {
-                                        await adminService.deleteDoctor(doc.DoctorId);
+                                      if (confirm(`Delete doctor record ${doc.Name || doc.name}?`)) {
+                                        await adminService.deleteDoctor(doc.DoctorId || doc.id);
                                         showToast('Doctor record deleted.');
                                         loadAdminData();
                                       }
@@ -1366,24 +1398,25 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {staff
+                      {(Array.isArray(staff) ? staff : [])
                         .filter(s => {
-                          const matchSearch = (s.Name || '').toLowerCase().includes(staffSearch.toLowerCase()) ||
-                            (s.phoneNumber || '').includes(staffSearch) ||
-                            (s.Address || '').toLowerCase().includes(staffSearch.toLowerCase());
-                          const matchRole = staffRoleFilter === 'All' || String(s.RoleId) === String(staffRoleFilter);
+                          const sQuery = String(staffSearch || '').toLowerCase();
+                          const matchSearch = String(s.Name || s.name || '').toLowerCase().includes(sQuery) ||
+                            String(s.phoneNumber || s.phone || '').includes(sQuery) ||
+                            String(s.Address || s.address || '').toLowerCase().includes(sQuery);
+                          const matchRole = staffRoleFilter === 'All' || String(s.RoleId || s.roleId) === String(staffRoleFilter);
                           return matchSearch && matchRole;
                         })
                         .map(s => {
-                          const role = roles.find(r => r.RoleId === s.RoleId);
+                          const role = (Array.isArray(roles) ? roles : []).find(r => (r.RoleId || r.id) === (s.RoleId || s.roleId));
                           return (
-                            <tr key={s.StaffId}>
-                              <td><strong>#{s.StaffId}</strong></td>
-                              <td><strong>{s.Name}</strong></td>
-                              <td><span className="adm-badge adm-badge-info">{role?.RoleName || `Role ${s.RoleId}`}</span></td>
-                              <td>{s.phoneNumber || '—'}</td>
-                              <td>{s.DateOfJoining || '—'}</td>
-                              <td>{s.Address || '—'}</td>
+                            <tr key={s.StaffId || s.id}>
+                              <td><strong>#{s.StaffId || s.id}</strong></td>
+                              <td><strong>{s.Name || s.name}</strong></td>
+                              <td><span className="adm-badge adm-badge-info">{role?.RoleName || role?.name || `Role ${s.RoleId || s.roleId}`}</span></td>
+                              <td>{s.phoneNumber || s.phone || '—'}</td>
+                              <td>{s.DateOfJoining || s.joiningDate || '—'}</td>
+                              <td>{s.Address || s.address || '—'}</td>
                               <td style={{ textAlign: 'right' }}>
                                 <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
                                   <button className="btn btn-sm btn-outline" onClick={() => openModal('staff', s)}>
@@ -1393,8 +1426,8 @@ export default function AdminDashboard() {
                                     className="btn btn-sm btn-outline"
                                     style={{ color: '#dc2626' }}
                                     onClick={async () => {
-                                      if (confirm(`Delete staff record for ${s.Name}?`)) {
-                                        await adminService.deleteStaff(s.StaffId);
+                                      if (confirm(`Delete staff record for ${s.Name || s.name}?`)) {
+                                        await adminService.deleteStaff(s.StaffId || s.id);
                                         showToast('Staff member deleted.');
                                         loadAdminData();
                                       }
@@ -1442,14 +1475,14 @@ export default function AdminDashboard() {
                   className={`admin-subnav-pill ${medicinesSubTab === 'catalog' ? 'active' : ''}`}
                   onClick={() => setMedicinesSubTab('catalog')}
                 >
-                  Master Medicines ({medicines.length})
+                  Master Medicines ({Array.isArray(medicines) ? medicines.length : 0})
                 </button>
                 <button
                   type="button"
                   className={`admin-subnav-pill ${medicinesSubTab === 'dosages' ? 'active' : ''}`}
                   onClick={() => setMedicinesSubTab('dosages')}
                 >
-                  Standard Dosages ({dosages.length})
+                  Standard Dosages ({Array.isArray(dosages) ? dosages.length : 0})
                 </button>
               </div>
 
@@ -1495,23 +1528,24 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {medicines
+                          {(Array.isArray(medicines) ? medicines : [])
                             .filter(m => {
-                              const matchSearch = (m.MedicineName || '').toLowerCase().includes(medSearch.toLowerCase()) ||
-                                (m.GenericName || '').toLowerCase().includes(medSearch.toLowerCase()) ||
-                                (m.Manufacturer || '').toLowerCase().includes(medSearch.toLowerCase());
-                              const matchCategory = medCategoryFilter === 'All' || m.Category === medCategoryFilter;
+                              const sQuery = String(medSearch || '').toLowerCase();
+                              const matchSearch = String(m.MedicineName || m.name || '').toLowerCase().includes(sQuery) ||
+                                String(m.GenericName || m.genericName || '').toLowerCase().includes(sQuery) ||
+                                String(m.Manufacturer || m.manufacturer || '').toLowerCase().includes(sQuery);
+                              const matchCategory = medCategoryFilter === 'All' || (m.Category || m.category) === medCategoryFilter;
                               return matchSearch && matchCategory;
                             })
                             .map(m => (
-                              <tr key={m.MedicineId}>
-                                <td><strong>#{m.MedicineId}</strong></td>
-                                <td><strong style={{ color: 'var(--primary)' }}>{m.MedicineName}</strong></td>
-                                <td>{m.GenericName || '—'}</td>
-                                <td><span className="adm-badge adm-badge-info">{m.Category || 'General'}</span></td>
-                                <td>{m.Manufacturer || 'CarePoint'}</td>
-                                <td>₹{m.CostValue}</td>
-                                <td><strong>₹{m.MRP}</strong></td>
+                              <tr key={m.MedicineId || m.id}>
+                                <td><strong>#{m.MedicineId || m.id}</strong></td>
+                                <td><strong style={{ color: 'var(--primary)' }}>{m.MedicineName || m.name}</strong></td>
+                                <td>{m.GenericName || m.genericName || '—'}</td>
+                                <td><span className="adm-badge adm-badge-info">{m.Category || m.category || 'General'}</span></td>
+                                <td>{m.Manufacturer || m.manufacturer || 'CarePoint'}</td>
+                                <td>₹{Number(m.CostValue || m.costValue || 0).toFixed(2)}</td>
+                                <td><strong>₹{Number(m.MRP || m.mrp || 0).toFixed(2)}</strong></td>
                                 <td>
                                   <span className={`adm-badge ${m.isActive ? 'adm-badge-active' : 'adm-badge-inactive'}`}>
                                     {m.isActive ? 'Active' : 'Inactive'}
@@ -1527,7 +1561,7 @@ export default function AdminDashboard() {
                                         className="btn btn-sm btn-outline"
                                         style={{ color: '#dc2626' }}
                                         onClick={async () => {
-                                          await adminService.deactivateMedicine(m.MedicineId);
+                                          await adminService.deactivateMedicine(m.MedicineId || m.id);
                                           showToast(`Medicine deactivated.`);
                                           loadAdminData();
                                         }}
@@ -1539,7 +1573,7 @@ export default function AdminDashboard() {
                                         className="btn btn-sm btn-outline"
                                         style={{ color: '#16a34a' }}
                                         onClick={async () => {
-                                          await adminService.activateMedicine(m.MedicineId);
+                                          await adminService.activateMedicine(m.MedicineId || m.id);
                                           showToast(`Medicine activated.`);
                                           loadAdminData();
                                         }}
@@ -1551,8 +1585,8 @@ export default function AdminDashboard() {
                                       className="btn btn-sm btn-outline"
                                       style={{ color: '#dc2626' }}
                                       onClick={async () => {
-                                        if (confirm(`Delete master medicine ${m.MedicineName}?`)) {
-                                          await adminService.deleteMedicine(m.MedicineId);
+                                        if (confirm(`Delete master medicine ${m.MedicineName || m.name}?`)) {
+                                          await adminService.deleteMedicine(m.MedicineId || m.id);
                                           showToast('Medicine deleted.');
                                           loadAdminData();
                                         }
@@ -1582,18 +1616,18 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {dosages.map(d => (
-                          <tr key={d.DosageId}>
-                            <td><strong>#{d.DosageId}</strong></td>
-                            <td><strong style={{ color: 'var(--primary)' }}>{d.DosageValue}</strong></td>
-                            <td>{d.Instructions || 'Take with water'}</td>
+                        {(Array.isArray(dosages) ? dosages : []).map(d => (
+                          <tr key={d.DosageId || d.id}>
+                            <td><strong>#{d.DosageId || d.id}</strong></td>
+                            <td><strong style={{ color: 'var(--primary)' }}>{d.DosageValue || d.dosage}</strong></td>
+                            <td>{d.Instructions || d.instructions || 'Take with water'}</td>
                             <td style={{ textAlign: 'right' }}>
                               <button
                                 className="btn btn-sm btn-outline"
                                 style={{ color: '#dc2626' }}
                                 onClick={async () => {
-                                  if (confirm(`Delete dosage ${d.DosageValue}?`)) {
-                                    await adminService.deleteDosage(d.DosageId);
+                                  if (confirm(`Delete dosage ${d.DosageValue || d.dosage}?`)) {
+                                    await adminService.deleteDosage(d.DosageId || d.id);
                                     showToast('Dosage deleted.');
                                     loadAdminData();
                                   }
@@ -1653,17 +1687,17 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {labTests
-                        .filter(t => (t.TestName || '').toLowerCase().includes(labTestSearch.toLowerCase()))
+                      {(Array.isArray(labTests) ? labTests : [])
+                        .filter(t => String(t.TestName || t.testName || '').toLowerCase().includes(String(labTestSearch || '').toLowerCase()))
                         .map(t => {
-                          const dept = departments.find(d => d.DepartmentId === t.DepartmentId);
+                          const dept = (Array.isArray(departments) ? departments : []).find(d => (d.DepartmentId || d.id) === (t.DepartmentId || t.departmentId));
                           return (
-                            <tr key={t.LabtestId}>
-                              <td><strong>#{t.LabtestId}</strong></td>
-                              <td><strong style={{ color: 'var(--primary)' }}>{t.TestName}</strong></td>
-                              <td>{dept?.DepartmentName || 'General Pathology'}</td>
-                              <td><code>{t.NormalName || t.NormalValue || 'Normal'}</code></td>
-                              <td><strong>₹{t.TestCost}</strong></td>
+                            <tr key={t.LabtestId || t.id}>
+                              <td><strong>#{t.LabtestId || t.id}</strong></td>
+                              <td><strong style={{ color: 'var(--primary)' }}>{t.TestName || t.testName}</strong></td>
+                              <td>{dept?.DepartmentName || dept?.name || 'General Pathology'}</td>
+                              <td><code>{t.NormalName || t.normalName || t.NormalValue || 'Normal'}</code></td>
+                              <td><strong>₹{Number(t.TestCost || t.testCost || 0).toFixed(2)}</strong></td>
                               <td>
                                 <span className={`adm-badge ${t.isActive ? 'adm-badge-active' : 'adm-badge-inactive'}`}>
                                   {t.isActive ? 'Active' : 'Inactive'}
@@ -1679,7 +1713,7 @@ export default function AdminDashboard() {
                                       className="btn btn-sm btn-outline"
                                       style={{ color: '#dc2626' }}
                                       onClick={async () => {
-                                        await adminService.deactivateLabTest(t.LabtestId);
+                                        await adminService.deactivateLabTest(t.LabtestId || t.id);
                                         showToast(`Lab test deactivated.`);
                                         loadAdminData();
                                       }}
@@ -1691,7 +1725,7 @@ export default function AdminDashboard() {
                                       className="btn btn-sm btn-outline"
                                       style={{ color: '#16a34a' }}
                                       onClick={async () => {
-                                        await adminService.activateLabTest(t.LabtestId);
+                                        await adminService.activateLabTest(t.LabtestId || t.id);
                                         showToast(`Lab test activated.`);
                                         loadAdminData();
                                       }}
@@ -1703,8 +1737,8 @@ export default function AdminDashboard() {
                                     className="btn btn-sm btn-outline"
                                     style={{ color: '#dc2626' }}
                                     onClick={async () => {
-                                      if (confirm(`Delete lab test ${t.TestName}?`)) {
-                                        await adminService.deleteLabTest(t.LabtestId);
+                                      if (confirm(`Delete lab test ${t.TestName || t.testName}?`)) {
+                                        await adminService.deleteLabTest(t.LabtestId || t.id);
                                         showToast('Lab test deleted.');
                                         loadAdminData();
                                       }
@@ -1765,27 +1799,27 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {reorders.length === 0 ? (
+                      {!Array.isArray(reorders) || reorders.length === 0 ? (
                         <tr>
                           <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                             No pharmacy reorders in queue.
                           </td>
                         </tr>
                       ) : (
-                        reorders
+                        (Array.isArray(reorders) ? reorders : [])
                           .filter(r => {
                             if (reorderFilter === 'All') return true;
-                            if (reorderFilter === 'Pending Approval') return r.status === 'Ordered' || r.status === 'Pending Approval';
+                            if (reorderFilter === 'Pending Approval') return r.status === 'Ordered' || r.status === 'Pending Approval' || r.status === 'Critical' || r.status === 'Pending Review';
                             return r.status === reorderFilter;
                           })
                           .map(order => (
                             <tr key={order.id}>
                               <td><strong>{order.id}</strong></td>
-                              <td><strong>{order.medicineName}</strong></td>
+                              <td><strong>{order.medicineName || order.MedicineName}</strong></td>
                               <td>{order.requestedQty} Units</td>
-                              <td>{order.supplier}</td>
+                              <td>{order.supplier || 'Wholesale Supplier'}</td>
                               <td>{order.orderDate}</td>
-                              <td>₹{order.estimatedCost}</td>
+                              <td>₹{Number(order.estimatedCost || 0).toFixed(2)}</td>
                               <td>
                                 <span className={`adm-badge ${
                                   order.status === 'Received' || order.status === 'Approved' ? 'adm-badge-active' :
@@ -1843,14 +1877,14 @@ export default function AdminDashboard() {
                   className={`admin-subnav-pill ${monitoringSubTab === 'appointments' ? 'active' : ''}`}
                   onClick={() => setMonitoringSubTab('appointments')}
                 >
-                  Appointment Bookings ({appointments.length})
+                  Appointment Bookings ({Array.isArray(appointments) ? appointments.length : 0})
                 </button>
                 <button
                   type="button"
                   className={`admin-subnav-pill ${monitoringSubTab === 'patients' ? 'active' : ''}`}
                   onClick={() => setMonitoringSubTab('patients')}
                 >
-                  Registered Patients ({patients.length})
+                  Registered Patients ({Array.isArray(patients) ? patients.length : 0})
                 </button>
               </div>
 
@@ -1869,22 +1903,22 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {appointments.length === 0 ? (
+                        {!Array.isArray(appointments) || appointments.length === 0 ? (
                           <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No appointments recorded.</td></tr>
                         ) : (
-                          appointments.map(apt => (
-                            <tr key={apt.AppointmentId}>
-                              <td><strong>#{apt.AppointmentId}</strong></td>
-                              <td><strong>{apt.PatientName}</strong></td>
-                              <td>{apt.DoctorName}</td>
-                              <td>{apt.DepartmentName}</td>
-                              <td>{new Date(apt.AppointmentDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                          (Array.isArray(appointments) ? appointments : []).map(apt => (
+                            <tr key={apt.AppointmentId || apt.id}>
+                              <td><strong>#{apt.AppointmentId || apt.id}</strong></td>
+                              <td><strong>{apt.PatientName || apt.patientName}</strong></td>
+                              <td>{apt.DoctorName || apt.doctorName}</td>
+                              <td>{apt.DepartmentName || apt.departmentName}</td>
+                              <td>{apt.AppointmentDateTime || apt.dateTime ? new Date(apt.AppointmentDateTime || apt.dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
                               <td>
                                 <span className={`adm-badge ${
-                                  apt.AppointmentStatus === 'Completed' ? 'adm-badge-active' :
-                                  apt.AppointmentStatus === 'Waiting' ? 'adm-badge-warning' : 'adm-badge-info'
+                                  (apt.AppointmentStatus || apt.status) === 'Completed' ? 'adm-badge-active' :
+                                  (apt.AppointmentStatus || apt.status) === 'Waiting' ? 'adm-badge-warning' : 'adm-badge-info'
                                 }`}>
-                                  {apt.AppointmentStatus}
+                                  {apt.AppointmentStatus || apt.status}
                                 </span>
                               </td>
                             </tr>
@@ -1909,14 +1943,14 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {patients.map(p => (
-                          <tr key={p.PatientId}>
-                            <td><strong>{p.PatientId}</strong></td>
-                            <td><strong>{p.Name}</strong></td>
-                            <td>{p.Gender || '—'} · {p.DOB ? `${new Date().getFullYear() - new Date(p.DOB).getFullYear()}y` : '—'}</td>
-                            <td>{p.PhoneNumber || '—'}</td>
-                            <td><span className="adm-badge adm-badge-info">{p.BloodGroup || 'O+'}</span></td>
-                            <td>{p.Address || '—'}</td>
+                        {(Array.isArray(patients) ? patients : []).map(p => (
+                          <tr key={p.PatientId || p.id}>
+                            <td><strong>{p.PatientId || p.id}</strong></td>
+                            <td><strong>{p.Name || p.name}</strong></td>
+                            <td>{p.Gender || p.gender || '—'} · {(p.DOB || p.dob) && !isNaN(new Date(p.DOB || p.dob)) ? `${new Date().getFullYear() - new Date(p.DOB || p.dob).getFullYear()}y` : '—'}</td>
+                            <td>{p.PhoneNumber || p.phone || '—'}</td>
+                            <td><span className="adm-badge adm-badge-info">{p.BloodGroup || p.bloodGroup || 'O+'}</span></td>
+                            <td>{p.Address || p.address || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1968,26 +2002,26 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs
-                        .filter(l => auditActionFilter === 'All' || l.ActionType === auditActionFilter)
+                      {(Array.isArray(auditLogs) ? auditLogs : [])
+                        .filter(l => auditActionFilter === 'All' || (l.ActionType || l.actionType) === auditActionFilter)
                         .map(log => (
-                          <tr key={log.AuditId}>
-                            <td><code>#{log.AuditId}</code></td>
+                          <tr key={log.AuditId || log.id}>
+                            <td><code>#{log.AuditId || log.id}</code></td>
                             <td>
                               <span className={`adm-badge ${
-                                log.ActionType === 'CREATE' || log.ActionType === 'APPROVE' ? 'adm-badge-active' :
-                                log.ActionType === 'DELETE' || log.ActionType === 'DEACTIVATE' ? 'adm-badge-inactive' :
-                                log.ActionType === 'LOGIN' ? 'adm-badge-info' : 'adm-badge-warning'
+                                (log.ActionType || log.actionType) === 'CREATE' || (log.ActionType || log.actionType) === 'APPROVE' ? 'adm-badge-active' :
+                                (log.ActionType || log.actionType) === 'DELETE' || (log.ActionType || log.actionType) === 'DEACTIVATE' ? 'adm-badge-inactive' :
+                                (log.ActionType || log.actionType) === 'LOGIN' ? 'adm-badge-info' : 'adm-badge-warning'
                               }`}>
-                                {log.ActionType}
+                                {log.ActionType || log.actionType}
                               </span>
                             </td>
-                            <td><strong>{log.TableAffected}</strong></td>
-                            <td>#{log.RecordId || '—'}</td>
-                            <td>{log.Details}</td>
-                            <td>User #{log.UserId}</td>
+                            <td><strong>{log.TableAffected || log.tableAffected}</strong></td>
+                            <td>#{log.RecordId || log.recordId || '—'}</td>
+                            <td>{log.Details || log.details}</td>
+                            <td>User #{log.UserId || log.userId}</td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              {new Date(log.action_time).toLocaleString()}
+                              {log.action_time || log.timestamp ? new Date(log.action_time || log.timestamp).toLocaleString() : '—'}
                             </td>
                           </tr>
                         ))}
@@ -2201,8 +2235,8 @@ export default function AdminDashboard() {
                       value={doctorForm.DepartmentId}
                       onChange={(e) => setDoctorForm({ ...doctorForm, DepartmentId: parseInt(e.target.value, 10) })}
                     >
-                      {departments.map(d => (
-                        <option key={d.DepartmentId} value={d.DepartmentId}>{d.DepartmentName}</option>
+                      {(Array.isArray(departments) ? departments : []).map(d => (
+                        <option key={d.DepartmentId || d.id} value={d.DepartmentId || d.id}>{d.DepartmentName || d.name}</option>
                       ))}
                     </select>
                   </div>
@@ -2214,8 +2248,8 @@ export default function AdminDashboard() {
                       onChange={(e) => setDoctorForm({ ...doctorForm, UserId: e.target.value ? parseInt(e.target.value, 10) : null })}
                     >
                       <option value="">(None / Unlinked)</option>
-                      {users.map(u => (
-                        <option key={u.UserId} value={u.UserId}>{u.Username} ({u.Name || 'User'})</option>
+                      {(Array.isArray(users) ? users : []).map(u => (
+                        <option key={u.UserId || u.id} value={u.UserId || u.id}>{u.Username || u.username} ({u.Name || u.name || 'User'})</option>
                       ))}
                     </select>
                   </div>
@@ -2270,8 +2304,8 @@ export default function AdminDashboard() {
                       value={staffForm.RoleId}
                       onChange={(e) => setStaffForm({ ...staffForm, RoleId: parseInt(e.target.value, 10) })}
                     >
-                      {roles.map(r => (
-                        <option key={r.RoleId} value={r.RoleId}>{r.RoleName}</option>
+                      {(Array.isArray(roles) ? roles : []).map(r => (
+                        <option key={r.RoleId || r.id} value={r.RoleId || r.id}>{r.RoleName || r.name}</option>
                       ))}
                     </select>
                   </div>
@@ -2516,8 +2550,8 @@ export default function AdminDashboard() {
                       value={labTestForm.DepartmentId}
                       onChange={(e) => setLabTestForm({ ...labTestForm, DepartmentId: parseInt(e.target.value, 10) })}
                     >
-                      {departments.map(d => (
-                        <option key={d.DepartmentId} value={d.DepartmentId}>{d.DepartmentName}</option>
+                      {(Array.isArray(departments) ? departments : []).map(d => (
+                        <option key={d.DepartmentId || d.id} value={d.DepartmentId || d.id}>{d.DepartmentName || d.name}</option>
                       ))}
                     </select>
                   </div>

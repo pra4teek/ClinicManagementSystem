@@ -11,22 +11,7 @@ export const PHARMACY_STORAGE_KEYS = {
   SUPPLIERS: 'cms_suppliers',
 };
 
-// Standard initial master medicines if localStorage is empty
-const INITIAL_MEDICINES = [
-  { id: 'MED-001', name: 'Paracetamol', dosage: '500mg', type: 'Tablet', category: 'Analgesic', quantity: 120, minThreshold: 30, unitPrice: 3.5, sellingPrice: 5.0, batchNo: 'PCM-2025-01', expiryDate: '2026-12-31', supplier: 'MedLife Pharma' },
-  { id: 'MED-002', name: 'Amoxicillin', dosage: '500mg', type: 'Capsule', category: 'Antibiotic', quantity: 45, minThreshold: 25, unitPrice: 12.0, sellingPrice: 18.0, batchNo: 'AMX-2024-88', expiryDate: '2026-08-15', supplier: 'Sun Health Corp' },
-  { id: 'MED-003', name: 'Cetirizine', dosage: '10mg', type: 'Tablet', category: 'Antihistamine', quantity: 85, minThreshold: 20, unitPrice: 4.0, sellingPrice: 7.5, batchNo: 'CTZ-2025-11', expiryDate: '2027-03-30', supplier: 'Cipla Distributors' },
-  { id: 'MED-004', name: 'Metformin', dosage: '500mg', type: 'Tablet', category: 'Antidiabetic', quantity: 8, minThreshold: 20, unitPrice: 6.0, sellingPrice: 10.0, batchNo: 'MET-2024-09', expiryDate: '2026-11-20', supplier: 'Apollo Wholesale' },
-  { id: 'MED-005', name: 'Omeprazole', dosage: '20mg', type: 'Capsule', category: 'Antacid', quantity: 60, minThreshold: 25, unitPrice: 7.5, sellingPrice: 12.0, batchNo: 'OMP-2025-04', expiryDate: '2027-01-15', supplier: 'MedLife Pharma' },
-  { id: 'MED-006', name: 'Azithromycin', dosage: '500mg', type: 'Tablet', category: 'Antibiotic', quantity: 4, minThreshold: 15, unitPrice: 22.0, sellingPrice: 35.0, batchNo: 'AZI-2024-32', expiryDate: '2026-09-10', supplier: 'Sun Health Corp' },
-  { id: 'MED-007', name: 'Ibuprofen', dosage: '400mg', type: 'Tablet', category: 'NSAID', quantity: 95, minThreshold: 30, unitPrice: 5.0, sellingPrice: 8.0, batchNo: 'IBU-2025-22', expiryDate: '2027-05-18', supplier: 'Cipla Distributors' },
-  { id: 'MED-008', name: 'Pantoprazole', dosage: '40mg', type: 'Tablet', category: 'Antacid', quantity: 70, minThreshold: 20, unitPrice: 9.0, sellingPrice: 15.0, batchNo: 'PAN-2025-17', expiryDate: '2026-10-30', supplier: 'Apollo Wholesale' },
-  { id: 'MED-009', name: 'Salbutamol Inhaler', dosage: '100mcg', type: 'Inhaler', category: 'Respiratory', quantity: 18, minThreshold: 10, unitPrice: 95.0, sellingPrice: 140.0, batchNo: 'SAL-2025-02', expiryDate: '2027-04-12', supplier: 'Glaxo Respiratory' },
-  { id: 'MED-010', name: 'Atorvastatin', dosage: '10mg', type: 'Tablet', category: 'Cardiovascular', quantity: 0, minThreshold: 15, unitPrice: 11.0, sellingPrice: 18.0, batchNo: 'ATV-2024-60', expiryDate: '2026-07-22', supplier: 'Sun Health Corp' },
-  { id: 'MED-011', name: 'Cough Syrup (Ascoril)', dosage: '100ml', type: 'Syrup', category: 'Cough & Cold', quantity: 22, minThreshold: 12, unitPrice: 65.0, sellingPrice: 98.0, batchNo: 'ASC-2025-05', expiryDate: '2026-12-10', supplier: 'MedLife Pharma' },
-  { id: 'MED-012', name: 'Ciprofloxacin Eye Drops', dosage: '5ml', type: 'Drops', category: 'Ophthalmic', quantity: 14, minThreshold: 10, unitPrice: 38.0, sellingPrice: 55.0, batchNo: 'CIP-2025-09', expiryDate: '2026-08-30', supplier: 'Cipla Distributors' },
-];
-
+// Standard initial suppliers if empty
 const INITIAL_SUPPLIERS = [
   { id: 'SUP-01', name: 'MedLife Pharma Distribution', contactPerson: 'Rajesh Sharma', phone: '+91 98450 12345', email: 'orders@medlifepharma.in', city: 'Ernakulam, Kerala', rating: '4.9 ★', activeContracts: 6 },
   { id: 'SUP-02', name: 'Sun Health Corporation', contactPerson: 'Priya Nambiar', phone: '+91 94471 67890', email: 'supply@sunhealthcorp.com', city: 'Kochi, Kerala', rating: '4.8 ★', activeContracts: 4 },
@@ -35,66 +20,70 @@ const INITIAL_SUPPLIERS = [
   { id: 'SUP-05', name: 'Glaxo Respiratory Care', contactPerson: 'Deepa Varghese', phone: '+91 98460 45678', email: 'orders@glaxorespiratory.com', city: 'Kottayam, Kerala', rating: '4.9 ★', activeContracts: 3 }
 ];
 
-const INITIAL_REORDERS = [
-  { id: 'PO-2025-001', medicineId: 'MED-004', medicineName: 'Metformin 500mg', requestedQty: 100, supplier: 'Apollo Wholesale Logistics', orderDate: '2026-10-22', status: 'Pending Approval', expectedDelivery: '2026-10-26', estimatedCost: 600 },
-  { id: 'PO-2025-002', medicineId: 'MED-010', medicineName: 'Atorvastatin 10mg', requestedQty: 80, supplier: 'Sun Health Corporation', orderDate: '2026-10-23', status: 'Shipped', expectedDelivery: '2026-10-25', estimatedCost: 880 },
-  { id: 'PO-2025-003', medicineId: 'MED-006', medicineName: 'Azithromycin 500mg', requestedQty: 50, supplier: 'Sun Health Corporation', orderDate: '2026-10-24', status: 'Ordered', expectedDelivery: '2026-10-27', estimatedCost: 1100 }
-];
-
 export const pharmacistService = {
-  // Initialize storage if needed
+  // Initialize storage if needed (for suppliers and logs only)
   initStorage: () => {
-    if (!localStorage.getItem(PHARMACY_STORAGE_KEYS.MEDICINES)) {
-      localStorage.setItem(PHARMACY_STORAGE_KEYS.MEDICINES, JSON.stringify(INITIAL_MEDICINES));
-    }
     if (!localStorage.getItem(PHARMACY_STORAGE_KEYS.SUPPLIERS)) {
       localStorage.setItem(PHARMACY_STORAGE_KEYS.SUPPLIERS, JSON.stringify(INITIAL_SUPPLIERS));
-    }
-    if (!localStorage.getItem(PHARMACY_STORAGE_KEYS.REORDERS)) {
-      localStorage.setItem(PHARMACY_STORAGE_KEYS.REORDERS, JSON.stringify(INITIAL_REORDERS));
-    }
-    if (!localStorage.getItem(PHARMACY_STORAGE_KEYS.BILLS)) {
-      localStorage.setItem(PHARMACY_STORAGE_KEYS.BILLS, JSON.stringify([]));
     }
     if (!localStorage.getItem(PHARMACY_STORAGE_KEYS.DISPENSE_LOG)) {
       localStorage.setItem(PHARMACY_STORAGE_KEYS.DISPENSE_LOG, JSON.stringify([]));
     }
   },
 
-  // 1. Medicines & Inventory
+  // 1. Medicines & Inventory (100% MySQL from /api/pharmacist/medicines/ and /api/pharmacist/stock/)
   getMedicines: async () => {
-    pharmacistService.initStorage();
     try {
-      const res = await api.get('/pharmacist/medicines/');
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        // Map Django MasterMedicine to normalized UI structure
-        const normalized = res.data.map(m => ({
-          id: `MED-${String(m.MedicineId || m.id).padStart(3, '0')}`,
-          rawId: m.MedicineId || m.id,
-          name: m.MedicineName || m.name,
+      const [medsRes, stockRes] = await Promise.all([
+        api.get('/pharmacist/medicines/'),
+        api.get('/pharmacist/stock/').catch(() => ({ data: [] }))
+      ]);
+
+      const meds = Array.isArray(medsRes.data) ? medsRes.data : (medsRes.data?.results || []);
+      const stocks = Array.isArray(stockRes.data) ? stockRes.data : (stockRes.data?.results || []);
+
+      const stockMap = new Map();
+      stocks.forEach(s => {
+        const medId = s.Medicine?.MedicineId || s.Medicine || s.MedicineId;
+        if (medId) stockMap.set(Number(medId), s);
+      });
+
+      return meds.map(m => {
+        const s = stockMap.get(Number(m.MedicineId)) || {};
+        const qty = s.QuantityOnHand !== undefined ? Number(s.QuantityOnHand) : (m.StockQuantity !== undefined ? Number(m.StockQuantity) : 0);
+        const minThresh = s.ReorderLevel !== undefined ? Number(s.ReorderLevel) : 20;
+        const uPrice = Number(s.UnitPrice || m.CostValue || 0);
+        const sPrice = Number(s.SellingPrice || m.MRP || 0);
+
+        return {
+          id: `MED-${String(m.MedicineId).padStart(3, '0')}`,
+          rawId: m.MedicineId,
+          MedicineId: m.MedicineId,
+          name: m.MedicineName || '',
+          MedicineName: m.MedicineName || '',
           genericName: m.GenericName || '',
+          GenericName: m.GenericName || '',
           dosage: m.Dosage || '500mg',
           type: m.Type || 'Tablet',
           category: m.Category || 'General',
-          quantity: m.StockQuantity !== undefined ? m.StockQuantity : 50,
-          minThreshold: m.MinThreshold || 20,
-          unitPrice: parseFloat(m.UnitPrice || 10),
-          sellingPrice: parseFloat(m.MRP || m.sellingPrice || 15),
-          batchNo: m.BatchNo || 'BATCH-2025',
-          expiryDate: m.ExpiryDate || '2026-12-31',
-          supplier: m.Supplier || 'CarePoint Medical Supply'
-        }));
-        return normalized;
-      }
-    } catch {
-      // Fallback to local storage
-    }
-
-    try {
-      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.MEDICINES);
-      return stored ? JSON.parse(stored) : INITIAL_MEDICINES;
-    } catch {
-      return INITIAL_MEDICINES;
+          Category: m.Category || 'General',
+          quantity: qty,
+          minThreshold: minThresh,
+          reorderLevel: minThresh,
+          unitPrice: uPrice,
+          costValue: uPrice,
+          sellingPrice: sPrice,
+          mrp: sPrice,
+          batchNo: s.BatchNo || 'BATCH-2025',
+          expiryDate: s.ExpiryDate || '2026-12-31',
+          supplier: m.Manufacturer || 'CarePoint Medical Supply',
+          stockId: s.StockId || null,
+          isActive: m.isActive !== false
+        };
+      });
+    } catch (err) {
+      console.warn('Backend medicines fetch error:', err);
+      return [];
     }
   },
 
@@ -152,94 +141,61 @@ export const pharmacistService = {
   },
 
   getLocalMedicines: () => {
-    try {
-      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.MEDICINES);
-      return stored ? JSON.parse(stored) : INITIAL_MEDICINES;
-    } catch {
-      return INITIAL_MEDICINES;
-    }
-  },
-
-  // 2. Prescriptions Queue & Dispensing
-  getPrescriptions: async () => {
-    let backendList = [];
-    try {
-      const res = await api.get('/pharmacist/prescriptions/');
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        backendList = res.data.map((p) => {
-          const items = Array.isArray(p.items) ? p.items.map((it) => ({
-            id: it.PrescriptionItemId,
-            prescriptionItemId: it.PrescriptionItemId,
-            medicineId: 'MED-' + String(it.MedicineId).padStart(3, '0'),
-            rawMedicineId: it.MedicineId,
-            medicineName: it.MedicineName || 'Prescribed Medicine',
-            dosage: it.Dosage || '500mg',
-            frequency: it.Frequency || '1-0-1',
-            duration: it.Duration || '5 Days',
-            quantity: 10,
-            unitPrice: 15.0
-          })) : [];
-
-          let formattedDate = 'Today';
-          if (p.PrescriptionDateTime) {
-            try {
-              formattedDate = new Date(p.PrescriptionDateTime).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-            } catch (e) {}
-          }
-
-          return {
-            id: 'RX-' + p.PrescriptionId,
-            prescriptionId: 'RX-' + p.PrescriptionId,
-            rawId: p.PrescriptionId,
-            patientId: 'PAT-' + p.PatientId,
-            patientName: p.PatientName || ('Patient #' + p.PatientId),
-            patientAge: 45,
-            patientGender: 'Male',
-            patientPhone: '—',
-            doctorId: 'DOC-' + p.DoctorId,
-            doctorName: p.DoctorName ? (p.DoctorName.startsWith('Dr.') ? p.DoctorName : 'Dr. ' + p.DoctorName) : 'Dr. Prateek Pradeep',
-            doctorDept: 'General Medicine',
-            date: formattedDate,
-            diagnosis: 'Prescribed by Doctor',
-            notes: 'Dispense as directed',
-            status: p.Status || 'Pending',
-            items
-          };
-        });
-      }
-    } catch (err) {
-      console.warn('Backend prescriptions fetch fallback:', err);
-    }
-
-    // Merge with local storage prescriptions
-    let localRx = [];
-    try {
-      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.PRESCRIPTIONS);
-      if (stored) localRx = JSON.parse(stored);
-    } catch {}
-
-    const combined = [...backendList];
-    localRx.forEach((lr) => {
-      const id = lr.prescriptionId || lr.id;
-      if (!combined.some((c) => c.prescriptionId === id || c.id === id || (c.rawId && lr.rawId && String(c.rawId) === String(lr.rawId)))) {
-        combined.unshift({
-          ...lr,
-          id: lr.id || lr.prescriptionId,
-          prescriptionId: lr.prescriptionId || lr.id,
-          status: lr.status || 'Pending'
-        });
-      }
-    });
-
-    if (combined.length > 0) {
-      return combined;
-    }
-
     return [];
   },
 
+  // 2. Prescriptions Queue & Dispensing (100% MySQL from /api/pharmacist/prescriptions/)
+  getPrescriptions: async () => {
+    try {
+      const res = await api.get('/pharmacist/prescriptions/');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return data.map((p) => {
+        const items = Array.isArray(p.items) ? p.items.map((it) => ({
+          id: it.PrescriptionItemId,
+          prescriptionItemId: it.PrescriptionItemId,
+          medicineId: 'MED-' + String(it.MedicineId).padStart(3, '0'),
+          rawMedicineId: it.MedicineId,
+          medicineName: it.MedicineName || 'Prescribed Medicine',
+          dosage: it.Dosage || '500mg',
+          frequency: it.Frequency || '1-0-1',
+          duration: it.Duration || '5 Days',
+          quantity: it.Quantity || 10,
+          unitPrice: Number(it.UnitPrice || 15.0)
+        })) : [];
+
+        let formattedDate = 'Today';
+        if (p.PrescriptionDateTime) {
+          try {
+            formattedDate = new Date(p.PrescriptionDateTime).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+          } catch (e) {}
+        }
+
+        return {
+          id: 'RX-' + p.PrescriptionId,
+          prescriptionId: 'RX-' + p.PrescriptionId,
+          rawId: p.PrescriptionId,
+          patientId: 'PAT-' + p.PatientId,
+          patientName: p.PatientName || ('Patient #' + p.PatientId),
+          patientAge: p.PatientAge || 45,
+          patientGender: p.PatientGender || 'Male',
+          patientPhone: p.PatientPhone || '—',
+          doctorId: 'DOC-' + p.DoctorId,
+          doctorName: p.DoctorName ? (p.DoctorName.startsWith('Dr.') ? p.DoctorName : 'Dr. ' + p.DoctorName) : 'Dr. Prateek Pradeep',
+          doctorDept: p.DepartmentName || 'General Medicine',
+          date: formattedDate,
+          diagnosis: p.Diagnosis || 'Prescribed by Doctor',
+          notes: p.Notes || 'Dispense as directed',
+          status: p.Status || 'Pending',
+          items
+        };
+      });
+    } catch (err) {
+      console.warn('Backend prescriptions fetch error:', err);
+      return [];
+    }
+  },
+
   dispensePrescription: async (rxId, pharmacistUser = 'Adarsh Chandran') => {
-    pharmacistService.initStorage();
     const prescriptions = await pharmacistService.getPrescriptions();
     const targetRx = prescriptions.find(r => r.id === rxId || r.prescriptionId === rxId);
 
@@ -406,19 +362,43 @@ export const pharmacistService = {
     };
   },
 
-  // 3. Billing Management
-  getBills: () => {
-    pharmacistService.initStorage();
+  // 3. Billing Management (100% MySQL from /api/pharmacist/bills/)
+  getBills: async () => {
     try {
-      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.BILLS);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
+      const res = await api.get('/pharmacist/bills/');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return data.map((b) => ({
+        id: b.BillNumber || `PB-${b.BillId}`,
+        billNumber: b.BillNumber || `PB-${b.BillId}`,
+        prescriptionId: b.Prescription ? `RX-${b.Prescription}` : 'OTC-DIRECT',
+        patientId: b.Patient ? `PAT-${b.Patient}` : 'PAT-WALKIN',
+        patientName: b.PatientName || (b.Patient ? `Patient #${b.Patient}` : 'Walk-in Patient'),
+        patientAge: '—',
+        patientGender: '—',
+        doctorName: b.DoctorName || 'Staff Physician',
+        dispensedBy: b.DispensedByName || 'Pharmacist',
+        dispensedAt: b.BillDate ? new Date(b.BillDate).toLocaleString('en-IN') : new Date().toLocaleString('en-IN'),
+        items: Array.isArray(b.items) ? b.items.map(it => ({
+          medicineName: it.MedicineName || it.Medicine,
+          quantity: it.Quantity,
+          unitPrice: Number(it.UnitPrice || 0),
+          subtotal: Number(it.TotalPrice || 0)
+        })) : [],
+        subtotal: Number(b.SubTotal || b.TotalAmount || 0),
+        gstAmount: Number(b.TaxAmount || 0),
+        gstRatePercent: 5,
+        totalAmount: Number(b.TotalAmount || 0),
+        status: b.PaymentStatus || 'Dispensed & Billed',
+        paymentStatus: b.PaymentStatus || 'Paid',
+        sentToReceptionist: true
+      }));
+    } catch (err) {
+      console.warn('Backend bills fetch error:', err);
       return [];
     }
   },
 
   createDirectBill: (billData, pharmacistUser = 'Adarsh Chandran') => {
-    pharmacistService.initStorage();
     const subtotal = billData.items.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
     const gstRate = 0.05;
     const gstAmount = Math.round(subtotal * gstRate * 100) / 100;
@@ -446,27 +426,33 @@ export const pharmacistService = {
       sentToReceptionist: true
     };
 
-    // Deduct stock
-    billData.items.forEach(it => {
-      pharmacistService.updateStockQuantity(it.medicineId, -it.quantity, `Direct Sale ${billNumber}`);
-    });
-
-    const existingBills = pharmacistService.getBills();
-    const updated = [newBill, ...existingBills];
-    localStorage.setItem(PHARMACY_STORAGE_KEYS.BILLS, JSON.stringify(updated));
-
     window.dispatchEvent(new Event('cms_billing_updated'));
     return newBill;
   },
 
-  // 4. Stock Orders & Procurement
-  getReorders: () => {
-    pharmacistService.initStorage();
+  // 4. Stock Orders & Procurement (100% MySQL from /api/pharmacist/reports/reorder/)
+  getReorders: async () => {
     try {
-      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.REORDERS);
-      return stored ? JSON.parse(stored) : INITIAL_REORDERS;
-    } catch {
-      return INITIAL_REORDERS;
+      const res = await api.get('/pharmacist/reports/reorder/');
+      const data = res.data?.results || (Array.isArray(res.data) ? res.data : []);
+      return data.map((r, idx) => ({
+        id: `PO-${new Date().getFullYear()}-${String(idx + 1).padStart(3, '0')}`,
+        medicineId: `MED-${String(r.MedicineId).padStart(3, '0')}`,
+        rawMedicineId: r.MedicineId,
+        medicineName: r.MedicineName,
+        requestedQty: Math.max(50, (r.ReorderLevel || 20) * 2 - (r.QuantityOnHand || 0)),
+        currentStock: r.QuantityOnHand,
+        reorderLevel: r.ReorderLevel,
+        unitPrice: Number(r.UnitPrice || 0),
+        estimatedCost: Math.max(50, (r.ReorderLevel || 20) * 2 - (r.QuantityOnHand || 0)) * Number(r.UnitPrice || 10),
+        supplier: 'CarePoint Medical Supply',
+        orderDate: new Date().toISOString().split('T')[0],
+        status: r.StockStatus || (r.QuantityOnHand <= 0 ? 'Out of Stock' : 'Low Stock'),
+        expectedDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
+      }));
+    } catch (err) {
+      console.warn('Backend reorders fetch error:', err);
+      return [];
     }
   },
 
@@ -550,10 +536,12 @@ export const pharmacistService = {
 
   // 7. Computed Metrics for Dashboard & Reports
   getDashboardMetrics: async () => {
-    const medicines = await pharmacistService.getMedicines();
-    const prescriptions = await pharmacistService.getPrescriptions();
-    const bills = pharmacistService.getBills();
-    const reorders = pharmacistService.getReorders();
+    const [medicines, prescriptions, bills, reorders] = await Promise.all([
+      pharmacistService.getMedicines(),
+      pharmacistService.getPrescriptions(),
+      pharmacistService.getBills(),
+      pharmacistService.getReorders()
+    ]);
 
     const totalMedicines = medicines.length;
     const lowStockCount = medicines.filter(m => m.quantity > 0 && m.quantity <= (m.minThreshold || 20)).length;

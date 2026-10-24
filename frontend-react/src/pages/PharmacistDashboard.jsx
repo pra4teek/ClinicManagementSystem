@@ -182,14 +182,16 @@ export default function PharmacistDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [medsList, rxList] = await Promise.all([
+      const [medsList, rxList, billsList, reordersList] = await Promise.all([
         pharmacistService.getMedicines(),
-        pharmacistService.getPrescriptions()
+        pharmacistService.getPrescriptions(),
+        pharmacistService.getBills(),
+        pharmacistService.getReorders()
       ]);
       setMedicines(medsList);
       setPrescriptions(rxList);
-      setBills(pharmacistService.getBills());
-      setReorders(pharmacistService.getReorders());
+      setBills(billsList);
+      setReorders(reordersList);
       setSuppliers(pharmacistService.getSuppliers());
       setDispenseLog(pharmacistService.getDispenseLog());
     } catch (err) {
@@ -203,10 +205,15 @@ export default function PharmacistDashboard() {
     loadData();
 
     // Listen for live updates from Doctor or Receptionist modules
-    const handleStockUpdate = () => {
-      setMedicines(pharmacistService.getLocalMedicines());
-      setBills(pharmacistService.getBills());
-      setReorders(pharmacistService.getReorders());
+    const handleStockUpdate = async () => {
+      const [medsList, billsList, reordersList] = await Promise.all([
+        pharmacistService.getMedicines(),
+        pharmacistService.getBills(),
+        pharmacistService.getReorders()
+      ]);
+      setMedicines(medsList);
+      setBills(billsList);
+      setReorders(reordersList);
       setDispenseLog(pharmacistService.getDispenseLog());
     };
 

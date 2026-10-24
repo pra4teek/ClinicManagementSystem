@@ -10,9 +10,10 @@ export default function DepartmentList() {
     async function fetchDepts() {
       try {
         const data = await adminService.getDepartments();
-        setDepartments(data);
+        setDepartments(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
+        setDepartments([]);
       } finally {
         setLoading(false);
       }
@@ -50,13 +51,13 @@ export default function DepartmentList() {
         <tbody>
           {loading ? (
             <tr><td colSpan="3" style={{ padding: '2rem', textAlign: 'center' }}>Loading departments...</td></tr>
-          ) : departments.length === 0 ? (
+          ) : !Array.isArray(departments) || departments.length === 0 ? (
             <tr><td colSpan="3" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No departments found.</td></tr>
           ) : (
             departments.map(d => (
-              <tr key={d.DepartmentId} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '0.75rem 1rem' }}><strong>#{d.DepartmentId}</strong></td>
-                <td><strong>{d.DepartmentName}</strong></td>
+              <tr key={d.DepartmentId || d.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td style={{ padding: '0.75rem 1rem' }}><strong>#{d.DepartmentId || d.id}</strong></td>
+                <td><strong>{d.DepartmentName || d.name}</strong></td>
                 <td>
                   <span className={`badge ${d.isActive !== false ? 'badge-completed' : 'badge-danger'}`}>
                     {d.isActive !== false ? 'Active' : 'Inactive'}
