@@ -135,9 +135,11 @@ export function loadLabData() {
         patient: shared.patientName || patient?.name || patient?.Name || 'Patient',
         doctorId: shared.doctorId || '',
         doctorName: shared.doctorName || '',
+        createdAt: shared.createdAt || '',
         testId: test.testId,
         status: shared.testStatuses?.[index] || shared.status || 'Pending',
         date: shared.date || '',
+        time: shared.time || '',
       };
     });
   });
