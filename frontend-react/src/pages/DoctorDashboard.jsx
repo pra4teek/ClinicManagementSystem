@@ -621,6 +621,9 @@ export default function DoctorDashboard() {
     const updatedList = [newOrder, ...labList];
     setStorage(CMS_KEYS.LAB_ORDERS, updatedList);
     saveDraft();
+    // Persist to MySQL backend via doctorService
+    doctorService.requestLabTest(activeAppt.rawPatientId || activeAppt.patientId, newOrder.tests, labRemarks);
+    window.dispatchEvent(new Event('cms_rx_updated'));
     showToast(`Lab test requested for ${activeAppt.patientName}. Sent to Lab Technician pending queue!`, 'success');
   };
 
@@ -2305,6 +2308,9 @@ export default function DoctorDashboard() {
                     status: 'Pending'
                   };
                   setStorage(CMS_KEYS.LAB_ORDERS, [newOrder, ...labList]);
+                  // Persist to MySQL backend via doctorService
+                  doctorService.requestLabTest(modalLabPatientId, tests, modalLabRemarks);
+                  window.dispatchEvent(new Event('cms_rx_updated'));
                   setIsLabRequestModalOpen(false);
                   showToast(`Lab request #${newOrder.labOrderId} dispatched to Laboratory queue!`, 'success');
                 }}

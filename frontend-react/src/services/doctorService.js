@@ -463,6 +463,30 @@ const doctorService = {
     }
   },
 
+  // ── INSTANT LAB TEST REQUEST ─────────────────────────────────────
+  requestLabTest: async (patientId, tests, remarks = '') => {
+    try {
+      const rawPatId = typeof patientId === 'string' ? parseInt(patientId.replace(/\D/g, ''), 10) : patientId;
+      const testsRes = await api.get('/lab/lab-tests/');
+      const testsList = Array.isArray(testsRes.data) ? testsRes.data : [];
+
+      for (const testName of tests) {
+        let matchedTest = testsList.find(t => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
+        const testId = matchedTest ? matchedTest.LabtestId : (testsList[0]?.LabtestId || 1);
+        await api.post('/lab/lab-prescriptions/', {
+          PatientId: rawPatId,
+          DoctorId: 3,
+          LabTestId: testId,
+          Status: 'Pending',
+          SampleType: 'Venous Blood',
+          LabTestDate: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.warn('requestLabTest backend sync error:', err);
+    }
+  },
+
   // ── MEDICINES CATALOG (FETCHES REAL MYSQL PHARMACY INVENTORY) ────
   getMedicineCatalog: async () => {
     try {

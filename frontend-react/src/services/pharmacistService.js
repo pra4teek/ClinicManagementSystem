@@ -296,8 +296,8 @@ export const pharmacistService = {
       if (rawRxId) {
         await api.post(`/pharmacist/prescriptions/${rawRxId}/dispense/`, {
           items: itemsToDispense.map(it => ({
-            medicine_id: it.medicineId,
-            quantity: it.quantity
+            PrescriptionItemId: it.prescriptionItemId || it.id || 1,
+            Quantity: it.quantity
           }))
         });
         backendSuccess = true;
