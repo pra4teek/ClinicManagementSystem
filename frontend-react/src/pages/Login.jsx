@@ -30,7 +30,7 @@ export default function Login() {
       } else if (role === 'Receptionist') {
         navigate('/appointments');
       } else if (role === 'Pharmacist') {
-        navigate('/medicines');
+        navigate('/pharmacist');
       } else if (role === 'Lab Technician') {
         navigate('/lab-tests');
       } else {
@@ -168,7 +168,7 @@ export default function Login() {
               type="button"
               className="btn btn-sm btn-outline"
               style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Adarsh Chandran', 'Pharmacist', '/medicines')}
+              onClick={() => loginAsRole('Adarsh Chandran', 'Pharmacist', '/pharmacist')}
             >
               <PillIcon size={14} />
               Pharmacist

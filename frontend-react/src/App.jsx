@@ -19,6 +19,7 @@ import PatientList from './pages/PatientList';
 import PatientForm from './pages/PatientForm';
 
 // Pharmacist Module
+import PharmacistDashboard from './pages/PharmacistDashboard';
 import MedicineList from './pages/MedicineList';
 import MedicineForm from './pages/MedicineForm';
 
@@ -44,6 +45,10 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           {/* Doctor Module has its own full-screen layout with dark sidebar matching original frontend/doctor */}
           <Route path="/doctor" element={<DoctorDashboard />} />
+
+          {/* Pharmacist Module has its own full-screen layout with dark navy sidebar matching Doctor & Lab */}
+          <Route path="/pharmacist" element={<PharmacistDashboard />} />
+          <Route path="/medicines" element={<PharmacistDashboard />} />
 
           {/* Shared AppLayout for other modules */}
           <Route element={<AppLayout />}>
