@@ -228,7 +228,7 @@ export function loadLabData() {
   const sharedOrders = getStored(KEYS.orders, []);
   const orders = sharedOrders.flatMap((shared) => {
     const id = shared.labOrderId || shared.id;
-    const backendId = shared.rawId || /^LAB-(\d+)$/.exec(String(id))?.[1];
+    const backendId = shared.rawId;
     const tests = Array.isArray(shared.tests) && shared.tests.length ? shared.tests : [shared.testName || 'Clinical Diagnostic Test'];
     const patient = patients.find((item) => String(item.patientId ?? item.PatientId) === String(shared.patientId));
     return tests.map((name, index) => {
