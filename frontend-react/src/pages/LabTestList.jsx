@@ -15,7 +15,9 @@ export default function LabTestList() {
   const location = useLocation();
   const [data, setData] = useState(() => loadLabData());
   const [section, setSection] = useState(() => location.state?.section || 'orders');
-  const [search, setSearch] = useState('');
+  const [reportSearch, setReportSearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [pendingSearch, setPendingSearch] = useState('');
   const [selectedBill, setSelectedBill] = useState(() => location.state?.selectedTestId || '');
   const [message, setMessage] = useState('');
 
@@ -36,7 +38,7 @@ export default function LabTestList() {
   const openSection = (value) => {
     setSection(value);
     setMessage('');
-    if (value === 'reports') setSearch('');
+    if (value === 'reports') setReportSearch('');
   };
 
   const processOrder = (order) => {
@@ -90,13 +92,23 @@ export default function LabTestList() {
   const filteredReports = [...data.reports]
     .sort((a, b) => (Number(b.completedAt || b.reportId) || 0) - (Number(a.completedAt || a.reportId) || 0))
     .filter((report) => {
-      const term = search.trim().toLowerCase();
+      const term = reportSearch.trim().toLowerCase();
       return !term || String(report.patientName || '').toLowerCase().includes(term)
         || String(report.patientId || '').toLowerCase().includes(term);
     });
 
-  const renderQueue = (status, heading, emptyMessage) => {
-    const queue = data.orders.filter((order) => order.status === status);
+  const filteredOrders = data.orders.filter((order) => {
+    const term = orderSearch.trim().toLowerCase();
+    return !term || String(order.patientId || '').toLowerCase().includes(term)
+      || String(order.patient || '').toLowerCase().includes(term);
+  });
+
+  const renderQueue = (status, heading, emptyMessage, patientSearch = '') => {
+    const term = patientSearch.trim().toLowerCase();
+    const statusOrders = data.orders.filter((order) => order.status === status);
+    const queue = statusOrders.filter((order) => !term
+      || String(order.patientId || '').toLowerCase().includes(term)
+      || String(order.patient || '').toLowerCase().includes(term));
     return (
       <section className="card lab-card">
         <div className="card-header"><h2 className="card-title">{heading}</h2></div>
@@ -104,7 +116,9 @@ export default function LabTestList() {
           <table className="table">
             <thead><tr><th>Test ID</th><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Test Name</th><th>Action</th></tr></thead>
             <tbody>
-              {!queue.length && <tr><td colSpan="6" className="lab-empty">{emptyMessage}</td></tr>}
+              {!queue.length && <tr><td colSpan="6" className="lab-empty">
+                {term && statusOrders.length ? 'No tests match that patient name or ID.' : emptyMessage}
+              </td></tr>}
               {queue.map((order) => (
                 <tr key={order.id}>
                   <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td>
@@ -162,16 +176,31 @@ export default function LabTestList() {
 
         {section === 'orders' && <>
           <section className="card lab-card">
+            <div className="card-body">
+              <label className="form-label" htmlFor="order-search">Search lab tests by patient name or ID</label>
+              <input
+                id="order-search"
+                type="search"
+                className="form-control"
+                placeholder="Enter patient name or patient ID"
+                value={orderSearch}
+                onChange={(event) => setOrderSearch(event.target.value)}
+              />
+            </div>
+          </section>
+          <section className="card lab-card">
             <div className="card-header"><h2 className="card-title">All Lab Tests</h2></div>
             <div className="card-body table-responsive">
               <table className="table">
-                <thead><tr><th>Test ID</th><th>Patient ID</th><th>Doctor Name</th><th>Test Name</th><th>Sample Type</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Test ID</th><th>Patient ID</th><th>Patient Name</th><th>Doctor Name</th><th>Test Name</th><th>Sample Type</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {!data.orders.length && <tr><td colSpan="7" className="lab-empty">No lab tests available</td></tr>}
-                  {data.orders.map((order) => {
+                  {!filteredOrders.length && <tr><td colSpan="8" className="lab-empty">
+                    {data.orders.length ? 'No lab tests match that patient name or ID.' : 'No lab tests available'}
+                  </td></tr>}
+                  {filteredOrders.map((order) => {
                     const test = getLabTest(order.testId, data.testMaster);
                     return <tr key={order.id}>
-                      <td>{order.id}</td><td>{order.patientId}</td><td>{order.doctorName || '—'}</td><td>{test.testName}</td><td>{test.sampleType}</td>
+                      <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td><td>{test.testName}</td><td>{test.sampleType}</td>
                       <td><StatusBadge status={order.status} /></td>
                       <td>{order.status === 'Completed'
                         ? <button className="btn btn-sm btn-outline" onClick={() => openSection('reports')}>View Report</button>
@@ -187,13 +216,28 @@ export default function LabTestList() {
           {renderQueue('Completed', 'Completed Queue', 'No completed tests.')}
         </>}
 
-        {section === 'patient' && renderQueue('Pending', 'Pending Queue', 'No pending tests.')}
+        {section === 'patient' && <>
+          <section className="card lab-card">
+            <div className="card-body">
+              <label className="form-label" htmlFor="order-search">Search tests by patient name or ID</label>
+              <input
+                id="order-search"
+                type="search"
+                className="form-control"
+                placeholder="Enter patient name or patient ID"
+                value={pendingSearch}
+                onChange={(event) => setPendingSearch(event.target.value)}
+              />
+            </div>
+          </section>
+          {renderQueue('Pending', 'Pending Queue', 'No pending tests.', pendingSearch)}
+        </>}
 
         {section === 'reports' && <>
           <section className="card lab-card">
             <div className="card-body">
               <label className="form-label" htmlFor="report-search">Search reports by patient name or ID</label>
-              <input id="report-search" type="search" className="form-control" placeholder="Enter patient name or patient ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <input id="report-search" type="search" className="form-control" placeholder="Enter patient name or patient ID" value={reportSearch} onChange={(event) => setReportSearch(event.target.value)} />
             </div>
           </section>
           {!filteredReports.length && <p className="lab-empty">{data.reports.length ? 'No reports match that patient name or ID.' : 'No reports available.'}</p>}
