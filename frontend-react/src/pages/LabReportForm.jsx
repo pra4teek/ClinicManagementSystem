@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getLabSchema, getLabTest, loadLabData, saveLabData } from '../services/labService';
+import {
+  fetchLabDataFromApi,
+  getLabSchema,
+  getLabTest,
+  loadLabData,
+  mergeLabData,
+  saveLabData,
+  submitApiLabReport,
+} from '../services/labService';
 import '../styles/labPages.css';
 
 function restoreValues(id, data) {
@@ -21,7 +29,7 @@ function restoreValues(id, data) {
 export default function LabReportForm() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [data] = useState(() => loadLabData());
+  const [data, setData] = useState(() => loadLabData());
   const [orderId, setOrderId] = useState(() => String(location.state?.orderId || ''));
 
   const order = data.orders.find((item) => String(item.id) === String(orderId));
@@ -36,6 +44,35 @@ export default function LabReportForm() {
   const [actualReading, setActualReading] = useState(() => existingReport?.actualReading || '');
   const [remarks, setRemarks] = useState(() => existingReport?.remarks || '');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchLabDataFromApi()
+      .then((apiData) => {
+        if (!active) return;
+        const mergedData = mergeLabData(loadLabData(), apiData);
+        setData(mergedData);
+        const selectedOrder = mergedData.orders.find(
+          (item) => String(item.id) === String(location.state?.orderId),
+        );
+        if (selectedOrder) {
+          const report = mergedData.reports.find((item) => String(item.testId) === String(selectedOrder.id));
+          const selectedTest = getLabTest(selectedOrder.testId, mergedData.testMaster);
+          setValues(restoreValues(selectedOrder.id, mergedData));
+          setNormalValue(report?.normalValue || selectedTest.normalValue || '');
+          setActualReading(report?.actualReading || '');
+          setRemarks(report?.remarks || '');
+        }
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setError(`Unable to load lab data from Django: ${fetchError.response?.data?.detail || fetchError.message}`);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [location.state?.orderId]);
 
   const chooseOrder = (nextId) => {
     const nextOrder = data.orders.find((item) => String(item.id) === String(nextId));
@@ -94,7 +131,7 @@ export default function LabReportForm() {
     return '';
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!order || !test) {
       setError('Select a valid lab test before entering a report.');
@@ -132,6 +169,28 @@ export default function LabReportForm() {
       time: now.toLocaleTimeString(),
       technicianName: 'Lab Technician',
     };
+    if (order.backendId) {
+      try {
+        const savedReport = await submitApiLabReport(order.backendId, {
+          ActualReading: report.actualReading,
+          remarks: report.remarks,
+        });
+        setData((current) => ({
+          ...current,
+          orders: current.orders.map((item) => String(item.id) === String(order.id)
+            ? { ...item, status: 'Completed' } : item),
+          reports: [
+            savedReport,
+            ...current.reports.filter((item) => String(item.backendId) !== String(savedReport.backendId)),
+          ],
+        }));
+        navigate('/lab-tests', { state: { section: 'billing', selectedTestId: order.id } });
+      } catch (submitError) {
+        setError(`Unable to save the lab report to Django: ${submitError.response?.data?.detail || JSON.stringify(submitError.response?.data) || submitError.message}`);
+      }
+      return;
+    }
+
     const existingIndex = data.reports.findIndex((item) => String(item.testId) === String(order.id));
     const reports = existingIndex === -1
       ? [report, ...data.reports]
@@ -181,7 +240,7 @@ export default function LabReportForm() {
               <small className="form-hint">Established healthy clinical reference interval. You can edit this to match your lab analyzer standards.</small>
             </div>
 
-            {error && <div className="lab-validation" role="alert"><strong>Invalid Clinical Reading:</strong> {error}</div>}
+            {error && <div className="lab-validation" role="alert">{error}</div>}
             {schema && <div className="lab-param-card">
               <div className="lab-param-header">
                 <strong>Test Component Parameters</strong>

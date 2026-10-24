@@ -3,9 +3,52 @@ from apibackendapp.models import LabReport,LabTest,LabPrescription
 
 
 class LabReportSerializer(serializers.ModelSerializer):
+    PatientName = serializers.SerializerMethodField()
+    DoctorName = serializers.SerializerMethodField()
+    TestName = serializers.SerializerMethodField()
+    NormalName = serializers.SerializerMethodField()
+    SampleType = serializers.SerializerMethodField()
+
     class Meta:
         model = LabReport
-        fields = '__all__'
+        fields = (
+            'ReportId',
+            'LabPrescriptionId',
+            'LabTechnician',
+            'ReportDate',
+            'ActualReading',
+            'remarks',
+            'PatientName',
+            'DoctorName',
+            'TestName',
+            'NormalName',
+            'SampleType',
+        )
+
+    def get_PatientName(self, obj):
+        prescription = obj.LabPrescriptionId
+        patient = prescription.PatientId if prescription else None
+        return patient.Name if patient else ''
+
+    def get_DoctorName(self, obj):
+        prescription = obj.LabPrescriptionId
+        doctor = prescription.DoctorId if prescription else None
+        return doctor.Name if doctor else ''
+
+    def get_TestName(self, obj):
+        prescription = obj.LabPrescriptionId
+        test = prescription.LabTestId if prescription else None
+        return test.TestName if test else ''
+
+    def get_NormalName(self, obj):
+        prescription = obj.LabPrescriptionId
+        test = prescription.LabTestId if prescription else None
+        return test.NormalName if test else ''
+
+    def get_SampleType(self, obj):
+        prescription = obj.LabPrescriptionId
+        return prescription.SampleType if prescription else ''
+
     def validate_ActualReading(self,value):
         if not value.strip():
             raise serializers.ValidationError("Actual reading cannot be empty.")
@@ -32,9 +75,44 @@ class LabTestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Test cost must be greater than 0.")
         return value
 class LabPrescriptionSerializer(serializers.ModelSerializer):
+    PatientName = serializers.SerializerMethodField()
+    DoctorName = serializers.SerializerMethodField()
+    TestName = serializers.SerializerMethodField()
+    NormalName = serializers.SerializerMethodField()
+    TestCost = serializers.SerializerMethodField()
+
     class Meta:
         model=LabPrescription
-        fields='__all__'
+        fields = (
+            'LabPrescriptionId',
+            'LabTestId',
+            'PatientId',
+            'DoctorId',
+            'ConsultationId',
+            'Status',
+            'SampleType',
+            'LabTestDate',
+            'PatientName',
+            'DoctorName',
+            'TestName',
+            'NormalName',
+            'TestCost',
+        )
+
+    def get_PatientName(self, obj):
+        return obj.PatientId.Name if obj.PatientId else ''
+
+    def get_DoctorName(self, obj):
+        return obj.DoctorId.Name if obj.DoctorId else ''
+
+    def get_TestName(self, obj):
+        return obj.LabTestId.TestName if obj.LabTestId else ''
+
+    def get_NormalName(self, obj):
+        return obj.LabTestId.NormalName if obj.LabTestId else ''
+
+    def get_TestCost(self, obj):
+        return obj.LabTestId.TestCost if obj.LabTestId else None
         
     def validate_SampleType(self,value):
         if not value.strip():

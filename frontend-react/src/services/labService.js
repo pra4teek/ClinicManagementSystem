@@ -113,6 +113,112 @@ export function getLabSchema(name) {
   return SCHEMAS.find((schema) => schema.match.test(String(name || '').toLowerCase())) || null;
 }
 
+function mapApiStatus(status) {
+  if (status === 'Sample collected') return 'Pending';
+  return status || 'Pending';
+}
+
+function mapApiTest(test) {
+  const meta = getMeta(test.TestName);
+  return {
+    testId: String(test.LabtestId),
+    testName: test.TestName,
+    ...meta,
+    normalValue: test.NormalName,
+    charge: Number(test.TestCost),
+    isActive: test.isActive,
+  };
+}
+
+function mapApiOrder(order) {
+  const timestamp = order.LabTestDate || '';
+  const id = `api-lab-${order.LabPrescriptionId}`;
+  return {
+    id,
+    backendId: order.LabPrescriptionId,
+    labOrderId: order.LabPrescriptionId,
+    patientDbId: order.PatientId,
+    patientId: order.PatientId ? `PAT-${String(order.PatientId).padStart(4, '0')}` : '',
+    patient: order.PatientName || 'Patient',
+    doctorId: order.DoctorId || '',
+    doctorName: order.DoctorName
+      ? (order.DoctorName.startsWith('Dr.') ? order.DoctorName : `Dr. ${order.DoctorName}`)
+      : '',
+    createdAt: timestamp,
+    testId: String(order.LabTestId || ''),
+    status: mapApiStatus(order.Status),
+    date: timestamp,
+    time: '',
+    sampleType: order.SampleType || '',
+  };
+}
+
+function mapApiReport(report, orders) {
+  const orderId = report.LabPrescriptionId;
+  const order = orders.find((item) => String(item.backendId) === String(orderId));
+  const reportDate = report.ReportDate ? new Date(report.ReportDate) : null;
+  const testName = report.TestName || (order ? getLabTest(order.testId).testName : 'Lab Test');
+  return {
+    reportId: report.ReportId,
+    backendId: report.ReportId,
+    testId: order?.id || `api-lab-${orderId}`,
+    labOrderId: orderId,
+    patientId: order?.patientId || (report.PatientId ? `PAT-${String(report.PatientId).padStart(4, '0')}` : ''),
+    patientName: report.PatientName || order?.patient || 'Patient',
+    doctorId: order?.doctorId || '',
+    doctorName: report.DoctorName
+      ? (report.DoctorName.startsWith('Dr.') ? report.DoctorName : `Dr. ${report.DoctorName}`)
+      : order?.doctorName || '',
+    testName,
+    sampleType: report.SampleType || order?.sampleType || '',
+    normalValue: report.NormalName || '',
+    actualReading: report.ActualReading || '',
+    results: null,
+    remarks: report.remarks || '',
+    completedAt: reportDate && !Number.isNaN(reportDate.getTime()) ? reportDate.getTime() : report.ReportId,
+    date: reportDate && !Number.isNaN(reportDate.getTime()) ? reportDate.toLocaleDateString() : '',
+    time: reportDate && !Number.isNaN(reportDate.getTime()) ? reportDate.toLocaleTimeString() : '',
+  };
+}
+
+export function mergeLabData(localData, apiData) {
+  const testMaster = [...apiData.testMaster, ...localData.testMaster]
+    .filter((test, index, tests) => tests.findIndex((item) => String(item.testId) === String(test.testId)) === index);
+  const apiOrderIds = new Set(apiData.orders.map((order) => String(order.backendId)));
+  const localOrders = localData.orders.filter((order) => !order.backendId || !apiOrderIds.has(String(order.backendId)));
+  return {
+    ...localData,
+    testMaster,
+    orders: [...localOrders, ...apiData.orders],
+    reports: [...localData.reports, ...apiData.reports],
+  };
+}
+
+export async function fetchLabDataFromApi() {
+  const [testsResponse, ordersResponse, reportsResponse] = await Promise.all([
+    api.get('/lab/lab-tests/'),
+    api.get('/lab/lab-prescriptions/'),
+    api.get('/lab/lab-reports/'),
+  ]);
+  const testMaster = testsResponse.data.filter((test) => test.isActive).map(mapApiTest);
+  const orders = ordersResponse.data.map(mapApiOrder);
+  return {
+    testMaster,
+    orders,
+    reports: reportsResponse.data.map((report) => mapApiReport(report, orders)),
+  };
+}
+
+export async function updateApiLabPrescriptionStatus(id, status) {
+  const response = await api.patch(`/lab/lab-prescriptions/${id}/`, { Status: status });
+  return mapApiOrder(response.data);
+}
+
+export async function submitApiLabReport(id, report) {
+  const response = await api.post(`/lab/lab-prescriptions/${id}/submit-report/`, report);
+  return mapApiReport(response.data.report, [mapApiOrder(response.data.prescription)]);
+}
+
 export function loadLabData() {
   const patients = getStored(KEYS.patients, []);
   const testMaster = getStored(KEYS.tests, DEFAULT_TESTS).map((test) => {
@@ -122,6 +228,7 @@ export function loadLabData() {
   const sharedOrders = getStored(KEYS.orders, []);
   const orders = sharedOrders.flatMap((shared) => {
     const id = shared.labOrderId || shared.id;
+    const backendId = shared.rawId || /^LAB-(\d+)$/.exec(String(id))?.[1];
     const tests = Array.isArray(shared.tests) && shared.tests.length ? shared.tests : [shared.testName || 'Clinical Diagnostic Test'];
     const patient = patients.find((item) => String(item.patientId ?? item.PatientId) === String(shared.patientId));
     return tests.map((name, index) => {
@@ -133,6 +240,7 @@ export function loadLabData() {
       return {
         id: tests.length > 1 ? `${id}-${index + 1}` : id,
         labOrderId: id,
+        backendId: backendId ? Number(backendId) : undefined,
         patientId: shared.patientId || patient?.patientId || patient?.PatientId || '',
         patient: shared.patientName || patient?.name || patient?.Name || 'Patient',
         doctorId: shared.doctorId || '',
@@ -168,8 +276,9 @@ export function saveLabData(data) {
     };
   });
   const bills = getStored(KEYS.bills, []);
+  const localReports = data.reports.filter((report) => !report.backendId);
   localStorage.setItem(KEYS.orders, JSON.stringify(sharedOrders));
-  localStorage.setItem(KEYS.reports, JSON.stringify(data.reports));
+  localStorage.setItem(KEYS.reports, JSON.stringify(localReports));
   localStorage.setItem(KEYS.bills, JSON.stringify([...bills.filter((bill) => bill.source !== 'Lab'), ...data.bills]));
   localStorage.setItem(KEYS.tests, JSON.stringify(data.testMaster));
 }

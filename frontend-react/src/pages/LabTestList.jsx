@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
-import { getLabTest, loadLabData, saveLabData, syncLabOrders } from '../services/labService';import '../styles/labPages.css';
+import {
+  fetchLabDataFromApi,
+  getLabTest,
+  loadLabData,
+  mergeLabData,
+  saveLabData,
+  syncLabOrders,
+  updateApiLabPrescriptionStatus,
+} from '../services/labService';
+import '../styles/labPages.css';
 
 const SECTIONS = [
   ['orders', '⚗', 'Lab Tests'],
@@ -53,9 +62,17 @@ export default function LabTestList() {
     const refresh = async () => {
       try {
         await syncLabOrders();
-      } catch (e) {}
-      if (isMounted) {
-        setData(loadLabData());
+        const apiData = await fetchLabDataFromApi();
+        if (isMounted) {
+          setData(mergeLabData(loadLabData(), apiData));
+          setMessage('');
+        }
+      } catch (error) {
+        if (isMounted) {
+          setData(loadLabData());
+          const detail = error.response?.data?.detail || error.message;
+          setMessage(`Unable to load lab data from Django: ${detail}. Showing locally saved data.`);
+        }
       }
     };
     refresh();
@@ -84,15 +101,25 @@ export default function LabTestList() {
     if (value === 'reports') setReportSearch('');
   };
 
-  const processOrder = (order) => {
+  const processOrder = async (order) => {
     if (order.status === 'Pending') {
-      const next = {
-        ...data,
-        orders: data.orders.map((item) => String(item.id) === String(order.id)
-          ? { ...item, status: 'In Progress' } : item),
-      };
-      saveLabData(next);
-      setData(next);
+      try {
+        if (order.backendId) {
+          await updateApiLabPrescriptionStatus(order.backendId, 'In Progress');
+        } else {
+          const next = {
+            ...data,
+            orders: data.orders.map((item) => String(item.id) === String(order.id)
+              ? { ...item, status: 'In Progress' } : item),
+          };
+          saveLabData(next);
+          setData(next);
+        }
+      } catch (error) {
+        const detail = error.response?.data?.detail || error.message;
+        setMessage(`Unable to update the lab test status: ${detail}`);
+        return;
+      }
     }
     navigate('/lab-reports/new', { state: { orderId: order.id } });
   };
