@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -29,17 +29,29 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Only redirect to /login if a REAL JWT token expired
-    if (error.response && error.response.status === 401) {
-      console.warn('API returned 401 Unauthorized for:', error.config?.url);
-      const token = localStorage.getItem('token');
-      if (token && typeof token === 'string' && token.includes('.')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+  async (error) => {
+    const request = error.config;
+    const isUnauthorized = error.response?.status === 401;
+    const isLoginRequest = request?.url?.includes('/login/');
+    if (isUnauthorized && request && !request._retriedAfterRefresh && !request._skipAuthRefresh && !isLoginRequest) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        request._retriedAfterRefresh = true;
+        try {
+          const response = await api.post('/token/refresh/', { refresh: refreshToken }, { _skipAuthRefresh: true });
+          localStorage.setItem('token', response.data.access);
+          if (response.data.refresh) localStorage.setItem('refreshToken', response.data.refresh);
+          request.headers.Authorization = `Bearer ${response.data.access}`;
+          return api.request(request);
+        } catch (refreshError) {
+          console.warn('Session refresh failed:', refreshError.response?.data || refreshError.message);
+        }
       }
+      localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

@@ -21,3 +21,6 @@ staticfiles/
 # OS
 .DS_Store
 Thumbs.db
+
+# PowerShell module analysis cache
+Microsoft/Windows/PowerShell/ModuleAnalysisCache

@@ -3,6 +3,14 @@
 # # Create your views here.
 
 from rest_framework import viewsets, permissions, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from adminapp.authentication import (
+    IsDoctorOrReceptionistWrite,
+    IsDoctorOrReceptionistAppointment,
+    IsReceptionistOrPharmacistRead,
+    IsDoctorOrReceptionist,
+)
 
 from apibackendapp.models import (
     Patient,
@@ -24,7 +32,14 @@ from .serializers import (
 class PatientViewSet(viewsets.ModelViewSet):
     queryset = Patient.objects.all().order_by("PatientId")
     serializer_class = PatientSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorOrReceptionistWrite]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        doctor = getattr(self.request.user, 'doctor_profile', None)
+        if doctor is not None:
+            queryset = queryset.filter(appointment__DoctorId=doctor).distinct()
+        return queryset
 
     filter_backends = [filters.SearchFilter]
     search_fields = [
@@ -49,7 +64,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     )
 
     serializer_class = AppointmentSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorOrReceptionistAppointment]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        doctor = getattr(self.request.user, 'doctor_profile', None)
+        if doctor is not None:
+            queryset = queryset.filter(DoctorId=doctor)
+        return queryset
 
     def perform_create(self, serializer):
         appointment = serializer.save()
@@ -61,6 +83,20 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 DoctorId=appointment.DoctorId,
                 TokenDate=appointment.AppointmentDateTime
             )
+
+    @action(detail=False, methods=["post"], url_path="reset-all-status", permission_classes=[IsDoctorOrReceptionist])
+    def reset_all_status(self, request):
+        doctor = getattr(request.user, 'doctor_profile', None)
+        qs = self.get_queryset()
+        if doctor is None:
+            doctor_id = request.data.get("doctor_id") or request.query_params.get("doctor_id")
+            if doctor_id and str(doctor_id).lower() != 'all':
+                qs = qs.filter(DoctorId=doctor_id)
+        count = qs.update(AppointmentStatus="Scheduled")
+        return Response({
+            "detail": f"{count} appointment(s) successfully reset to Scheduled.",
+            "count": count
+        })
 
 
 class TokenViewSet(viewsets.ModelViewSet):
@@ -76,7 +112,7 @@ class TokenViewSet(viewsets.ModelViewSet):
     )
 
     serializer_class = TokenSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorOrReceptionistWrite]
 
 
 class BillViewSet(viewsets.ModelViewSet):
@@ -89,7 +125,7 @@ class BillViewSet(viewsets.ModelViewSet):
     )
 
     serializer_class = BillSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsReceptionistOrPharmacistRead]
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -101,4 +137,4 @@ class PaymentViewSet(viewsets.ModelViewSet):
     )
 
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsReceptionistOrPharmacistRead]

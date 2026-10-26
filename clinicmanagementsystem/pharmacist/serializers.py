@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models import Sum
 
 from apibackendapp.models import (
     MasterMedicine,
@@ -153,8 +154,23 @@ class PrescriptionItemSerializer(serializers.ModelSerializer):
             "DosageInstructions",
             "Duration",
             "Frequency",
+            "Instructions",
+            "Quantity",
+            "DispensedQuantity",
+            "RemainingQuantity",
         ]
         read_only_fields = fields
+
+    Instructions = serializers.CharField(read_only=True)
+    Quantity = serializers.IntegerField(read_only=True)
+    DispensedQuantity = serializers.SerializerMethodField()
+    RemainingQuantity = serializers.SerializerMethodField()
+
+    def get_DispensedQuantity(self, obj):
+        return obj.dispensed_lines.aggregate(total=Sum("Quantity"))["total"] or 0
+
+    def get_RemainingQuantity(self, obj):
+        return max(0, obj.Quantity - self.get_DispensedQuantity(obj))
 
 
 class PrescriptionQueueSerializer(serializers.ModelSerializer):
@@ -189,7 +205,9 @@ class PrescriptionQueueSerializer(serializers.ModelSerializer):
 class DispenseItemInputSerializer(serializers.Serializer):
     """One line of what's actually being dispensed right now."""
 
-    PrescriptionItemId = serializers.IntegerField(required=False, allow_null=True)
+    PrescriptionItemId = serializers.PrimaryKeyRelatedField(
+        queryset=PrescriptionItem.objects.all(), required=True
+    )
     prescriptionItemId = serializers.IntegerField(required=False, allow_null=True)
     MedicineId = serializers.IntegerField(required=False, allow_null=True)
     medicine_id = serializers.IntegerField(required=False, allow_null=True)

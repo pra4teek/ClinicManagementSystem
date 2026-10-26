@@ -8,23 +8,42 @@ export default function AppointmentList() {
   const [data, setData] = useState({ appointments: [], patients: [], doctors: [], tokens: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const results = await Promise.allSettled([receptionistService.getAppointments(), receptionistService.getPatients(), receptionistService.getDoctors(), receptionistService.getTokens()]);
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed) setError(getApiErrorMessage(failed.reason, 'Unable to load appointment records.'));
+    setData({
+      appointments: results[0].status === 'fulfilled' ? results[0].value : [],
+      patients: results[1].status === 'fulfilled' ? results[1].value : [],
+      doctors: results[2].status === 'fulfilled' ? results[2].value : [],
+      tokens: results[3].status === 'fulfilled' ? results[3].value : [],
+    });
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const results = await Promise.allSettled([receptionistService.getAppointments(), receptionistService.getPatients(), receptionistService.getDoctors(), receptionistService.getTokens()]);
-      const failed = results.find((result) => result.status === 'rejected');
-      if (failed) setError(getApiErrorMessage(failed.reason, 'Unable to load appointment records.'));
-      setData({
-        appointments: results[0].status === 'fulfilled' ? results[0].value : [],
-        patients: results[1].status === 'fulfilled' ? results[1].value : [],
-        doctors: results[2].status === 'fulfilled' ? results[2].value : [],
-        tokens: results[3].status === 'fulfilled' ? results[3].value : [],
-      });
-      setLoading(false);
-    };
     load();
   }, []);
+
+  const handleResetAllQueue = async () => {
+    if (!window.confirm("Are you sure you want to reset all appointments status to 'Scheduled'?")) return;
+    setResetting(true);
+    try {
+      await receptionistService.resetAllAppointmentsStatus();
+      try {
+        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+      } catch (e) {}
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      await load();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Failed to reset appointments.'));
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const patients = useMemo(() => new Map(data.patients.map((item) => [String(item.PatientId), item.Name])), [data.patients]);
   const doctors = useMemo(() => new Map(data.doctors.map((item) => [String(item.DoctorId), item.Name])), [data.doctors]);
@@ -36,7 +55,16 @@ export default function AppointmentList() {
         <h2>Appointments List</h2>
         <p className="text-muted text-sm">Read-only appointment data from the receptionist API.</p>
       </div>
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline"
+          onClick={handleResetAllQueue}
+          disabled={resetting}
+          style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
+        >
+          {resetting ? 'Resetting…' : '↺ Reset All to Scheduled'}
+        </button>
         <Link to="/receptionist" className="btn btn-sm btn-outline">Reception Portal</Link>
         <Link to="/appointments/new" className="btn btn-sm btn-primary">+ Book Appointment</Link>
       </div>

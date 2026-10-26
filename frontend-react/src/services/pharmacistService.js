@@ -183,7 +183,10 @@ export const pharmacistService = {
               dosage: it.Dosage || '500mg',
               frequency: it.Frequency || '1-0-1',
               duration: it.Duration || '5 Days',
-              quantity: it.Quantity || 10,
+              instructions: it.Instructions || '',
+              quantity: Number(it.Quantity || 1),
+              dispensedQuantity: Number(it.DispensedQuantity || 0),
+              remainingQuantity: Number(it.RemainingQuantity ?? it.Quantity ?? 1),
               unitPrice: Number(it.UnitPrice || 15.0)
             }))
           : [];
@@ -231,7 +234,7 @@ export const pharmacistService = {
     }
   },
 
-  dispensePrescription: async (rxId, pharmacistUser = 'Adarsh Chandran') => {
+  dispensePrescription: async (rxId, pharmacistUser = 'Pharmacist', quantityOverrides = {}) => {
     const rawRxId = String(rxId).replace(/\D/g, '');
     if (!rawRxId) {
       throw new Error(`Invalid prescription ID: ${rxId}`);
@@ -244,10 +247,15 @@ export const pharmacistService = {
       throw new Error(`Prescription RX-${rawRxId} has already been dispensed.`);
     }
 
-    const itemsPayload = (targetRx?.items || []).map((it) => ({
-      PrescriptionItemId: it.prescriptionItemId || it.id,
-      Quantity: it.quantity || 1
-    }));
+    if (!targetRx) throw new Error('Prescription not found. Refresh the queue and try again.');
+
+    const itemsPayload = (targetRx.items || []).map((item) => ({
+      PrescriptionItemId: item.prescriptionItemId || item.id,
+      Quantity: Number(quantityOverrides[item.prescriptionItemId || item.id] ?? item.remainingQuantity ?? item.quantity),
+    })).filter((item) => item.Quantity > 0);
+    if (!itemsPayload.length || itemsPayload.some((item) => !Number.isInteger(item.Quantity))) {
+      throw new Error('Enter a valid dispense quantity for at least one prescription item.');
+    }
 
     try {
       const response = await api.post(`/pharmacist/prescriptions/${rawRxId}/dispense/`, {

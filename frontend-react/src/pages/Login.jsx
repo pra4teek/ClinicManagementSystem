@@ -1,18 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
-import {
-  MedicalCrossIcon,
-  StethoscopeIcon,
-  ClipboardIcon,
-  PillIcon,
-  FlaskIcon,
-  SettingsIcon
-} from '../components/Icons';
+import { MedicalCrossIcon } from '../components/Icons';
 
 export default function Login() {
-  const [username, setUsername] = useState('prateek');
-  const [password, setPassword] = useState('prateek123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -47,19 +40,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Quick Demo Access for each role
-  const loginAsRole = (name, role, path, doctorId = null, specialization = null) => {
-    localStorage.setItem('token', `demo-token-${role.toLowerCase()}-${Date.now()}`);
-    localStorage.setItem('user', JSON.stringify({
-      name,
-      role,
-      username: doctorId === 2 ? 'Dr.Arun' : (doctorId === 3 ? 'prateek' : role.toLowerCase()),
-      doctorId,
-      specialization
-    }));
-    navigate(path);
   };
 
   return (
@@ -145,77 +125,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Quick Access Grid for All Roles */}
-        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
-            Quick 1-Click Access by Role
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Dr. Prateek Pradeep', 'Doctor', '/doctor', 3, 'Consultant Physician')}
-            >
-              <StethoscopeIcon size={14} color="var(--primary)" />
-              Dr. Prateek (Med)
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', borderColor: '#0f766e', color: '#0f766e', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Dr. Arun', 'Doctor', '/doctor', 2, 'Otolaryngology (ENT)')}
-            >
-              <StethoscopeIcon size={14} color="#0f766e" />
-              Dr. Arun (ENT)
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Joel Jain', 'Receptionist', '/receptionist')}
-            >
-              <ClipboardIcon size={14} />
-              Receptionist
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Adarsh Chandran', 'Pharmacist', '/pharmacist')}
-            >
-              <PillIcon size={14} />
-              Pharmacist
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              style={{ justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Malathi Sreekumar', 'Lab Technician', '/lab-tests')}
-            >
-              <FlaskIcon size={14} />
-              Lab Tech
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-sm btn-outline"
-            style={{ width: '100%', marginTop: '0.5rem', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            onClick={async () => {
-              await authService.loginAdminDemo();
-              navigate('/admin');
-            }}
-          >
-            <SettingsIcon size={14} />
-            Administrator (All Modules)
-          </button>
-        </div>
       </div>
     </div>
   );

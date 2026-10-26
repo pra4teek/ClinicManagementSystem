@@ -146,6 +146,24 @@ export default function ReceptionistDashboard() {
     }
   };
 
+  const [resettingQueue, setResettingQueue] = useState(false);
+  const handleResetQueueStatus = async () => {
+    if (!window.confirm("Are you sure you want to reset all patient queue statuses to 'Scheduled'?")) return;
+    setResettingQueue(true);
+    try {
+      await receptionistService.resetAllAppointmentsStatus();
+      try {
+        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+      } catch (e) {}
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      await refresh();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Unable to reset patient queue.'));
+    } finally {
+      setResettingQueue(false);
+    }
+  };
+
   const patientById = useMemo(() => new Map(data.patients.map((patient) => [String(patient.PatientId), patient])), [data.patients]);
   const doctorById = useMemo(() => new Map(data.doctors.map((doctor) => [String(doctor.DoctorId), doctor])), [data.doctors]);
   const tokenByAppointment = useMemo(() => new Map(data.tokens.map((token) => [String(token.AppointmentId), token])), [data.tokens]);
@@ -223,6 +241,16 @@ export default function ReceptionistDashboard() {
                 <p>Today&apos;s appointments from the receptionist API.</p>
               </div>
               <div className="receptionist-search-row">
+                <button
+                  type="button"
+                  className="receptionist-button secondary"
+                  style={{ minHeight: '34px', padding: '0 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                  onClick={handleResetQueueStatus}
+                  disabled={resettingQueue}
+                  title="Reset all patient queue appointments to Scheduled status in database"
+                >
+                  {resettingQueue ? 'Resetting…' : '↺ Reset All to Scheduled'}
+                </button>
                 <input
                   className="receptionist-search"
                   value={queueQuery}

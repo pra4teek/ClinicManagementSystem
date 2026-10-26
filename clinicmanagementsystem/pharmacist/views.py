@@ -32,6 +32,11 @@ from .serializers import (
     NotificationSerializer,
 )
 from .services import DispenseError, dispense_prescription
+from adminapp.authentication import (
+    IsDoctorOrPharmacistRead,
+    IsDoctorReadOrPharmacist,
+    IsPharmacist,
+)
 
 
 class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,7 +45,7 @@ class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = MasterMedicine.objects.all().order_by("MedicineName")
     serializer_class = MasterMedicineSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorOrPharmacistRead]
     filter_backends = [filters.SearchFilter]
     search_fields = ["MedicineName", "GenericName"]
 
@@ -48,7 +53,7 @@ class MasterMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 class PharmacyStockViewSet(viewsets.ModelViewSet):
     queryset = PharmacyStock.objects.select_related("Medicine").all()
     serializer_class = PharmacyStockSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorReadOrPharmacist]
 
 
 class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
@@ -59,86 +64,26 @@ class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     serializer_class = PrescriptionQueueSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsDoctorOrPharmacistRead]
 
     def get_queryset(self):
+        queryset = Prescription.objects.exclude(Status="Dispensed")
+        doctor = getattr(self.request.user, "doctor_profile", None)
+        if doctor is not None:
+            queryset = queryset.filter(DoctorId=doctor)
         return (
-            Prescription.objects.all()
+            queryset
             .select_related("PatientId", "DoctorId", "ConsultationId")
-            .prefetch_related("items__MedicineId", "items__DosageId")
-            .order_by("-PrescriptionDateTime")
+            .prefetch_related("items__MedicineId", "items__DosageId", "items__dispensed_lines")
+            .order_by("-PrescriptionDateTime", "-PrescriptionId")
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsPharmacist])
     def dispense(self, request, pk=None):
         prescription = self.get_object()
-
-        items_payload = request.data.get("items")
-        rx_items = list(prescription.items.select_related("MedicineId").all())
-        if not items_payload:
-            items_data = [
-                {
-                    "PrescriptionItemId": item,
-                    "Quantity": 1,
-                }
-                for item in rx_items
-            ]
-        else:
-            items_data = []
-            for entry in items_payload:
-                rx_item_id = entry.get("PrescriptionItemId") or entry.get("prescriptionItemId")
-                med_id = entry.get("MedicineId") or entry.get("medicine_id") or entry.get("medicineId")
-                med_name = entry.get("MedicineName") or entry.get("medicineName")
-                qty = entry.get("Quantity") or entry.get("quantity") or 1
-                try:
-                    qty = int(qty)
-                except (ValueError, TypeError):
-                    qty = 1
-
-                matched_item = None
-                if rx_item_id:
-                    try:
-                        clean_id = int(re.sub(r'\D', '', str(rx_item_id)))
-                        matched_item = next((it for it in rx_items if it.PrescriptionItemId == clean_id), None)
-                        if not matched_item:
-                            matched_item = PrescriptionItem.objects.filter(pk=clean_id, PrescriptionId=prescription).first()
-                    except ValueError:
-                        pass
-
-                if not matched_item and med_id:
-                    try:
-                        clean_med_id = int(re.sub(r'\D', '', str(med_id)))
-                        matched_item = next((it for it in rx_items if it.MedicineId_id == clean_med_id), None)
-                    except (ValueError, TypeError):
-                        pass
-
-                if not matched_item and med_name:
-                    clean_name = str(med_name).strip().lower()
-                    matched_item = next((it for it in rx_items if it.MedicineId.MedicineName.strip().lower() == clean_name), None)
-
-                if not matched_item and len(rx_items) == 1:
-                    matched_item = rx_items[0]
-
-                if matched_item:
-                    items_data.append({
-                        "PrescriptionItemId": matched_item,
-                        "Quantity": qty,
-                    })
-
-        if not items_data and rx_items:
-            items_data = [{"PrescriptionItemId": it, "Quantity": 1} for it in rx_items]
-
-        if not items_data:
-            return Response(
-                {"detail": "No prescription items found to dispense."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        input_serializer = DispenseRequestSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
         staff = getattr(request.user, "staff_profile", None)
-        if staff is None:
-            staff = Staff.objects.filter(RoleId__RoleName__icontains="Pharmacist").first()
-        if staff is None:
-            staff = Staff.objects.first()
         if staff is None:
             return Response(
                 {"detail": "No Staff record found in clinic system."},
@@ -148,7 +93,7 @@ class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             bill = dispense_prescription(
                 prescription=prescription,
-                items_data=items_data,
+                items_data=input_serializer.validated_data["items"],
                 dispensing_staff=staff,
             )
         except DispenseError as exc:
@@ -160,13 +105,13 @@ class PrescriptionQueueViewSet(viewsets.ReadOnlyModelViewSet):
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset = Supplier.objects.filter(IsActive=True).order_by("SupplierName")
     serializer_class = SupplierSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
 
 class StockReorderRequestViewSet(viewsets.ModelViewSet):
     queryset = StockReorderRequest.objects.select_related("Medicine", "Supplier").all().order_by("-CreatedAt")
     serializer_class = StockReorderRequestSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
     def create(self, request, *args, **kwargs):
         med_val = request.data.get('Medicine') or request.data.get('MedicineId') or request.data.get('medicineId') or request.data.get('rawMedicineId')
@@ -313,7 +258,14 @@ class StockReorderRequestViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all().order_by("-CreatedAt")
     serializer_class = NotificationSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        role = getattr(getattr(self.request.user, "RoleId", None), "RoleName", "")
+        if role.casefold() != "admin":
+            queryset = queryset.filter(RecipientRole__iexact=role)
+        return queryset
 
     def list(self, request, *args, **kwargs):
         role = request.query_params.get("role")
@@ -361,7 +313,7 @@ class PharmacyBillViewSet(viewsets.ReadOnlyModelViewSet):
         .order_by("-BillDate")
     )
     serializer_class = PharmacyBillSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
 
 class PharmacyBillItemViewSet(viewsets.ReadOnlyModelViewSet):
@@ -369,11 +321,11 @@ class PharmacyBillItemViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = PharmacyBillItem.objects.select_related("Bill", "Medicine").all()
     serializer_class = PharmacyBillItemSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
 
 class PharmacyRevenueReportView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
     def get(self, request):
         from_date_str = request.query_params.get("from_date")
@@ -414,7 +366,7 @@ class PharmacyRevenueReportView(APIView):
 
 
 class PharmacyReorderReportView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPharmacist]
 
     def get(self, request):
         low_stock = (

@@ -137,11 +137,11 @@ class PharmacistModuleTestCase(APITestCase):
         )
         self.rx_item_paracetamol = PrescriptionItem.objects.create(
             PrescriptionId=self.prescription, MedicineId=self.paracetamol, DosageId=self.dosage,
-            Duration="5 days", Frequency="Twice a day",
+            Duration="5 days", Frequency="Twice a day", Quantity=10,
         )
         self.rx_item_amoxicillin = PrescriptionItem.objects.create(
             PrescriptionId=self.prescription, MedicineId=self.amoxicillin, DosageId=self.dosage,
-            Duration="7 days", Frequency="Once a day",
+            Duration="7 days", Frequency="Once a day", Quantity=3,
         )
 
         self.client.force_authenticate(user=_FakeAuthUser(self.pharmacist_staff))

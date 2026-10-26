@@ -9,9 +9,7 @@ from apibackendapp.models import User
 class ClinicJWTAuthentication(BaseAuthentication):
     """
     General authentication class used across all clinic endpoints.
-    If the Authorization header is missing, malformed, expired, or a demo token,
-    it returns None instead of raising AuthenticationFailed.
-    This allows endpoints with AllowAny permissions to function without 401 errors.
+    If no usable Authorization header is present, authentication returns None.
     """
 
     def authenticate(self, request):
@@ -40,7 +38,7 @@ class ClinicJWTAuthentication(BaseAuthentication):
             return (user, token)
 
         except Exception:
-            # Stale, invalid, or demo token: return None so AllowAny endpoints succeed
+            # Invalid or expired credentials are treated as unauthenticated.
             return None
 
 
@@ -107,3 +105,171 @@ class IsAdminUser(BasePermission):
             return False
 
         return True
+
+
+class ClinicRolePermission(BasePermission):
+    """Restrict clinic APIs to authenticated users with an allowed clinic role.
+
+    Set ``allowed_roles`` on a viewset, or subclass this permission and set
+    ``roles_by_method`` for read/write workflows shared by two roles.
+    Administrators retain access to every role-scoped clinic API.
+    """
+
+    allowed_roles = ()
+    roles_by_method = None
+
+    def has_permission(self, request, view):
+        user = request.user
+        staff = getattr(user, "staff_profile", None)
+        role_record = getattr(user, "RoleId", None) or getattr(staff, "RoleId", None)
+        role = getattr(role_record, "RoleName", "")
+        staff_user = getattr(staff, "UserId", None)
+        is_active = getattr(user, "isActive", getattr(staff_user, "isActive", False))
+        if not role or not is_active:
+            return False
+        if role.casefold() == "admin":
+            return True
+
+        allowed = self.roles_by_method.get(request.method, ()) if self.roles_by_method else self.allowed_roles
+        return role.casefold() in {item.casefold() for item in allowed}
+
+
+class IsDoctor(ClinicRolePermission):
+    allowed_roles = ("Doctor",)
+
+
+class IsReceptionist(ClinicRolePermission):
+    allowed_roles = ("Receptionist",)
+
+
+class IsPharmacist(ClinicRolePermission):
+    allowed_roles = ("Pharmacist",)
+
+
+class IsLabTechnician(ClinicRolePermission):
+    allowed_roles = ("Lab Technician",)
+
+
+class IsDoctorOrPharmacistRead(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Pharmacist"),
+        "HEAD": ("Doctor", "Pharmacist"),
+        "OPTIONS": ("Doctor", "Pharmacist"),
+        "POST": ("Doctor", "Pharmacist"),
+        "PUT": ("Doctor", "Pharmacist"),
+        "PATCH": ("Doctor", "Pharmacist"),
+        "DELETE": ("Doctor", "Pharmacist"),
+    }
+
+
+class IsDoctorReadOrPharmacist(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Pharmacist"),
+        "HEAD": ("Doctor", "Pharmacist"),
+        "OPTIONS": ("Doctor", "Pharmacist"),
+        "POST": ("Pharmacist",),
+        "PUT": ("Pharmacist",),
+        "PATCH": ("Pharmacist",),
+        "DELETE": ("Pharmacist",),
+    }
+
+
+class IsDoctorOrLabTechnician(ClinicRolePermission):
+    allowed_roles = ("Doctor", "Lab Technician")
+
+
+class IsDoctorReadOrLabTechnician(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Lab Technician"),
+        "HEAD": ("Doctor", "Lab Technician"),
+        "OPTIONS": ("Doctor", "Lab Technician"),
+        "POST": ("Lab Technician",),
+        "PUT": ("Lab Technician",),
+        "PATCH": ("Lab Technician",),
+        "DELETE": ("Lab Technician",),
+    }
+
+
+class IsDoctorCreateOrLabTechnicianUpdate(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Lab Technician"),
+        "HEAD": ("Doctor", "Lab Technician"),
+        "OPTIONS": ("Doctor", "Lab Technician"),
+        "POST": ("Doctor",),
+        "PUT": ("Lab Technician",),
+        "PATCH": ("Lab Technician",),
+        "DELETE": ("Lab Technician",),
+    }
+
+
+class IsClinicReadOrReceptionistWrite(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "HEAD": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "OPTIONS": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "POST": ("Receptionist",),
+        "PUT": ("Receptionist",),
+        "PATCH": ("Receptionist",),
+        "DELETE": ("Receptionist",),
+    }
+
+
+class IsClinicReadOrReceptionistOrDoctorUpdate(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "HEAD": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "OPTIONS": ("Doctor", "Receptionist", "Pharmacist", "Lab Technician"),
+        "POST": ("Receptionist",),
+        "PUT": ("Receptionist",),
+        "PATCH": ("Receptionist", "Doctor"),
+        "DELETE": ("Receptionist",),
+    }
+
+
+class IsDoctorOrLabReadOnly(ClinicRolePermission):
+    allowed_roles = ("Doctor", "Lab Technician")
+    roles_by_method = {
+        "GET": ("Doctor", "Lab Technician"),
+        "HEAD": ("Doctor", "Lab Technician"),
+        "OPTIONS": ("Doctor", "Lab Technician"),
+    }
+
+
+class IsDoctorOrReceptionistWrite(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Receptionist"),
+        "HEAD": ("Doctor", "Receptionist"),
+        "OPTIONS": ("Doctor", "Receptionist"),
+        "POST": ("Receptionist",),
+        "PUT": ("Receptionist",),
+        "PATCH": ("Receptionist",),
+        "DELETE": ("Receptionist",),
+    }
+
+
+class IsDoctorOrReceptionistAppointment(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Doctor", "Receptionist"),
+        "HEAD": ("Doctor", "Receptionist"),
+        "OPTIONS": ("Doctor", "Receptionist"),
+        "POST": ("Receptionist",),
+        "PUT": ("Receptionist",),
+        "PATCH": ("Doctor", "Receptionist"),
+        "DELETE": ("Receptionist",),
+    }
+
+
+class IsReceptionistOrPharmacistRead(ClinicRolePermission):
+    roles_by_method = {
+        "GET": ("Receptionist", "Pharmacist"),
+        "HEAD": ("Receptionist", "Pharmacist"),
+        "OPTIONS": ("Receptionist", "Pharmacist"),
+        "POST": ("Receptionist",),
+        "PUT": ("Receptionist",),
+        "PATCH": ("Receptionist",),
+        "DELETE": ("Receptionist",),
+    }
+
+
+class IsDoctorOrReceptionist(ClinicRolePermission):
+    allowed_roles = ("Doctor", "Receptionist")

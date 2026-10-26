@@ -120,3 +120,24 @@ class LabPrescriptionSerializer(serializers.ModelSerializer):
         if len(value)<3:
             raise serializers.ValidationError("Sample type must contain at least 3 characters.")
         return value
+
+
+class LabPrescriptionStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabPrescription
+        fields = ('Status',)
+
+    def validate_Status(self, value):
+        allowed_next = {
+            'Pending': {'Pending', 'Sample collected', 'In Progress', 'Cancelled'},
+            'Sample collected': {'Sample collected', 'In Progress', 'Cancelled'},
+            'In Progress': {'In Progress', 'Cancelled'},
+            'Completed': {'Completed'},
+            'Cancelled': {'Cancelled'},
+        }
+        current = self.instance.Status if self.instance else 'Pending'
+        if value == 'Completed' and current != 'Completed':
+            raise serializers.ValidationError('Submit the report to complete a lab order.')
+        if value not in allowed_next.get(current, set()):
+            raise serializers.ValidationError(f'Cannot change a lab order from {current} to {value}.')
+        return value

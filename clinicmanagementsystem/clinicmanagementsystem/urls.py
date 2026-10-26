@@ -16,10 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from apibackendapp.views import ClinicTokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('apibackendapp.urls')),
+    path('api/token/refresh/', ClinicTokenRefreshView.as_view(), name='clinic-token-refresh'),
     path('api/pharmacist/', include('pharmacist.urls')),
     path('api/admin/', include('adminapp.urls')),
     path('api/lab/', include('LabTechnicianApp.urls')),

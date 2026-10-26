@@ -114,7 +114,7 @@ export function getLabSchema(name) {
 }
 
 function mapApiStatus(status) {
-  if (status === 'Sample collected') return 'Pending';
+  if (status === 'Sample collected') return 'In Progress';
   return status || 'Pending';
 }
 
@@ -182,15 +182,11 @@ function mapApiReport(report, orders) {
 }
 
 export function mergeLabData(localData, apiData) {
-  const testMaster = [...apiData.testMaster, ...localData.testMaster]
-    .filter((test, index, tests) => tests.findIndex((item) => String(item.testId) === String(test.testId)) === index);
-  const apiOrderIds = new Set(apiData.orders.map((order) => String(order.backendId)));
-  const localOrders = localData.orders.filter((order) => !order.backendId || !apiOrderIds.has(String(order.backendId)));
   return {
     ...localData,
-    testMaster,
-    orders: [...localOrders, ...apiData.orders],
-    reports: [...localData.reports, ...apiData.reports],
+    testMaster: apiData.testMaster,
+    orders: apiData.orders,
+    reports: apiData.reports,
   };
 }
 

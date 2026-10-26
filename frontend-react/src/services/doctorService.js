@@ -169,6 +169,25 @@ const doctorService = {
     }
   },
 
+  resetAllAppointmentsStatus: async (doctorId = null) => {
+    try {
+      const payload = doctorId ? { doctor_id: doctorId } : {};
+      const res = await api.post('/receptionist/appointments/reset-all-status/', payload);
+      const localAppts = getLocal(STORAGE_KEYS.APPOINTMENTS, []);
+      const updated = localAppts.map((a) => {
+        if (!doctorId || Number(a.doctorId) === Number(doctorId)) {
+          return { ...a, status: 'Scheduled' };
+        }
+        return a;
+      });
+      saveLocal(STORAGE_KEYS.APPOINTMENTS, updated);
+      return res.data;
+    } catch (err) {
+      console.warn('API resetAllAppointmentsStatus error:', err);
+      throw err;
+    }
+  },
+
   // ── PATIENTS CATALOG ─────────────────────────────────────────────
   getPatients: async () => {
     try {
@@ -206,9 +225,7 @@ const doctorService = {
       ? appointmentId.replace('APT-', '')
       : appointmentId;
 
-    try {
-      await api.patch(`/receptionist/appointments/${rawId}/`, { AppointmentStatus: newStatus });
-    } catch (err) {}
+    await api.patch(`/receptionist/appointments/${rawId}/`, { AppointmentStatus: newStatus });
 
     // Update local cache
     const appts = getLocal(STORAGE_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
@@ -225,16 +242,17 @@ const doctorService = {
   // ── CONSULTATIONS ────────────────────────────────────────────────
   getAllConsultations: async () => {
     try {
-      const [consRes, patsRes, repsRes] = await Promise.all([
+      const [consRes, patsRes, repsRes, labOrdersRes] = await Promise.all([
         api.get('/consultations/'),
         api.get('/receptionist/patients/').catch(() => ({ data: [] })),
-        api.get('/lab/lab-reports/').catch(() => ({ data: [] }))
+        api.get('/lab/lab-reports/').catch(() => ({ data: [] })),
+        api.get('/lab/lab-prescriptions/').catch(() => ({ data: [] })),
       ]);
 
       const patsList = Array.isArray(patsRes.data) ? patsRes.data : [];
       const labReportsList = Array.isArray(repsRes.data) ? repsRes.data : [];
 
-      if (Array.isArray(consRes.data) && consRes.data.length > 0) {
+      if (Array.isArray(consRes.data)) {
         const mapped = consRes.data.map((c) => {
           const pat = patsList.find((p) => p.PatientId === c.PatientId);
           const rxDetails = c.prescription_details && c.prescription_details[0];
@@ -244,7 +262,7 @@ const doctorService = {
                 dosage: it.Dosage?.DosageValue || '500mg',
                 frequency: it.Frequency || '1-0-1',
                 duration: it.Duration || '5 Days',
-                instructions: it.Dosage?.Instructions || 'After Food'
+                instructions: it.Instructions || it.Dosage?.Instructions || ''
               }))
             : [];
 
@@ -296,86 +314,55 @@ const doctorService = {
                     dosage: it.Dosage?.DosageValue || '500mg',
                     frequency: it.Frequency || '1-0-1',
                     duration: it.Duration || '5 Days',
-                    instructions: it.Dosage?.Instructions || 'After Food'
+                    instructions: it.Instructions || it.Dosage?.Instructions || '',
+                    quantity: Number(it.Quantity || 1)
                   }))
                 : [],
-              status: rx.Status || 'Dispensed'
+              status: rx.Status || 'Not Dispensed'
             };
           });
-        if (rxList.length > 0) {
-          const currentRx = getLocal(STORAGE_KEYS.PRESCRIPTIONS, []);
-          const mergedRx = [...rxList];
-          currentRx.forEach((r) => {
-            const rId = r.prescriptionId || r.id;
-            if (!mergedRx.some((m) => m.prescriptionId === rId || m.id === rId)) {
-              mergedRx.unshift(r);
-            }
-          });
-          saveLocal(STORAGE_KEYS.PRESCRIPTIONS, mergedRx);
-        }
+        saveLocal(STORAGE_KEYS.PRESCRIPTIONS, rxList);
 
         // Sync Lab Orders and Lab Reports to localStorage
-        const labOrders = [];
-        const labReports = [];
-
-        consRes.data.forEach((c) => {
-          if (c.lab_prescription_details && c.lab_prescription_details.length > 0) {
-            const pat = patsList.find((p) => p.PatientId === c.PatientId);
-            c.lab_prescription_details.forEach((lp) => {
-              const testTitle = lp.LabTest?.TestName || 'Diagnostic Evaluation';
-              const orderId = `LAB-${lp.LabPrescriptionId}`;
-
-              labOrders.push({
-                labOrderId: orderId,
-                rawId: lp.LabPrescriptionId,
-                consultationId: `CNS-${c.ConsultationId}`,
-                appointmentId: `APT-${c.AppointmentId}`,
-                patientId: `PAT-${c.PatientId}`,
-                patientName: pat?.Name || `Patient #${c.PatientId}`,
-                doctorName: 'Dr. Prateek Pradeep',
-                date: lp.LabTestDate ? lp.LabTestDate.split('T')[0] : new Date().toISOString().split('T')[0],
-                time: '10:00 AM',
-                createdAt: Date.now(),
-                tests: [testTitle],
-                remarks: 'Requested by Dr. Prateek Pradeep',
-                status: lp.Status || 'Completed'
-              });
-
-              const matchedReport = labReportsList.find((r) => r.LabPrescriptionId === lp.LabPrescriptionId);
-              if (matchedReport) {
-                labReports.push({
-                  reportId: `REP-${matchedReport.ReportId}`,
-                  rawId: matchedReport.ReportId,
-                  labOrderId: orderId,
-                  appointmentId: `APT-${c.AppointmentId}`,
-                  patientId: `PAT-${c.PatientId}`,
-                  patientName: pat?.Name || `Patient #${c.PatientId}`,
-                  testName: testTitle,
-                  actualReading: matchedReport.ActualReading,
-                  normalValue: '< 200 mg/dL',
-                  remarks: matchedReport.remarks,
-                  reportDate: matchedReport.ReportDate ? matchedReport.ReportDate.split('T')[0] : '2026-10-23',
-                  technicianName: 'Malathi Sreekumar (Certified Lab Technologist)'
-                });
-              }
-            });
-          }
+        const labOrderRows = Array.isArray(labOrdersRes.data) ? labOrdersRes.data : [];
+        const consultationById = new Map(consRes.data.map((item) => [String(item.ConsultationId), item]));
+        const labOrders = labOrderRows.map((lp) => {
+          const consultation = consultationById.get(String(lp.ConsultationId));
+          const testTitle = lp.TestName || lp.LabTest?.TestName || 'Lab Test';
+          const orderId = `LAB-${lp.LabPrescriptionId}`;
+          return {
+            labOrderId: orderId,
+            rawId: lp.LabPrescriptionId,
+            consultationId: lp.ConsultationId ? `CNS-${lp.ConsultationId}` : null,
+            appointmentId: consultation ? `APT-${consultation.AppointmentId}` : null,
+            patientId: `PAT-${lp.PatientId}`,
+            patientName: lp.PatientName || `Patient #${lp.PatientId}`,
+            doctorName: lp.DoctorName || 'Doctor',
+            date: lp.LabTestDate ? lp.LabTestDate.split('T')[0] : '',
+            time: lp.LabTestDate ? new Date(lp.LabTestDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+            createdAt: lp.LabTestDate || '',
+            tests: [testTitle],
+            remarks: 'Requested by doctor',
+            status: lp.Status || 'Pending',
+          };
         });
-
-        if (labOrders.length > 0) {
-          const currentOrders = getLocal(STORAGE_KEYS.LAB_ORDERS, []);
-          const mergedOrders = [...labOrders];
-          currentOrders.forEach((o) => {
-            const oId = o.labOrderId || o.id;
-            if (!mergedOrders.some((m) => m.labOrderId === oId || m.id === oId || (m.appointmentId && o.appointmentId && m.appointmentId === o.appointmentId))) {
-              mergedOrders.unshift(o);
-            }
-          });
-          saveLocal(STORAGE_KEYS.LAB_ORDERS, mergedOrders);
-        }
-        if (labReports.length > 0) {
-          saveLocal('cms_lab_reports', labReports);
-        }
+        const labOrderById = new Map(labOrders.map((order) => [String(order.rawId), order]));
+        const labReports = labReportsList.map((report) => ({
+          reportId: `REP-${report.ReportId}`,
+          rawId: report.ReportId,
+          labOrderId: `LAB-${report.LabPrescriptionId}`,
+          patientId: labOrderById.get(String(report.LabPrescriptionId))?.patientId || '',
+          patientName: report.PatientName || 'Patient',
+          doctorName: report.DoctorName || 'Doctor',
+          testName: report.TestName || 'Lab Test',
+          actualReading: report.ActualReading,
+          normalValue: report.NormalName || '',
+          remarks: report.remarks,
+          reportDate: report.ReportDate ? report.ReportDate.split('T')[0] : '',
+          technicianName: report.LabTechnicianName || 'Lab Technician',
+        }));
+        saveLocal(STORAGE_KEYS.LAB_ORDERS, labOrders);
+        saveLocal('cms_lab_reports', labReports);
 
         return mapped;
       }
@@ -387,161 +374,91 @@ const doctorService = {
   },
 
   // ── SAVE CONSULTATION TO BACKEND ─────────────────────────────────
-  createConsultation: async (consultationData, rxData, labData, passedDoctorId = null) => {
-    try {
-      const rawApptId = typeof consultationData.appointmentId === 'string' && consultationData.appointmentId.startsWith('APT-')
-        ? parseInt(consultationData.appointmentId.replace('APT-', ''), 10)
-        : parseInt(consultationData.appointmentId, 10);
-
-      const rawPatId = typeof consultationData.patientId === 'string' && consultationData.patientId.startsWith('PAT-')
-        ? parseInt(consultationData.patientId.replace('PAT-', ''), 10)
-        : parseInt(consultationData.patientId, 10);
-
-      const resolvedDocId = passedDoctorId || consultationData.doctorId || 3;
-
-      const consPayload = {
-        AppointmentId: rawApptId,
-        PatientId: rawPatId,
-        DoctorId: resolvedDocId,
-        ConsultationStatus: 'Completed',
-        Diagnosis: (consultationData.diagnosis || 'Clinical evaluation').slice(0, 100),
-        Symptoms: (consultationData.symptoms || 'General discomfort').slice(0, 100),
-        Remarks: consultationData.remarks || 'Consultation completed'
-      };
-
-      const consRes = await api.post('/consultations/', consPayload);
-      const createdConsId = consRes.data?.ConsultationId;
-
-      // If prescription items exist, save prescription
-      if (rxData && rxData.items && rxData.items.length > 0 && createdConsId) {
-        try {
-          const medsRes = await api.get('/pharmacist/medicines/');
-          const medsList = Array.isArray(medsRes.data) ? medsRes.data : [];
-
-          const rxPayload = {
-            ConsultationId: createdConsId,
-            PatientId: rawPatId,
-            DoctorId: resolvedDocId,
-            PrescriptionDateTime: new Date().toISOString(),
-            Status: 'Not Dispensed',
-            items: rxData.items.map((it) => {
-              const matchedMed = medsList.find((m) => m.MedicineName.toLowerCase().includes(it.medicineName.toLowerCase()) || it.medicineName.toLowerCase().includes(m.MedicineName.toLowerCase()));
-              return {
-                MedicineId: matchedMed ? matchedMed.MedicineId : 1,
-                DosageId: 1,
-                Duration: it.duration || '5 Days',
-                Frequency: it.frequency || '1-0-1'
-              };
-            })
-          };
-          await api.post('/prescriptions/', rxPayload);
-        } catch (rxErr) {
-          console.warn('Prescription backend creation error:', rxErr?.response?.data || rxErr?.message);
-        }
-      }
-
-      // If lab tests requested
-      if (labData && labData.tests && labData.tests.length > 0 && createdConsId) {
-        try {
-          const testsRes = await api.get('/lab/lab-tests/');
-          const testsList = Array.isArray(testsRes.data) ? testsRes.data : [];
-
-          for (const testName of labData.tests) {
-            let matchedTest = testsList.find((t) => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
-            if (!matchedTest && testsList.length > 0) {
-              matchedTest = testsList[0];
-            }
-            if (matchedTest) {
-              await api.post('/lab/lab-prescriptions/', {
-                ConsultationId: createdConsId,
-                PatientId: rawPatId,
-                DoctorId: resolvedDocId,
-                LabTestId: matchedTest.LabtestId,
-                Status: 'Not Dispensed',
-                SampleType: 'Venous Blood',
-                LabTestDate: new Date().toISOString()
-              });
-            }
-          }
-        } catch (labErr) {
-          console.warn('Lab prescription backend creation error:', labErr?.response?.data || labErr?.message);
-        }
-      }
-
-      // Update appointment status in backend
-      await api.patch(`/receptionist/appointments/${rawApptId}/`, {
-        AppointmentStatus: 'Completed'
-      });
-
-      return consRes.data;
-    } catch (err) {
-      console.warn('Backend consultation sync error (saved locally):', err?.response?.data || err?.message);
+  createConsultation: async (consultationData, rxData, labData) => {
+    const rawId = (value, prefix) => {
+      const text = String(value ?? '');
+      return Number(text.startsWith(prefix) ? text.slice(prefix.length) : text);
+    };
+    const appointmentId = rawId(consultationData.appointmentId, 'APT-');
+    const patientId = rawId(consultationData.patientId, 'PAT-');
+    if (!Number.isInteger(appointmentId) || !Number.isInteger(patientId)) {
+      throw new Error('The selected appointment or patient is not linked to a database record. Refresh the queue and try again.');
     }
+
+    const response = await api.post('/consultations/complete/', {
+      AppointmentId: appointmentId,
+      PatientId: patientId,
+      Diagnosis: consultationData.diagnosis,
+      Symptoms: consultationData.symptoms,
+      Remarks: consultationData.remarks || '',
+      prescription_items: (rxData?.items || []).map((item) => ({
+        medicineName: item.medicineName,
+        dosage: item.dosage,
+        frequency: item.frequency,
+        duration: item.duration,
+        instructions: item.instructions,
+        quantity: item.quantity,
+      })),
+      lab_orders: (labData?.tests || []).map((testName) => ({ testName })),
+    });
+    return response.data;
   },
 
   // ── INSTANT LAB TEST REQUEST ─────────────────────────────────────
-  requestLabTest: async (patientId, tests, remarks = '', passedDoctorId = null) => {
+  requestLabTest: async (patientId, tests) => {
     try {
       const rawPatId = typeof patientId === 'string' ? parseInt(patientId.replace(/\D/g, ''), 10) : patientId;
-      const testsRes = await api.get('/lab/lab-tests/');
-      const testsList = Array.isArray(testsRes.data) ? testsRes.data : [];
-      const resolvedDocId = passedDoctorId || 3;
-
-      for (const testName of tests) {
-        let matchedTest = testsList.find(t => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
-        const testId = matchedTest ? matchedTest.LabtestId : (testsList[0]?.LabtestId || 1);
-        await api.post('/lab/lab-prescriptions/', {
-          PatientId: rawPatId,
-          DoctorId: resolvedDocId,
-          LabTestId: testId,
-          Status: 'Pending',
-          SampleType: 'Venous Blood',
-          LabTestDate: new Date().toISOString()
-        });
-      }
+      if (!Number.isInteger(rawPatId)) throw new Error('Choose a patient linked to a database record.');
+      const response = await api.post('/lab/lab-prescriptions/request-batch/', {
+        PatientId: rawPatId,
+        tests,
+        SampleType: 'Diagnostic Specimen',
+      });
+      return response.data;
     } catch (err) {
-      console.warn('requestLabTest backend sync error:', err);
+      throw new Error(err.response?.data?.detail || JSON.stringify(err.response?.data) || err.message || 'Lab order could not be saved.');
     }
   },
 
   // ── MEDICINES CATALOG (FETCHES REAL MYSQL PHARMACY INVENTORY) ────
   getMedicineCatalog: async () => {
     try {
-      const response = await api.get('/pharmacist/medicines/');
-      if (Array.isArray(response.data) && response.data.length > 0) {
-        const mapped = response.data.map((m) => ({
+      const [response, stockResponse] = await Promise.all([
+        api.get('/pharmacist/medicines/'),
+        api.get('/pharmacist/stock/'),
+      ]);
+      if (Array.isArray(response.data)) {
+        const stockRows = Array.isArray(stockResponse.data) ? stockResponse.data : [];
+        const stockByMedicine = new Map(stockRows.map((row) => [
+          Number(row.Medicine?.MedicineId || row.Medicine), row,
+        ]));
+        const mapped = response.data.map((m) => {
+          const stock = stockByMedicine.get(Number(m.MedicineId));
+          return ({
           id: `MED-${m.MedicineId}`,
           rawId: m.MedicineId,
           name: m.MedicineName,
           dosage: '500mg',
           type: m.Category || 'Tablet',
-          quantity: 50,
-          mrp: m.MRP
-        }));
+          quantity: Number(stock?.QuantityOnHand || 0),
+          mrp: stock?.SellingPrice || m.MRP,
+        });
+        });
         saveLocal('cms_medicines', mapped);
         return mapped;
       }
-    } catch (err) {}
-
-    return getLocal('cms_medicines', [
-      { id: 'MED-1', name: 'Paracetamol 500mg', dosage: '500mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-2', name: 'Amoxicillin 500mg', dosage: '500mg', type: 'Capsule', quantity: 45 },
-      { id: 'MED-3', name: 'Cetirizine 10mg', dosage: '10mg', type: 'Tablet', quantity: 60 },
-      { id: 'MED-4', name: 'Metformin 500mg', dosage: '500mg', type: 'Tablet', quantity: 30 },
-      { id: 'MED-5', name: 'Omeprazole 20mg', dosage: '20mg', type: 'Capsule', quantity: 40 },
-      { id: 'MED-6', name: 'Ibuprofen 400mg', dosage: '400mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-7', name: 'Azithromycin 500mg', dosage: '500mg', type: 'Tablet', quantity: 25 },
-      { id: 'MED-8', name: 'Pantoprazole 40mg', dosage: '40mg', type: 'Tablet', quantity: 70 },
-      { id: 'MED-9', name: 'Cough Syrup (Ascoril-D)', dosage: '10ml', type: 'Syrup', quantity: 15 },
-      { id: 'MED-10', name: 'Salbutamol Inhaler 100mcg', dosage: '100mcg', type: 'Inhaler', quantity: 12 },
-    ]);
+    } catch (err) {
+      console.warn('Backend medicine and stock fetch error:', err);
+      return [];
+    }
+    return [];
   },
 
   // ── LAB TESTS CATALOG (FETCHES REAL MYSQL LAB TESTS) ─────────────
   getLabCatalog: async () => {
     try {
       const response = await api.get('/lab/lab-tests/');
-      if (Array.isArray(response.data) && response.data.length > 0) {
+      if (Array.isArray(response.data)) {
         return response.data.map((t) => ({
           id: t.LabtestId,
           name: t.TestName,
@@ -550,18 +467,11 @@ const doctorService = {
           cost: t.TestCost
         }));
       }
-    } catch (err) {}
-
-    return [
-      { id: 1, name: 'Complete Blood Count (CBC)', sample: 'Blood', ref: '4.5-5.5 M/uL', cost: 300 },
-      { id: 2, name: 'Fasting Blood Sugar (FBS)', sample: 'Blood', ref: '70-99 mg/dL', cost: 150 },
-      { id: 3, name: 'Lipid Profile', sample: 'Blood', ref: '< 200 mg/dL', cost: 650 },
-      { id: 4, name: 'Urine Routine Examination', sample: 'Urine', ref: 'Normal', cost: 200 },
-      { id: 5, name: 'Thyroid Profile (T3, T4, TSH)', sample: 'Blood', ref: 'TSH 0.4-4.2 uIU/mL', cost: 550 },
-      { id: 6, name: 'Chest X-Ray PA View', sample: 'Imaging', ref: 'Clear fields', cost: 500 },
-      { id: 7, name: 'Serum Creatinine', sample: 'Blood', ref: '0.7-1.3 mg/dL', cost: 180 },
-      { id: 8, name: 'Liver Function Test (LFT)', sample: 'Blood', ref: 'Normal enzymes', cost: 750 }
-    ];
+    } catch (err) {
+      console.warn('Backend lab test fetch error:', err);
+      return [];
+    }
+    return [];
   },
 };
 

@@ -1,9 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken, TokenError
 
 from .models import User, Doctor, Staff, AuditLog
+from .passwords import verify_and_upgrade_password
 
 
 class ClinicLoginView(APIView):
@@ -17,7 +18,7 @@ class ClinicLoginView(APIView):
 
     def post(self, request):
         username = (request.data.get("Username") or request.data.get("username") or "").strip()
-        password = (request.data.get("Password") or request.data.get("password") or "").strip()
+        password = request.data.get("Password") or request.data.get("password") or ""
 
         if not username or not password:
             return Response(
@@ -33,17 +34,7 @@ class ClinicLoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # Support flexible password matching for default seed credentials
-        valid_password = (user.Password == password)
-        if not valid_password:
-            if user.Username == "admin" and password in ["123", "admin123"] and user.Password in ["123", "admin123"]:
-                valid_password = True
-            elif user.Username in ["prateek", "doctor"] and password in ["123", "prateek123"] and user.Password in ["123", "prateek123"]:
-                valid_password = True
-            elif user.Username in ["Dr.Arun"] and password in ["123", "arun123"] and user.Password in ["123", "arun123"]:
-                valid_password = True
-
-        if not valid_password:
+        if not verify_and_upgrade_password(user, password):
             return Response(
                 {"error": "Invalid username or password."},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -108,12 +99,45 @@ class ClinicLoginView(APIView):
             "departmentName": department_name,
         }
 
+        refresh_token = RefreshToken()
+        refresh_token['user_id'] = user.UserId
+        refresh_token['username'] = user.Username
+        refresh_token['role'] = role_name
+        if doctor_id:
+            refresh_token['doctor_id'] = doctor_id
+
         return Response(
             {
                 "message": "Login successful.",
                 "access": str(access_token),
+                "refresh": str(refresh_token),
                 "token": str(access_token),
                 "user": user_payload
             },
             status=status.HTTP_200_OK
         )
+
+
+class ClinicTokenRefreshView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        raw_refresh = request.data.get('refresh')
+        if not raw_refresh:
+            return Response({'detail': 'Refresh token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            refresh = RefreshToken(raw_refresh)
+            user = User.objects.get(UserId=refresh.get('user_id'))
+        except (TokenError, User.DoesNotExist, TypeError, ValueError):
+            return Response({'detail': 'Refresh token is invalid or expired.'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.isActive:
+            return Response({'detail': 'User account is inactive.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        access = refresh.access_token
+        access['username'] = user.Username
+        access['role'] = user.RoleId.RoleName
+        doctor = Doctor.objects.filter(UserId=user).first()
+        if doctor:
+            access['doctor_id'] = doctor.DoctorId
+        return Response({'access': str(access), 'refresh': str(refresh)}, status=status.HTTP_200_OK)

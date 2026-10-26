@@ -63,7 +63,7 @@ class PrescriptionItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=PrescriptionItem
-        fields=('PrescriptionItemId', 'PrescriptionId', 'MedicineId', 'Medicine','DosageId', 'Dosage', 'Duration', 'Frequency')
+        fields=('PrescriptionItemId', 'PrescriptionId', 'MedicineId', 'Medicine','DosageId', 'Dosage', 'Duration', 'Frequency', 'Instructions', 'Quantity')
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):
@@ -99,7 +99,7 @@ class PrescriptionItemWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PrescriptionItem
-        fields = ('MedicineId', 'DosageId', 'Duration', 'Frequency')
+        fields = ('MedicineId', 'DosageId', 'Duration', 'Frequency', 'Instructions', 'Quantity')
 
 
 class PrescriptionCreateSerializer(serializers.ModelSerializer):

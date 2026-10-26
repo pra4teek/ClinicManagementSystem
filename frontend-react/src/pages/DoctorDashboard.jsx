@@ -51,6 +51,13 @@ const SignOutIcon = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+const ResetRotateIcon = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
 const UsersQueueIcon = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -233,11 +240,7 @@ export default function DoctorDashboard() {
   const navigate = useNavigate();
   const loggedUser = authService.getCurrentUser();
   const [availableDoctors, setAvailableDoctors] = useState([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState(() => {
-    if (loggedUser?.doctorId) return Number(loggedUser.doctorId);
-    if (loggedUser?.name && loggedUser.name.toLowerCase().includes('arun')) return 2;
-    return 3;
-  });
+  const selectedDoctorId = Number(loggedUser?.doctorId) || null;
 
   const currentDoctor = useMemo(() => {
     const matched = availableDoctors.find((d) => Number(d.DoctorId) === Number(selectedDoctorId));
@@ -250,13 +253,12 @@ export default function DoctorDashboard() {
         departmentName: matched.Department?.DepartmentName || 'General',
       };
     }
-    const isArun = String(selectedDoctorId) === '2' || (loggedUser?.name && loggedUser.name.toLowerCase().includes('arun'));
     return {
-      doctorId: selectedDoctorId || (isArun ? 2 : 3),
-      name: isArun ? 'Dr. Arun' : (loggedUser?.name || 'Dr. Prateek Pradeep'),
+      doctorId: selectedDoctorId,
+      name: loggedUser?.name || 'Doctor',
       role: 'Doctor',
-      specialization: isArun ? 'Otolaryngology (ENT)' : (loggedUser?.specialization || 'Consultant Physician'),
-      departmentName: isArun ? 'ENT' : 'General Medicine',
+      specialization: loggedUser?.specialization || 'Physician',
+      departmentName: loggedUser?.departmentName || 'Clinic',
     };
   }, [availableDoctors, selectedDoctorId, loggedUser]);
   const currentUser = currentDoctor;
@@ -268,6 +270,7 @@ export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [medicines, setMedicines] = useState([]);
+  const [labCatalog, setLabCatalog] = useState([]);
   const [activeAppt, setActiveAppt] = useState(null);
   const [queueFilter, setQueueFilter] = useState('all'); // 'all' | 'Scheduled' | 'Completed'
 
@@ -286,7 +289,9 @@ export default function DoctorDashboard() {
   const [rxFrequency, setRxFrequency] = useState('1-0-1');
   const [rxDuration, setRxDuration] = useState('5 Days');
   const [rxInstructions, setRxInstructions] = useState('After Food');
+  const [rxQuantity, setRxQuantity] = useState('');
   const [rxStockInfo, setRxStockInfo] = useState(null);
+  const [savingConsultation, setSavingConsultation] = useState(false);
 
   // Search queries for tabs
   const [historySearch, setHistorySearch] = useState('');
@@ -299,7 +304,6 @@ export default function DoctorDashboard() {
   const [isLabRequestModalOpen, setIsLabRequestModalOpen] = useState(false);
   const [modalLabPatientId, setModalLabPatientId] = useState('');
   const [modalLabSelectedTests, setModalLabSelectedTests] = useState([]);
-  const [modalLabCustomTest, setModalLabCustomTest] = useState('');
   const [modalLabRemarks, setModalLabRemarks] = useState('');
   const [viewLabReportData, setViewLabReportData] = useState(null);
 
@@ -332,59 +336,6 @@ export default function DoctorDashboard() {
   }, []);
 
   const refreshAllData = async () => {
-    // Default fallback appointments matching original
-    const defaultAppts = [
-      {
-        appointmentId: 'APT-1',
-        patientId: 'PAT-1',
-        patientName: 'Arjun Ravi',
-        doctorName: 'Dr. Prateek Pradeep',
-        tokenNumber: 1,
-        time: '10:00 AM',
-        status: 'Scheduled',
-        reason: 'Frequent headaches and mild fever'
-      },
-      {
-        appointmentId: 'APT-2',
-        patientId: 'PAT-2',
-        patientName: 'Rohit Krishna',
-        doctorName: 'Dr. Prateek Pradeep',
-        tokenNumber: 2,
-        time: '10:30 AM',
-        status: 'Scheduled',
-        reason: 'Severe throat irritation & dry cough'
-      },
-      {
-        appointmentId: 'APT-3',
-        patientId: 'PAT-3',
-        patientName: 'Priya Nair',
-        doctorName: 'Dr. Prateek Pradeep',
-        tokenNumber: 3,
-        time: '11:00 AM',
-        status: 'Scheduled',
-        reason: 'Acid reflux, bloating after meals'
-      }
-    ];
-
-    const defaultPatients = [
-      { patientId: 'PAT-1', name: 'Arjun Ravi', age: 47, gender: 'Male', phone: '9876543210', bloodGroup: 'O+' },
-      { patientId: 'PAT-2', name: 'Rohit Krishna', age: 31, gender: 'Male', phone: '9845123456', bloodGroup: 'A+' },
-      { patientId: 'PAT-3', name: 'Priya Nair', age: 40, gender: 'Female', phone: '9895012345', bloodGroup: 'B+' }
-    ];
-
-    const defaultMeds = [
-      { id: 'MED-1', name: 'Paracetamol 500mg', dosage: '500mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-2', name: 'Amoxicillin 500mg', dosage: '500mg', type: 'Capsule', quantity: 45 },
-      { id: 'MED-3', name: 'Cetirizine 10mg', dosage: '10mg', type: 'Tablet', quantity: 60 },
-      { id: 'MED-4', name: 'Metformin 500mg', dosage: '500mg', type: 'Tablet', quantity: 30 },
-      { id: 'MED-5', name: 'Omeprazole 20mg', dosage: '20mg', type: 'Capsule', quantity: 40 },
-      { id: 'MED-6', name: 'Ibuprofen 400mg', dosage: '400mg', type: 'Tablet', quantity: 50 },
-      { id: 'MED-7', name: 'Azithromycin 500mg', dosage: '500mg', type: 'Tablet', quantity: 25 },
-      { id: 'MED-8', name: 'Pantoprazole 40mg', dosage: '40mg', type: 'Tablet', quantity: 70 },
-      { id: 'MED-9', name: 'Cough Syrup (Ascoril-D)', dosage: '10ml', type: 'Syrup', quantity: 15 },
-      { id: 'MED-10', name: 'Salbutamol Inhaler 100mcg', dosage: '100mcg', type: 'Inhaler', quantity: 12 }
-    ];
-
     try {
       const [backendAppts, backendPatients, backendMeds, backendLabs, backendCons, backendDoctors] = await Promise.all([
         doctorService.getAppointments(),
@@ -400,14 +351,10 @@ export default function DoctorDashboard() {
       }
 
       if (Array.isArray(backendAppts)) {
-        const localAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
-        const mergedAppts = backendAppts.map((b) => {
-          const loc = localAppts.find((l) => l.appointmentId === b.appointmentId || String(l.rawId) === String(b.rawId));
-          if (loc && loc.status === 'Completed') {
-            return { ...b, status: 'Completed' };
-          }
-          return b;
-        });
+        const mergedAppts = backendAppts.map((b) => ({
+          ...b,
+          status: b.status || 'Scheduled'
+        }));
         setAppointments(mergedAppts);
         setStorage(CMS_KEYS.APPOINTMENTS, mergedAppts);
       }
@@ -419,6 +366,9 @@ export default function DoctorDashboard() {
       if (Array.isArray(backendMeds)) {
         setMedicines(backendMeds);
       }
+      if (Array.isArray(backendLabs)) {
+        setLabCatalog(backendLabs);
+      }
     } catch (err) {
       console.warn('Backend live data sync error:', err);
       const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
@@ -427,6 +377,31 @@ export default function DoctorDashboard() {
       setPatients(storedPatients);
       const storedMeds = getStorage(CMS_KEYS.MEDICINES, []);
       setMedicines(storedMeds);
+    }
+  };
+
+  const [resettingQueue, setResettingQueue] = useState(false);
+
+  const handleResetQueueStatus = async () => {
+    if (!window.confirm("Are you sure you want to reset all patient queue statuses to 'Scheduled'?")) {
+      return;
+    }
+    setResettingQueue(true);
+    try {
+      const res = await doctorService.resetAllAppointmentsStatus();
+      setStorage(CMS_KEYS.DRAFTS, {});
+      setActiveAppt(null);
+      try {
+        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+      } catch (e) {}
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      await refreshAllData();
+      showToast(res?.detail || 'All patient appointments reset to Scheduled in MySQL database.', 'success');
+    } catch (err) {
+      console.error('Failed to reset patient queue:', err);
+      showToast('Failed to reset patient queue status.', 'error');
+    } finally {
+      setResettingQueue(false);
     }
   };
 
@@ -550,6 +525,7 @@ export default function DoctorDashboard() {
     const freq = rxFrequency.trim();
     const rawDur = rxDuration.trim();
     const inst = rxInstructions.trim();
+    const quantity = Number.parseInt(rxQuantity, 10);
 
     if (!name) {
       showToast('Medicine Name is mandatory! Please select or enter a medicine.', 'warning');
@@ -585,6 +561,10 @@ export default function DoctorDashboard() {
       showToast('Instructions are mandatory!', 'warning');
       return;
     }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      showToast('Enter the total number of units prescribed.', 'warning');
+      return;
+    }
 
     const stockInfo = medicines.find((m) => (m.name || '').toLowerCase() === name.toLowerCase());
     const qty = stockInfo ? Number(stockInfo.quantity ?? stockInfo.stock ?? 0) : 50;
@@ -595,6 +575,7 @@ export default function DoctorDashboard() {
       frequency: freq,
       duration: dur,
       instructions: inst,
+      quantity,
       inStock: qty > 0,
       availableStock: qty
     };
@@ -603,6 +584,7 @@ export default function DoctorDashboard() {
     setRxItems(updated);
     setRxMedName('');
     setRxDosage('');
+    setRxQuantity('');
     setRxStockInfo(null);
     saveDraft({ rxItems: updated });
     showToast(`${name} (${dosage}) added to prescription.`, 'success');
@@ -615,20 +597,31 @@ export default function DoctorDashboard() {
   };
 
   // Instant Lab Request from Consultation
-  const handleSendLabRequestNow = () => {
+  const handleSendLabRequestNow = async () => {
     if (!activeAppt) {
       showToast('Please select a patient first!', 'warning');
       return;
     }
-    if (selectedLabs.length === 0 && !labRemarks.trim()) {
+    if (selectedLabs.length === 0) {
       showToast('Please select at least one lab test to request!', 'warning');
       return;
     }
 
+    let createdOrders;
+    try {
+      createdOrders = await doctorService.requestLabTest(
+        activeAppt.rawPatientId || activeAppt.patientId,
+        selectedLabs,
+      );
+    } catch (error) {
+      showToast(error.message || 'Lab order could not be saved.', 'error');
+      return;
+    }
     const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
-    const uid = Date.now().toString().slice(-4);
+    const firstId = createdOrders?.[0]?.LabPrescriptionId;
     const newOrder = {
-      labOrderId: `LAB-${uid}`,
+      labOrderId: firstId ? `LAB-${firstId}` : `LAB-${Date.now()}`,
+      rawId: firstId,
       appointmentId: activeAppt.appointmentId,
       patientId: activeAppt.patientId,
       patientName: activeAppt.patientName,
@@ -636,7 +629,7 @@ export default function DoctorDashboard() {
       date: new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: Date.now(),
-      tests: selectedLabs.length > 0 ? selectedLabs : ['Diagnostic Evaluation'],
+      tests: selectedLabs,
       remarks: labRemarks.trim(),
       status: 'Pending'
     };
@@ -644,8 +637,6 @@ export default function DoctorDashboard() {
     const updatedList = [newOrder, ...labList];
     setStorage(CMS_KEYS.LAB_ORDERS, updatedList);
     saveDraft();
-    // Persist to MySQL backend via doctorService
-    doctorService.requestLabTest(activeAppt.rawPatientId || activeAppt.patientId, newOrder.tests, labRemarks);
     window.dispatchEvent(new Event('cms_rx_updated'));
     showToast(`Lab test requested for ${activeAppt.patientName}. Sent to Lab Technician pending queue!`, 'success');
   };
@@ -653,6 +644,7 @@ export default function DoctorDashboard() {
   // Save and Complete Consultation
   const handleSaveConsultation = async (e) => {
     e.preventDefault();
+    if (savingConsultation) return;
     if (!activeAppt) {
       showToast('Please select a patient first!', 'warning');
       return;
@@ -708,6 +700,26 @@ export default function DoctorDashboard() {
       remarks: remarks.trim(),
       status: 'Completed'
     };
+    setSavingConsultation(true);
+    let savedConsultation;
+    try {
+      savedConsultation = await doctorService.createConsultation(
+        newCons,
+        { items: rxItems },
+        { tests: selectedLabs },
+      );
+    } catch (err) {
+      const detail = err.response?.data?.detail
+        || Object.values(err.response?.data || {}).flat().join(' ')
+        || err.message;
+      showToast(detail || 'The consultation could not be saved. Your draft is still available.', 'error');
+      setSavingConsultation(false);
+      return;
+    }
+    setSavingConsultation(false);
+    if (savedConsultation?.ConsultationId) {
+      newCons.consultationId = `CNS-${savedConsultation.ConsultationId}`;
+    }
     const cIdx = consList.findIndex((c) => c.appointmentId === activeAppt.appointmentId);
     if (cIdx >= 0) consList[cIdx] = newCons;
     else consList.unshift(newCons);
@@ -716,8 +728,9 @@ export default function DoctorDashboard() {
     // 2. Save Prescription
     if (rxItems.length > 0) {
       const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
+      const savedPrescription = savedConsultation?.prescription_details?.[0];
       const newRx = {
-        prescriptionId: `RX-${uid}`,
+        prescriptionId: savedPrescription ? `RX-${savedPrescription.PrescriptionId}` : `RX-${uid}`,
         consultationId,
         appointmentId: activeAppt.appointmentId,
         patientId: activeAppt.patientId,
@@ -742,8 +755,10 @@ export default function DoctorDashboard() {
       const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
       const alreadyExists = labList.some((o) => o.appointmentId === activeAppt.appointmentId);
       if (!alreadyExists) {
+        const firstLabOrder = savedConsultation?.lab_prescription_details?.[0];
         labList.unshift({
-          labOrderId: `LAB-${uid}`,
+          labOrderId: firstLabOrder ? `LAB-${firstLabOrder.LabPrescriptionId}` : `LAB-${uid}`,
+          rawId: firstLabOrder?.LabPrescriptionId,
           consultationId,
           appointmentId: activeAppt.appointmentId,
           patientId: activeAppt.patientId,
@@ -775,19 +790,7 @@ export default function DoctorDashboard() {
     setStorage(CMS_KEYS.DRAFTS, drafts);
     showToast('Consultation completed for ' + activeAppt.patientName + '.', 'success');
 
-    // Await backend sync to MySQL so backend AppointmentStatus is updated to Completed
-    try {
-      await doctorService.createConsultation(
-        newCons,
-        { items: rxItems },
-        { tests: selectedLabs },
-        currentDoctor.doctorId
-      );
-    } catch (err) {
-      console.warn('Backend sync failed, saved locally:', err);
-    }
-
-    // Now dispatch cross-tab and cross-module so Pharmacist, Receptionist, and Lab portals update immediately
+    // Notify other clinic screens after the server transaction has committed.
     try {
       localStorage.setItem('cms_rx_updated_at', String(Date.now()));
       localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
@@ -993,39 +996,14 @@ export default function DoctorDashboard() {
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <NotificationBell role="Doctor" showToast={showToast} />
-                  <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <label htmlFor="doctor-queue-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Active Doctor Profile:
-                    </label>
-                  <select
-                    id="doctor-queue-select"
-                    className="form-control"
-                    style={{ width: 'auto', fontWeight: 600, padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
-                    value={selectedDoctorId}
-                    onChange={(e) => {
-                      const newId = Number(e.target.value);
-                      setSelectedDoctorId(newId);
-                      setActiveAppt(null);
-                    }}
-                  >
-                    {availableDoctors.length > 0 ? (
-                      availableDoctors.map((doc) => (
-                        <option key={doc.DoctorId} value={doc.DoctorId}>
-                          Dr. {doc.Name} ({doc.Specialization || doc.Department?.DepartmentName || 'General'})
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value={3}>Dr. Prateek Pradeep (General Medicine)</option>
-                        <option value={2}>Dr. Arun (ENT)</option>
-                      </>
-                    )}
-                  </select>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Signed in as:
+                  </span>
+                  <strong>{currentUser.name}</strong>
                 </div>
               </div>
-            </div>
 
               {/* 4 Stat Cards */}
               <div className="doctor-stats-grid">
@@ -1074,14 +1052,38 @@ export default function DoctorDashboard() {
               <div className="doctor-layout-grid">
                 {/* Patient Queue Column */}
                 <div className="card" style={{ padding: '1rem', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '1rem' }}>
                       <UsersQueueIcon size={18} color="#64748b" />
                       <span>Patient Queue</span>
                     </div>
-                    <span className="badge badge-scheduled" style={{ fontSize: '0.72rem' }}>
-                      {waitingCount} Waiting
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '0.2rem 0.55rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          color: '#0284c7',
+                          borderColor: '#bae6fd',
+                          background: '#f0f9ff',
+                          fontWeight: 600,
+                          cursor: resettingQueue ? 'not-allowed' : 'pointer',
+                        }}
+                        onClick={handleResetQueueStatus}
+                        disabled={resettingQueue}
+                        title="Reset all patient appointments in the queue back to Scheduled in MySQL database"
+                      >
+                        <ResetRotateIcon size={13} color="#0284c7" />
+                        {resettingQueue ? 'Resetting…' : 'Reset Queue to Scheduled'}
+                      </button>
+                      <span className="badge badge-scheduled" style={{ fontSize: '0.72rem' }}>
+                        {waitingCount} Waiting
+                      </span>
+                    </div>
                   </div>
 
                   {/* Filter Pills */}
@@ -1479,6 +1481,19 @@ export default function DoctorDashboard() {
                               </div>
 
                               <div>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Total Units *</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  className="form-control"
+                                  value={rxQuantity}
+                                  onChange={(e) => setRxQuantity(e.target.value)}
+                                  placeholder="e.g. 10"
+                                />
+                              </div>
+
+                              <div>
                                 <button type="button" className="btn btn-secondary" onClick={handleAddRx}>
                                   + Add
                                 </button>
@@ -1496,6 +1511,7 @@ export default function DoctorDashboard() {
                                     <th>Frequency</th>
                                     <th>Duration</th>
                                     <th>Instructions</th>
+                                    <th>Units</th>
                                     {activeAppt.status !== 'Completed' && <th>Action</th>}
                                   </tr>
                                 </thead>
@@ -1511,6 +1527,7 @@ export default function DoctorDashboard() {
                                       </td>
                                       <td>{item.duration}</td>
                                       <td>{item.instructions}</td>
+                                      <td>{item.quantity}</td>
                                       {activeAppt.status !== 'Completed' && (
                                         <td>
                                           <button
@@ -1591,16 +1608,7 @@ export default function DoctorDashboard() {
 
                         <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>
-                            {[
-                              'Complete Blood Count (CBC)',
-                              'Fasting Blood Sugar (FBS)',
-                              'Lipid Profile',
-                              'Urine Routine Examination',
-                              'Thyroid Profile (T3, T4, TSH)',
-                              'Chest X-Ray PA View',
-                              'Serum Creatinine',
-                              'Liver Function Test (LFT)'
-                            ].map((testName) => (
+                            {labCatalog.map(({ name: testName }) => (
                               <label key={testName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: activeAppt.status === 'Completed' ? 'not-allowed' : 'pointer' }}>
                                 <input
                                   type="checkbox"
@@ -1657,8 +1665,8 @@ export default function DoctorDashboard() {
                             >
                               Discard
                             </button>
-                            <button type="submit" className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontSize: '0.95rem', fontWeight: 700 }}>
-                              Save &amp; Complete Consultation
+                            <button type="submit" className="btn btn-primary" disabled={savingConsultation} style={{ padding: '0.7rem 1.5rem', fontSize: '0.95rem', fontWeight: 700 }}>
+                              {savingConsultation ? 'Saving to clinic…' : 'Save & Complete Consultation'}
                             </button>
                           </div>
                         )}
@@ -1926,7 +1934,6 @@ export default function DoctorDashboard() {
                   onClick={() => {
                     setModalLabPatientId(activeAppt ? activeAppt.patientId : '');
                     setModalLabSelectedTests([]);
-                    setModalLabCustomTest('');
                     setModalLabRemarks('');
                     setIsLabRequestModalOpen(true);
                   }}
@@ -2361,7 +2368,7 @@ export default function DoctorDashboard() {
               </p>
 
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (!modalLabPatientId) {
                     showToast('Please select a patient!', 'warning');
@@ -2369,31 +2376,34 @@ export default function DoctorDashboard() {
                   }
                   const pat = patients.find((p) => p.patientId === modalLabPatientId);
                   const tests = [...modalLabSelectedTests];
-                  if (modalLabCustomTest.trim()) tests.push(modalLabCustomTest.trim());
                   if (tests.length === 0) {
-                    showToast('Please select or specify at least one lab test!', 'warning');
+                    showToast('Select at least one test from the active lab catalog.', 'warning');
                     return;
                   }
 
-                  const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
-                  const uid = Date.now().toString().slice(-4);
-                  const newOrder = {
-                    labOrderId: `LAB-${uid}`,
-                    appointmentId: activeAppt && activeAppt.patientId === modalLabPatientId ? activeAppt.appointmentId : null,
-                    patientId: modalLabPatientId,
-                    patientName: pat ? pat.name : 'Patient',
-                    doctorName: currentUser.name || 'Dr. Prateek Pradeep',
-                    date: new Date().toISOString().split('T')[0],
-                    tests,
-                    remarks: modalLabRemarks.trim(),
-                    status: 'Pending'
-                  };
-                  setStorage(CMS_KEYS.LAB_ORDERS, [newOrder, ...labList]);
-                  // Persist to MySQL backend via doctorService
-                  doctorService.requestLabTest(modalLabPatientId, tests, modalLabRemarks);
-                  window.dispatchEvent(new Event('cms_rx_updated'));
-                  setIsLabRequestModalOpen(false);
-                  showToast(`Lab request #${newOrder.labOrderId} dispatched to Laboratory queue!`, 'success');
+                  try {
+                    const createdOrders = await doctorService.requestLabTest(modalLabPatientId, tests);
+                    const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
+                    const firstId = createdOrders?.[0]?.LabPrescriptionId;
+                    const newOrder = {
+                      labOrderId: firstId ? `LAB-${firstId}` : `LAB-${Date.now()}`,
+                      rawId: firstId,
+                      appointmentId: activeAppt && activeAppt.patientId === modalLabPatientId ? activeAppt.appointmentId : null,
+                      patientId: modalLabPatientId,
+                      patientName: pat ? pat.name : 'Patient',
+                      doctorName: currentUser.name || 'Doctor',
+                      date: new Date().toISOString().split('T')[0],
+                      tests,
+                      remarks: modalLabRemarks.trim(),
+                      status: 'Pending'
+                    };
+                    setStorage(CMS_KEYS.LAB_ORDERS, [newOrder, ...labList]);
+                    window.dispatchEvent(new Event('cms_rx_updated'));
+                    setIsLabRequestModalOpen(false);
+                    showToast(`Lab request #${newOrder.labOrderId} dispatched to Laboratory queue!`, 'success');
+                  } catch (error) {
+                    showToast(error.message || 'Lab order could not be saved.', 'error');
+                  }
                 }}
               >
                 <div style={{ marginBottom: '1rem' }}>
@@ -2416,16 +2426,7 @@ export default function DoctorDashboard() {
                 <div style={{ marginBottom: '1rem' }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Required Tests *</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                    {[
-                      'Complete Blood Count (CBC)',
-                      'Fasting Blood Sugar (FBS)',
-                      'Lipid Profile',
-                      'Urine Routine Examination',
-                      'Thyroid Profile (T3, T4, TSH)',
-                      'Chest X-Ray PA View',
-                      'Serum Creatinine',
-                      'Liver Function Test (LFT)'
-                    ].map((testName) => (
+                    {labCatalog.map(({ name: testName }) => (
                       <label key={testName} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
@@ -2439,17 +2440,6 @@ export default function DoctorDashboard() {
                       </label>
                     ))}
                   </div>
-                </div>
-
-                <div style={{ marginBottom: '1rem' }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Other Custom Test Name (optional)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. Serum Creatinine, Liver Function Test (LFT)"
-                    value={modalLabCustomTest}
-                    onChange={(e) => setModalLabCustomTest(e.target.value)}
-                  />
                 </div>
 
                 <div style={{ marginBottom: '1.25rem' }}>

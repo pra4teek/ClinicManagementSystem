@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from django.utils import timezone
 
 from apibackendapp.models import (
@@ -19,6 +19,7 @@ from apibackendapp.models import (
     Patient,
     Dosage,
 )
+from apibackendapp.passwords import verify_and_upgrade_password
 
 from .serializers import (
     UserSerializer,
@@ -135,7 +136,7 @@ class AdminLoginView(APIView):
             )
 
         try:
-            user = User.objects.get(Username=username)
+            user = User.objects.get(Username__iexact=str(username).strip())
 
         except User.DoesNotExist:
             return Response(
@@ -145,12 +146,7 @@ class AdminLoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # Allow flexible admin password (123 or admin123)
-        valid_password = (user.Password == password)
-        if not valid_password and user.Username == "admin" and (password in ["123", "admin123"]) and (user.Password in ["123", "admin123"]):
-            valid_password = True
-
-        if not valid_password:
+        if not verify_and_upgrade_password(user, password):
             return Response(
                 {
                     "error": "Invalid username or password."
@@ -189,6 +185,11 @@ class AdminLoginView(APIView):
         access_token["username"] = user.Username
         access_token["role"] = user.RoleId.RoleName
 
+        refresh_token = RefreshToken()
+        refresh_token['user_id'] = user.UserId
+        refresh_token['username'] = user.Username
+        refresh_token['role'] = user.RoleId.RoleName
+
         user_payload = {
             "userId": user.UserId,
             "UserId": user.UserId,
@@ -204,6 +205,7 @@ class AdminLoginView(APIView):
             {
                 "message": "Admin login successful.",
                 "access": str(access_token),
+                "refresh": str(refresh_token),
                 "token": str(access_token),
                 "user": user_payload
             },

@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
+from django.core.exceptions import ImproperlyConfigured
 try:
     from decouple import config
 except ImportError:
@@ -34,12 +36,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-clinic-secret-key-development-12345')
+DEBUG = str(config('DEBUG', default='true')).strip().lower() in ('1', 'true', 'yes', 'on')
+SECRET_KEY = config('SECRET_KEY', default='')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Set SECRET_KEY in the environment when DEBUG is disabled.')
+    SECRET_KEY = 'django-insecure-clinic-secret-key-development-only'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if host.strip()]
 
 
 # Application definition
@@ -159,7 +164,16 @@ REST_FRAMEWORK = {
         'adminapp.authentication.ClinicJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
 }
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5173,http://127.0.0.1:5173',
+).split(',') if origin.strip()]
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}

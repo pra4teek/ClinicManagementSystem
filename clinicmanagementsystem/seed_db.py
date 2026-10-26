@@ -10,6 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clinicmanagementsystem.settings
 django.setup()
 
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password
 from apibackendapp.models import (
     Role, User, Department, Staff, Doctor, Patient, Appointment,
     Token, Dosage, MasterMedicine, LabTest, Consultation,
@@ -51,7 +52,7 @@ def seed():
     for u, p, r in users_data:
         obj, created = User.objects.get_or_create(
             Username=u,
-            defaults={'Password': p, 'RoleId': role_objs[r], 'isActive': True}
+            defaults={'Password': make_password(p), 'RoleId': role_objs[r], 'isActive': True}
         )
         user_objs[u] = obj
         if created:

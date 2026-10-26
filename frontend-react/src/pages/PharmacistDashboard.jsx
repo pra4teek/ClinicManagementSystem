@@ -137,6 +137,7 @@ export default function PharmacistDashboard() {
 
   // Modals state
   const [selectedRx, setSelectedRx] = useState(null);
+  const [dispenseQuantities, setDispenseQuantities] = useState({});
   const [viewBill, setViewBill] = useState(null);
   const [showAddMedModal, setShowAddMedModal] = useState(false);
   const [showReorderModal, setShowReorderModal] = useState(false);
@@ -262,11 +263,12 @@ export default function PharmacistDashboard() {
     const totalMedicines = medicines.length;
     const lowStockMedicines = medicines.filter(m => m.quantity > 0 && m.quantity <= (m.minThreshold || 20));
     const outOfStockMedicines = medicines.filter(m => m.quantity === 0);
-    const pendingPrescriptions = prescriptions.filter(r => r.status === 'Pending' || r.status === 'Not Dispensed' || !r.status);
+    const pendingPrescriptions = prescriptions.filter(r => r.status === 'Pending' || r.status === 'Not Dispensed' || r.status === 'Partially Dispensed' || !r.status);
     const dispensedPrescriptions = prescriptions.filter(r => r.status === 'Dispensed');
     
-    const todayBills = bills;
-    const todayRevenue = bills.reduce((acc, b) => acc + (b.totalAmount || 0), 0);
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayBills = bills.filter((bill) => String(bill.BillDate || '').slice(0, 10) === todayKey);
+    const todayRevenue = todayBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0);
     const activeReorders = reorders.filter(r => r.status !== 'Received');
 
     return {
@@ -285,10 +287,22 @@ export default function PharmacistDashboard() {
   }, [medicines, prescriptions, bills, reorders]);
 
   // Dispense handler
+  const openDispenseModal = (prescription) => {
+    setSelectedRx(prescription);
+    setDispenseQuantities(Object.fromEntries((prescription.items || []).map((item) => [
+      item.prescriptionItemId || item.id,
+      Number(item.remainingQuantity ?? item.quantity ?? 1),
+    ])));
+  };
+
   const handleDispense = async (prescriptionId) => {
     try {
       setDispensingRxId(prescriptionId);
-      const res = await pharmacistService.dispensePrescription(prescriptionId, currentUser.name || 'Adarsh Chandran');
+      const res = await pharmacistService.dispensePrescription(
+        prescriptionId,
+        currentUser.name || 'Pharmacist',
+        dispenseQuantities,
+      );
       showToast(`Prescription ${prescriptionId} successfully dispensed! Bill ${res.bill?.billNumber || ''} created.`);
       setSelectedRx(null);
       await loadData();
@@ -421,7 +435,7 @@ export default function PharmacistDashboard() {
       const matchStatus = rxStatusFilter === 'All'
         ? true
         : rxStatusFilter === 'Pending'
-          ? (r.status === 'Pending' || r.status === 'Not Dispensed' || !r.status)
+          ? (r.status === 'Pending' || r.status === 'Not Dispensed' || r.status === 'Partially Dispensed' || !r.status)
           : r.status === rxStatusFilter;
       return matchSearch && matchStatus;
     });
@@ -773,7 +787,7 @@ export default function PharmacistDashboard() {
                             <td style={{ textAlign: 'right' }}>
                               <button
                                 className="btn btn-sm btn-primary"
-                                onClick={() => setSelectedRx(rx)}
+                                onClick={() => openDispenseModal(rx)}
                               >
                                 Review & Dispense
                               </button>
@@ -1018,7 +1032,7 @@ export default function PharmacistDashboard() {
                               ) : (
                                 <button
                                   className="btn btn-sm btn-primary"
-                                  onClick={() => setSelectedRx(rx)}
+                                  onClick={() => openDispenseModal(rx)}
                                 >
                                   Dispense
                                 </button>
@@ -1761,7 +1775,8 @@ export default function PharmacistDashboard() {
                       <th>Medicine</th>
                       <th>Dosage & Frequency</th>
                       <th>Duration</th>
-                      <th>Req. Qty</th>
+                      <th>Prescribed</th>
+                      <th>Dispense Now</th>
                       <th>Live Stock</th>
                       <th>Unit MRP</th>
                       <th>Status</th>
@@ -1774,8 +1789,11 @@ export default function PharmacistDashboard() {
                         (item.medicineName && m.name.toLowerCase().trim() === item.medicineName.toLowerCase().trim())
                       );
                       const stockAvail = matchMed ? matchMed.quantity : 0;
-                      const reqQty = item.quantity || 1;
-                      const hasStock = stockAvail >= reqQty;
+                      const reqQty = Number(item.quantity || 1);
+                      const itemId = item.prescriptionItemId || item.id;
+                      const remainingQty = Number(item.remainingQuantity ?? reqQty);
+                      const dispenseQty = Number(dispenseQuantities[itemId] ?? remainingQty);
+                      const hasStock = stockAvail >= dispenseQty;
 
                       return (
                         <tr key={i}>
@@ -1783,6 +1801,21 @@ export default function PharmacistDashboard() {
                           <td>{item.dosage || ''} · {item.frequency || 'Daily'}</td>
                           <td>{item.duration || '—'}</td>
                           <td><strong>{reqQty}</strong></td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              max={remainingQty}
+                              value={dispenseQuantities[itemId] ?? remainingQty}
+                              onChange={(event) => setDispenseQuantities((current) => ({
+                                ...current,
+                                [itemId]: event.target.value === '' ? '' : Number(event.target.value),
+                              }))}
+                              aria-label={`Dispense quantity for ${item.medicineName || item.name}`}
+                              style={{ width: '5rem' }}
+                            />
+                            <small style={{ display: 'block', color: 'var(--text-muted)' }}>{remainingQty} remaining</small>
+                          </td>
                           <td>
                             <span style={{ fontWeight: 700, color: hasStock ? '#166534' : '#dc2626' }}>
                               {stockAvail} units
@@ -1808,7 +1841,12 @@ export default function PharmacistDashboard() {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={dispensingRxId === selectedRx.id}
+                disabled={dispensingRxId === selectedRx.id || (selectedRx.items || []).some((item) => {
+                  const itemId = item.prescriptionItemId || item.id;
+                  const qty = Number(dispenseQuantities[itemId]);
+                  const remaining = Number(item.remainingQuantity ?? item.quantity ?? 1);
+                  return !Number.isInteger(qty) || qty < 0 || qty > remaining;
+                })}
                 onClick={() => handleDispense(selectedRx.id)}
               >
                 {dispensingRxId === selectedRx.id ? 'Dispensing & Billing...' : 'Confirm Dispensing & Bill'}

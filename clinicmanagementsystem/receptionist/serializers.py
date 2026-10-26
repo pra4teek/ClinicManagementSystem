@@ -9,6 +9,7 @@ from apibackendapp.models import (
     Payment,
     Staff,
     Department,
+    Doctor,
 )
 from django.utils import timezone
 
@@ -89,6 +90,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
     )
     DepartmentId = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), required=False
+    )
+    DoctorId = serializers.PrimaryKeyRelatedField(
+        queryset=Doctor.objects.filter(isActive=True)
     )
     AppointmentStatus = serializers.CharField(default="Scheduled", required=False)
 

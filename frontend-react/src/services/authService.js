@@ -3,9 +3,9 @@ import api from './api.js';
 const authService = {
   login: async (username, password) => {
     const trimmedUser = (username || '').trim();
-    const trimmedPass = (password || '').trim();
+    const passwordValue = password || '';
 
-    if (!trimmedUser || !trimmedPass) {
+    if (!trimmedUser || !passwordValue) {
       throw new Error('Please enter both username and password.');
     }
 
@@ -16,7 +16,7 @@ const authService = {
     try {
       response = await api.post('/login/', {
         Username: trimmedUser,
-        Password: trimmedPass,
+        Password: passwordValue,
       });
     } catch (err) {
       lastError = err;
@@ -24,27 +24,16 @@ const authService = {
       try {
         response = await api.post('/admin/login/', {
           Username: trimmedUser,
-          Password: trimmedPass,
+          Password: passwordValue,
         });
       } catch (adminErr) {
         lastError = adminErr;
       }
     }
 
-    // If still failed and user is admin trying with admin123, retry with 123
-    if (!response && trimmedUser.toLowerCase() === 'admin' && trimmedPass === 'admin123') {
-      try {
-        response = await api.post('/admin/login/', {
-          Username: 'admin',
-          Password: '123',
-        });
-      } catch (retryErr) {
-        lastError = retryErr;
-      }
-    }
-
     if (response?.data && (response.data.access || response.data.token)) {
       const token = response.data.access || response.data.token;
+      const refresh = response.data.refresh;
       const returnedUser = response.data.user || {};
       const userObj = {
         userId: returnedUser.userId || returnedUser.UserId,
@@ -57,8 +46,9 @@ const authService = {
       };
 
       localStorage.setItem('token', token);
+      if (refresh) localStorage.setItem('refreshToken', refresh);
       localStorage.setItem('user', JSON.stringify(userObj));
-      return { success: true, user: userObj, token };
+      return { success: true, user: userObj, token, refresh };
     }
 
     const errorMsg =
@@ -69,56 +59,33 @@ const authService = {
     throw new Error(errorMsg);
   },
 
-  // 1-Click Administrator Login helper
-  loginAdminDemo: async () => {
-    // Authenticate directly against the MySQL User row created by seed_db.py
-    const credentialPairs = [
-      { Username: 'admin', Password: '123' },
-      { Username: 'admin', Password: 'admin123' },
-    ];
-
-    let lastError = null;
-    for (const cred of credentialPairs) {
-      try {
-        const response = await api.post('/admin/login/', cred);
-        if (response.data && (response.data.access || response.data.token)) {
-          const token = response.data.access || response.data.token;
-          const returnedUser = response.data.user || {};
-          const userObj = {
-            userId: returnedUser.userId || returnedUser.UserId || 1,
-            username: returnedUser.username || returnedUser.Username || 'admin',
-            role: returnedUser.role || returnedUser.Role || 'Admin',
-            name: returnedUser.name || returnedUser.Name || 'Bala Weslin',
-          };
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(userObj));
-          return { success: true, user: userObj, token };
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    throw new Error(
-      lastError?.response?.data?.error ||
-        lastError?.response?.data?.detail ||
-        'Unable to connect to Django MySQL backend. Please verify server is running on port 8000.'
-    );
-  },
-
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
   },
 
   getCurrentUser: () => {
     const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr);
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
   },
 
   isAuthenticated: () => {
-    return !!(localStorage.getItem('token') || localStorage.getItem('accessToken'));
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    if (!token || token.split('.').length !== 3) return false;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return Number(payload.exp) * 1000 > Date.now() || !!localStorage.getItem('refreshToken');
+    } catch {
+      return false;
+    }
   },
 };
 

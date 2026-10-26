@@ -11,7 +11,7 @@ class Role(models.Model):
 class User(models.Model):
     UserId=models.AutoField(primary_key=True)
     Username=models.CharField(max_length=100,unique=True)
-    Password=models.CharField(max_length=100)
+    Password=models.CharField(max_length=128)
     RoleId=models.ForeignKey(Role,on_delete=models.CASCADE)
     isActive=models.BooleanField(default=True)
 
@@ -217,6 +217,8 @@ class PrescriptionItem(models.Model):
     DosageId=models.ForeignKey(Dosage,on_delete=models.CASCADE)
     Duration=models.CharField(max_length=30)
     Frequency=models.CharField(max_length=30) 
+    Instructions=models.CharField(max_length=255, blank=True)
+    Quantity=models.PositiveIntegerField(default=1)
 
     def __str__(self):
         return f"{self.MedicineId.MedicineName}-Rx #{self.PrescriptionItemId}"
@@ -282,6 +284,9 @@ class PharmacyBill(models.Model):
 class PharmacyBillItem(models.Model):
     BillItemId = models.AutoField(primary_key=True)
     Bill = models.ForeignKey(PharmacyBill, on_delete=models.CASCADE,related_name='items')
+    PrescriptionItem = models.ForeignKey(
+        PrescriptionItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='dispensed_lines'
+    )
     Medicine = models.ForeignKey(MasterMedicine, on_delete=models.CASCADE)
     Quantity = models.IntegerField()
     UnitPrice = models.DecimalField(max_digits=10, decimal_places=2)

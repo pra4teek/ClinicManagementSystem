@@ -51,6 +51,12 @@ const receptionistService = {
     return response.data;
   },
 
+  async resetAllAppointmentsStatus(doctorId = null) {
+    const payload = doctorId ? { doctor_id: doctorId } : {};
+    const response = await api.post('/receptionist/appointments/reset-all-status/', payload);
+    return response.data;
+  },
+
   async getTokens() {
     const response = await api.get('/receptionist/tokens/');
     return asList(response.data);

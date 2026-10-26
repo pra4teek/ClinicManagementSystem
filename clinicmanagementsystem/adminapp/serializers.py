@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
 
 from apibackendapp.models import (
     User,
@@ -43,6 +44,16 @@ class UserSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+    def create(self, validated_data):
+        validated_data['Password'] = make_password(validated_data['Password'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        password = validated_data.get('Password')
+        if password:
+            validated_data['Password'] = make_password(password)
+        return super().update(instance, validated_data)
 
 
 class RoleSerializer(serializers.ModelSerializer):
