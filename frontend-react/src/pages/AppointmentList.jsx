@@ -2,8 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import receptionistService, { getApiErrorMessage } from '../services/receptionistService';
 
-const formatDateTime = (value) => value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
-
+const formatDateTime = (value) => value
+  ? new Intl.DateTimeFormat('en-IN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Kolkata',
+    }).format(new Date(value))
+  : '—';
+  
 export default function AppointmentList() {
   const [data, setData] = useState({ appointments: [], patients: [], doctors: [], tokens: [] });
   const [loading, setLoading] = useState(true);

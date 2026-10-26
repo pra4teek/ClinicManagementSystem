@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import receptionistService, { getApiErrorMessage } from '../services/receptionistService';
 
+const toIstIsoString = (value) => {
+  if (!value) return new Date().toISOString();
+
+  const localDateTime = value.length === 16
+    ? `${value}:00`
+    : value;
+
+  return `${localDateTime}+05:30`;
+};
+
 export default function AppointmentForm() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
@@ -39,8 +49,7 @@ export default function AppointmentForm() {
       const res = await receptionistService.createAppointment({
         PatientId: Number(formData.PatientId),
         DoctorId: Number(formData.DoctorId),
-        AppointmentDateTime: formData.AppointmentDateTime || new Date().toISOString(),
-        AppointmentStatus: 'Scheduled',
+AppointmentDateTime: toIstIsoString(formData.AppointmentDateTime),        AppointmentStatus: 'Scheduled',
       });
       setState({
         submitting: false,

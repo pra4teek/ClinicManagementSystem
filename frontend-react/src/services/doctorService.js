@@ -127,8 +127,14 @@ const doctorService = {
         let formattedTime = '10:00 AM';
         if (a.AppointmentDateTime) {
           try {
-            formattedTime = new Date(a.AppointmentDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          } catch (e) {}
+formattedTime = new Date(a.AppointmentDateTime).toLocaleTimeString(
+  'en-IN',
+  {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+  }
+);          } catch (e) {}
         }
 
         let age = 30;

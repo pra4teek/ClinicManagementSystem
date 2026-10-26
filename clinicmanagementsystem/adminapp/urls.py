@@ -35,6 +35,5 @@ router.register('dosages', DosageViewSet)
 
 urlpatterns = [
     path('login/', AdminLoginView.as_view()),
-    path('dashboard/', DashboardView.as_view()),
     path('', include(router.urls)),
 ]

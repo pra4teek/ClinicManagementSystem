@@ -1,68 +1,224 @@
-import { useEffect, useMemo, useState } from 'react';
-import receptionistService, { getApiErrorMessage } from '../services/receptionistService';
+import { useEffect, useMemo, useState } from "react";
+import receptionistService, {
+  getApiErrorMessage,
+} from "../services/receptionistService";
 
-const emptyPatient = { Name: '', Gender: '', DOB: '', PhoneNumber: '', Address: '', BloodGroup: '', Weight: '', Height: '' };
+const emptyPatient = {
+  Name: "",
+  Gender: "",
+  DOB: "",
+  PhoneNumber: "",
+  Address: "",
+  BloodGroup: "",
+  Weight: "",
+  Height: "",
+};
 
-const formatDateTime = (value) => value
-  ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-  : '—';
+// Normalize list endpoints that return either an array or a paginated object.
+const asList = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.results)) return value.results;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+};
 
-const formatDate = (value) => value
-  ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`))
-  : '—';
+const formatDateTime = (value) =>
+  value
+    ? new Intl.DateTimeFormat("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Kolkata",
+      }).format(new Date(value))
+    : "—";
+
+const toIstIsoString = (value) => {
+  if (!value) return new Date().toISOString();
+
+  // datetime-local supplies a timezone-free value such as 2026-10-27T10:30.
+  const localDateTime = value.length === 16 ? `${value}:00` : value;
+
+  return `${localDateTime}+05:30`;
+};
+
+const formatDate = (value) =>
+  value
+    ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(
+        new Date(`${value}T00:00:00`),
+      )
+    : "—";
 
 const ageFromDob = (dob) => {
-  if (!dob) return '—';
+  if (!dob) return "—";
   const birth = new Date(`${dob}T00:00:00`);
-  if (Number.isNaN(birth.getTime())) return '—';
+  if (Number.isNaN(birth.getTime())) return "—";
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
-  if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age -= 1;
+  if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()))
+    age -= 1;
   return age;
 };
 
 const statusClass = (status) => {
-  const value = String(status || '').toLowerCase();
-  if (value === 'completed') return 'completed';
-  if (value === 'cancelled') return 'cancelled';
-  if (value === 'paid') return 'paid';
-  if (value === 'scheduled' || value === 'waiting') return 'scheduled';
-  return 'unknown';
+  const value = String(status || "").toLowerCase();
+  if (value === "completed") return "completed";
+  if (value === "cancelled") return "cancelled";
+  if (value === "paid") return "paid";
+  if (value === "scheduled" || value === "waiting") return "scheduled";
+  return "unknown";
 };
 
 function PatientFields({ value, onChange, disabled = false }) {
-  const update = (event) => onChange({ ...value, [event.target.name]: event.target.value });
-  return <>
-    <div className="receptionist-field"><label htmlFor="reception-name">Full name</label><input id="reception-name" name="Name" value={value.Name} onChange={update} disabled={disabled} required /></div>
-    <div className="receptionist-form-grid">
-      <div className="receptionist-field"><label htmlFor="reception-dob">Date of birth</label><input id="reception-dob" name="DOB" type="date" value={value.DOB} onChange={update} disabled={disabled} required /></div>
-      <div className="receptionist-field"><label htmlFor="reception-gender">Gender</label><select id="reception-gender" name="Gender" value={value.Gender} onChange={update} disabled={disabled} required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-    </div>
-    <div className="receptionist-form-grid">
-      <div className="receptionist-field"><label htmlFor="reception-phone">Phone</label><input id="reception-phone" name="PhoneNumber" inputMode="numeric" value={value.PhoneNumber} onChange={update} disabled={disabled} required /></div>
-      <div className="receptionist-field"><label htmlFor="reception-blood">Blood group</label><select id="reception-blood" name="BloodGroup" value={value.BloodGroup} onChange={update} disabled={disabled} required><option value="">Select</option>{['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((group) => <option key={group}>{group}</option>)}</select></div>
-    </div>
-    <div className="receptionist-field"><label htmlFor="reception-address">Address</label><textarea id="reception-address" name="Address" value={value.Address} onChange={update} disabled={disabled} required /></div>
-    <div className="receptionist-form-grid">
-      <div className="receptionist-field"><label htmlFor="reception-weight">Weight (kg)</label><input id="reception-weight" name="Weight" type="number" min="0.1" step="0.1" value={value.Weight} onChange={update} disabled={disabled} required /></div>
-      <div className="receptionist-field"><label htmlFor="reception-height">Height (cm)</label><input id="reception-height" name="Height" type="number" min="0.1" step="0.1" value={value.Height} onChange={update} disabled={disabled} required /></div>
-    </div>
-  </>;
+  const update = (event) =>
+    onChange({ ...value, [event.target.name]: event.target.value });
+  return (
+    <>
+      <div className="receptionist-field">
+        <label htmlFor="reception-name">Full name</label>
+        <input
+          id="reception-name"
+          name="Name"
+          value={value.Name}
+          onChange={update}
+          disabled={disabled}
+          required
+        />
+      </div>
+      <div className="receptionist-form-grid">
+        <div className="receptionist-field">
+          <label htmlFor="reception-dob">Date of birth</label>
+          <input
+            id="reception-dob"
+            name="DOB"
+            type="date"
+            value={value.DOB}
+            onChange={update}
+            disabled={disabled}
+            required
+          />
+        </div>
+        <div className="receptionist-field">
+          <label htmlFor="reception-gender">Gender</label>
+          <select
+            id="reception-gender"
+            name="Gender"
+            value={value.Gender}
+            onChange={update}
+            disabled={disabled}
+            required
+          >
+            <option value="">Select</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div className="receptionist-form-grid">
+        <div className="receptionist-field">
+          <label htmlFor="reception-phone">Phone</label>
+          <input
+            id="reception-phone"
+            name="PhoneNumber"
+            inputMode="numeric"
+            value={value.PhoneNumber}
+            onChange={update}
+            disabled={disabled}
+            required
+          />
+        </div>
+        <div className="receptionist-field">
+          <label htmlFor="reception-blood">Blood group</label>
+          <select
+            id="reception-blood"
+            name="BloodGroup"
+            value={value.BloodGroup}
+            onChange={update}
+            disabled={disabled}
+            required
+          >
+            <option value="">Select</option>
+            {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => (
+              <option key={group}>{group}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="receptionist-field">
+        <label htmlFor="reception-address">Address</label>
+        <textarea
+          id="reception-address"
+          name="Address"
+          value={value.Address}
+          onChange={update}
+          disabled={disabled}
+          required
+        />
+      </div>
+      <div className="receptionist-form-grid">
+        <div className="receptionist-field">
+          <label htmlFor="reception-weight">Weight (kg)</label>
+          <input
+            id="reception-weight"
+            name="Weight"
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={value.Weight}
+            onChange={update}
+            disabled={disabled}
+            required
+          />
+        </div>
+        <div className="receptionist-field">
+          <label htmlFor="reception-height">Height (cm)</label>
+          <input
+            id="reception-height"
+            name="Height"
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={value.Height}
+            onChange={update}
+            disabled={disabled}
+            required
+          />
+        </div>
+      </div>
+    </>
+  );
 }
 
 export default function ReceptionistDashboard() {
-  const [data, setData] = useState({ patients: [], appointments: [], tokens: [], doctors: [], bills: [] });
+  const [data, setData] = useState({
+    patients: [],
+    appointments: [],
+    tokens: [],
+    doctors: [],
+    bills: [],
+  });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
-  const [queueQuery, setQueueQuery] = useState('');
-  const [patientQuery, setPatientQuery] = useState('');
+  const [queueQuery, setQueueQuery] = useState("");
+  const [patientQuery, setPatientQuery] = useState("");
   const [patientResults, setPatientResults] = useState(null);
   const [searchingPatients, setSearchingPatients] = useState(false);
   const [form, setForm] = useState(emptyPatient);
-  const [formState, setFormState] = useState({ submitting: false, error: '', success: '' });
+  const [formState, setFormState] = useState({
+    submitting: false,
+    error: "",
+    success: "",
+  });
   const [selectedBill, setSelectedBill] = useState(null);
-  const [bookingForm, setBookingForm] = useState({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
-  const [bookingState, setBookingState] = useState({ submitting: false, error: '', success: '' });
+  const [bookingForm, setBookingForm] = useState({
+    PatientId: "",
+    DoctorId: "",
+    AppointmentDateTime: "",
+  });
+  const [bookingState, setBookingState] = useState({
+    submitting: false,
+    error: "",
+    success: "",
+  });
 
   const refresh = async () => {
     setLoading(true);
@@ -73,15 +229,18 @@ export default function ReceptionistDashboard() {
       receptionistService.getDoctors(),
       receptionistService.getBills(),
     ]);
-    const keys = ['patients', 'appointments', 'tokens', 'doctors', 'bills'];
+    const keys = ["patients", "appointments", "tokens", "doctors", "bills"];
     const nextData = {};
     const nextErrors = {};
     requests.forEach((result, index) => {
       const key = keys[index];
-      if (result.status === 'fulfilled') nextData[key] = result.value;
+      if (result.status === "fulfilled") nextData[key] = asList(result.value);
       else {
         nextData[key] = [];
-        nextErrors[key] = getApiErrorMessage(result.reason, `Unable to load ${key}.`);
+        nextErrors[key] = getApiErrorMessage(
+          result.reason,
+          `Unable to load ${key}.`,
+        );
       }
     });
     setData(nextData);
@@ -93,84 +252,120 @@ export default function ReceptionistDashboard() {
   useEffect(() => {
     refresh();
     const handleUpdate = () => refresh();
-    window.addEventListener('cms_rx_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
-    window.addEventListener('focus', handleUpdate);
+    window.addEventListener("cms_rx_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
     const poll = setInterval(refresh, 5000);
     return () => {
-      window.removeEventListener('cms_rx_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
-      window.removeEventListener('focus', handleUpdate);
+      window.removeEventListener("cms_rx_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
       clearInterval(poll);
     };
   }, []);
 
   const handleBookAppointment = async (e) => {
     e.preventDefault();
-    setBookingState({ submitting: true, error: '', success: '' });
+    setBookingState({ submitting: true, error: "", success: "" });
     try {
       const res = await receptionistService.createAppointment({
         PatientId: Number(bookingForm.PatientId),
         DoctorId: Number(bookingForm.DoctorId),
-        AppointmentDateTime: bookingForm.AppointmentDateTime || new Date().toISOString(),
-        AppointmentStatus: 'Scheduled',
+        AppointmentDateTime: toIstIsoString(bookingForm.AppointmentDateTime),
+        AppointmentStatus: "Scheduled",
       });
       setBookingState({
         submitting: false,
-        error: '',
-        success: `Appointment #${res.AppointmentId} booked for ${res.PatientName || 'Patient'} with Dr. ${res.DoctorName || 'Doctor'}! Token issued.`
+        error: "",
+        success: `Appointment #${res.AppointmentId} booked for ${res.PatientName || "Patient"} with Dr. ${res.DoctorName || "Doctor"}! Token issued.`,
       });
-      setBookingForm({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
+      setBookingForm({ PatientId: "", DoctorId: "", AppointmentDateTime: "" });
       try {
-        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+        localStorage.setItem("cms_appointments_updated_at", String(Date.now()));
       } catch (e) {}
-      window.dispatchEvent(new Event('cms_rx_updated'));
+      window.dispatchEvent(new Event("cms_rx_updated"));
       refresh();
     } catch (err) {
       setBookingState({
         submitting: false,
-        error: getApiErrorMessage(err, 'Unable to book appointment.'),
-        success: ''
+        error: getApiErrorMessage(err, "Unable to book appointment."),
+        success: "",
       });
     }
   };
 
   const handleCancelAppointment = async (apptId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    if (!window.confirm("Are you sure you want to cancel this appointment?"))
+      return;
     try {
       await receptionistService.cancelAppointment(apptId);
-      window.dispatchEvent(new Event('cms_rx_updated'));
+      window.dispatchEvent(new Event("cms_rx_updated"));
       refresh();
     } catch (err) {
-      alert(getApiErrorMessage(err, 'Unable to cancel appointment.'));
+      alert(getApiErrorMessage(err, "Unable to cancel appointment."));
     }
   };
 
   const [resettingQueue, setResettingQueue] = useState(false);
   const handleResetQueueStatus = async () => {
-    if (!window.confirm("Are you sure you want to reset all patient queue statuses to 'Scheduled'?")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to reset all patient queue statuses to 'Scheduled'?",
+      )
+    )
+      return;
     setResettingQueue(true);
     try {
       await receptionistService.resetAllAppointmentsStatus();
       try {
-        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+        localStorage.setItem("cms_appointments_updated_at", String(Date.now()));
       } catch (e) {}
-      window.dispatchEvent(new Event('cms_rx_updated'));
+      window.dispatchEvent(new Event("cms_rx_updated"));
       await refresh();
     } catch (err) {
-      alert(getApiErrorMessage(err, 'Unable to reset patient queue.'));
+      alert(getApiErrorMessage(err, "Unable to reset patient queue."));
     } finally {
       setResettingQueue(false);
     }
   };
 
-  const patientById = useMemo(() => new Map(data.patients.map((patient) => [String(patient.PatientId), patient])), [data.patients]);
-  const doctorById = useMemo(() => new Map(data.doctors.map((doctor) => [String(doctor.DoctorId), doctor])), [data.doctors]);
-  const tokenByAppointment = useMemo(() => new Map(data.tokens.map((token) => [String(token.AppointmentId), token])), [data.tokens]);
+  const patientById = useMemo(
+    () =>
+      new Map(
+        data.patients.map((patient) => [String(patient.PatientId), patient]),
+      ),
+    [data.patients],
+  );
+  const doctorById = useMemo(
+    () =>
+      new Map(data.doctors.map((doctor) => [String(doctor.DoctorId), doctor])),
+    [data.doctors],
+  );
+  const tokenByAppointment = useMemo(
+    () =>
+      new Map(data.tokens.map((token) => [String(token.AppointmentId), token])),
+    [data.tokens],
+  );
   const visiblePatients = patientResults ?? data.patients;
   const todaysAppointments = useMemo(() => {
-    const today = new Date().toDateString();
-    return data.appointments.filter((appointment) => new Date(appointment.AppointmentDateTime).toDateString() === today);
+    const clinicDate = (value) =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(value);
+
+    const today = clinicDate(new Date());
+
+    return data.appointments.filter((appointment) => {
+      if (!appointment?.AppointmentDateTime) return false;
+      const appointmentDate = new Date(appointment.AppointmentDateTime);
+      return (
+        !Number.isNaN(appointmentDate.getTime()) &&
+        clinicDate(appointmentDate) === today
+      );
+    });
   }, [data.appointments]);
 
   const filteredAppointments = useMemo(() => {
@@ -179,10 +374,12 @@ export default function ReceptionistDashboard() {
     return todaysAppointments.filter((appointment) => {
       const patient = patientById.get(String(appointment.PatientId));
       const token = tokenByAppointment.get(String(appointment.AppointmentId));
-      const patientName = patient?.Name?.toLowerCase() || '';
-      const patientId = String(appointment.PatientId || '');
-      const tokenNo = token ? String(token.TokenNo) : '';
-      return patientName.includes(q) || patientId.includes(q) || tokenNo.includes(q);
+      const patientName = patient?.Name?.toLowerCase() || "";
+      const patientId = String(appointment.PatientId || "");
+      const tokenNo = token ? String(token.TokenNo) : "";
+      return (
+        patientName.includes(q) || patientId.includes(q) || tokenNo.includes(q)
+      );
     });
   }, [todaysAppointments, queueQuery, patientById, tokenByAppointment]);
 
@@ -195,11 +392,14 @@ export default function ReceptionistDashboard() {
     }
     setSearchingPatients(true);
     try {
-      setPatientResults(await receptionistService.getPatients(query));
-      setErrors((current) => ({ ...current, patientSearch: '' }));
+      setPatientResults(asList(await receptionistService.getPatients(query)));
+      setErrors((current) => ({ ...current, patientSearch: "" }));
     } catch (error) {
       setPatientResults([]);
-      setErrors((current) => ({ ...current, patientSearch: getApiErrorMessage(error, 'Unable to search patients.') }));
+      setErrors((current) => ({
+        ...current,
+        patientSearch: getApiErrorMessage(error, "Unable to search patients."),
+      }));
     } finally {
       setSearchingPatients(false);
     }
@@ -207,29 +407,96 @@ export default function ReceptionistDashboard() {
 
   const registerPatient = async (event) => {
     event.preventDefault();
-    setFormState({ submitting: true, error: '', success: '' });
+    setFormState({ submitting: true, error: "", success: "" });
     try {
-      const patient = await receptionistService.createPatient({ ...form, Weight: Number(form.Weight), Height: Number(form.Height) });
-      setData((current) => ({ ...current, patients: [...current.patients, patient].sort((a, b) => a.PatientId - b.PatientId) }));
+      const patient = await receptionistService.createPatient({
+        ...form,
+        Weight: Number(form.Weight),
+        Height: Number(form.Height),
+      });
+      setData((current) => ({
+        ...current,
+        patients: [...current.patients, patient].sort(
+          (a, b) => a.PatientId - b.PatientId,
+        ),
+      }));
       setForm(emptyPatient);
-      setFormState({ submitting: false, error: '', success: `Patient ${patient.Name} registered successfully.` });
+      setFormState({
+        submitting: false,
+        error: "",
+        success: `Patient ${patient.Name} registered successfully.`,
+      });
     } catch (error) {
-      setFormState({ submitting: false, success: '', error: getApiErrorMessage(error, 'Unable to register patient.') });
+      setFormState({
+        submitting: false,
+        success: "",
+        error: getApiErrorMessage(error, "Unable to register patient."),
+      });
     }
   };
 
   return (
     <div className="receptionist-content">
       <header className="receptionist-heading" id="overview">
-        <div><p className="receptionist-eyebrow">Reception</p><h1>Patient &amp; appointment management</h1><p>Register patients, view today&apos;s queue, and review available billing records.</p></div>
-        <button type="button" className="receptionist-button secondary" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh data'}</button>
+        <div>
+          <p className="receptionist-eyebrow">Reception</p>
+          <h1>Patient &amp; appointment management</h1>
+          <p>
+            Register patients, view today&apos;s queue, and review available
+            billing records.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="receptionist-button secondary"
+          onClick={refresh}
+          disabled={loading}
+        >
+          {loading ? "Refreshing…" : "Refresh data"}
+        </button>
       </header>
 
       <section className="receptionist-stats" aria-label="Reception summary">
-        <div className="receptionist-stat"><span className="receptionist-stat-icon">♙</span><span><span>Registered patients</span><strong>{loading ? '—' : data.patients.length}</strong></span></div>
-        <div className="receptionist-stat"><span className="receptionist-stat-icon teal">▣</span><span><span>Today&apos;s appointments</span><strong>{loading ? '—' : todaysAppointments.length}</strong></span></div>
-        <div className="receptionist-stat"><span className="receptionist-stat-icon amber">◷</span><span><span>Scheduled</span><strong>{loading ? '—' : todaysAppointments.filter((item) => ['Scheduled', 'Waiting'].includes(item.AppointmentStatus)).length}</strong></span></div>
-        <div className="receptionist-stat"><span className="receptionist-stat-icon green">✓</span><span><span>Completed</span><strong>{loading ? '—' : todaysAppointments.filter((item) => item.AppointmentStatus === 'Completed').length}</strong></span></div>
+        <div className="receptionist-stat">
+          <span className="receptionist-stat-icon">♙</span>
+          <span>
+            <span>Registered patients</span>
+            <strong>{loading ? "—" : data.patients.length}</strong>
+          </span>
+        </div>
+        <div className="receptionist-stat">
+          <span className="receptionist-stat-icon teal">▣</span>
+          <span>
+            <span>Today&apos;s appointments</span>
+            <strong>{loading ? "—" : todaysAppointments.length}</strong>
+          </span>
+        </div>
+        <div className="receptionist-stat">
+          <span className="receptionist-stat-icon amber">◷</span>
+          <span>
+            <span>Scheduled</span>
+            <strong>
+              {loading
+                ? "—"
+                : todaysAppointments.filter((item) =>
+                    ["Scheduled", "Waiting"].includes(item.AppointmentStatus),
+                  ).length}
+            </strong>
+          </span>
+        </div>
+        <div className="receptionist-stat">
+          <span className="receptionist-stat-icon green">✓</span>
+          <span>
+            <span>Completed</span>
+            <strong>
+              {loading
+                ? "—"
+                : todaysAppointments.filter(
+                    (item) => item.AppointmentStatus === "Completed",
+                  ).length}
+            </strong>
+          </span>
+        </div>
       </section>
 
       <div className="receptionist-grid">
@@ -244,12 +511,17 @@ export default function ReceptionistDashboard() {
                 <button
                   type="button"
                   className="receptionist-button secondary"
-                  style={{ minHeight: '34px', padding: '0 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                  style={{
+                    minHeight: "34px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    whiteSpace: "nowrap",
+                  }}
                   onClick={handleResetQueueStatus}
                   disabled={resettingQueue}
                   title="Reset all patient queue appointments to Scheduled status in database"
                 >
-                  {resettingQueue ? 'Resetting…' : '↺ Reset All to Scheduled'}
+                  {resettingQueue ? "Resetting…" : "↺ Reset All to Scheduled"}
                 </button>
                 <input
                   className="receptionist-search"
@@ -262,8 +534,12 @@ export default function ReceptionistDashboard() {
                   <button
                     type="button"
                     className="receptionist-button secondary"
-                    style={{ minHeight: '34px', padding: '0 10px', fontSize: '12px' }}
-                    onClick={() => setQueueQuery('')}
+                    style={{
+                      minHeight: "34px",
+                      padding: "0 10px",
+                      fontSize: "12px",
+                    }}
+                    onClick={() => setQueueQuery("")}
                   >
                     Clear
                   </button>
@@ -271,7 +547,9 @@ export default function ReceptionistDashboard() {
               </div>
             </div>
             {errors.appointments ? (
-              <p className="receptionist-api-error receptionist-card-body">{errors.appointments}</p>
+              <p className="receptionist-api-error receptionist-card-body">
+                {errors.appointments}
+              </p>
             ) : loading ? (
               <p className="receptionist-loading">Loading appointments…</p>
             ) : (
@@ -290,40 +568,92 @@ export default function ReceptionistDashboard() {
                   <tbody>
                     {todaysAppointments.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="receptionist-empty">No appointments booked for today.</td>
+                        <td colSpan="6" className="receptionist-empty">
+                          No appointments booked for today.
+                        </td>
                       </tr>
                     ) : filteredAppointments.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="receptionist-empty">No appointments matching &quot;{queueQuery}&quot; in today&apos;s queue.</td>
+                        <td colSpan="6" className="receptionist-empty">
+                          No appointments matching &quot;{queueQuery}&quot; in
+                          today&apos;s queue.
+                        </td>
                       </tr>
                     ) : (
                       filteredAppointments.map((appointment) => {
-                        const patient = patientById.get(String(appointment.PatientId));
-                        const doctor = doctorById.get(String(appointment.DoctorId));
-                        const token = tokenByAppointment.get(String(appointment.AppointmentId));
+                        const patient = patientById.get(
+                          String(appointment.PatientId),
+                        );
+                        const doctor = doctorById.get(
+                          String(appointment.DoctorId),
+                        );
+                        const token = tokenByAppointment.get(
+                          String(appointment.AppointmentId),
+                        );
                         return (
                           <tr key={appointment.AppointmentId}>
-                            <td>{token ? <span className="receptionist-token">{token.TokenNo}</span> : '—'}</td>
                             <td>
-                              <strong>{patient?.Name || `Patient #${appointment.PatientId}`}</strong>
-                              <span className="receptionist-subtext">ID {appointment.PatientId}</span>
+                              {token ? (
+                                <span className="receptionist-token">
+                                  {token.TokenNo}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
                             </td>
-                            <td>{doctor?.Name || `Doctor #${appointment.DoctorId}`}</td>
-                            <td>{formatDateTime(appointment.AppointmentDateTime)}</td>
-                            <td><span className={`receptionist-status ${statusClass(appointment.AppointmentStatus)}`}>{appointment.AppointmentStatus}</span></td>
                             <td>
-                              {appointment.AppointmentStatus === 'Scheduled' ? (
+                              <strong>
+                                {patient?.Name ||
+                                  `Patient #${appointment.PatientId}`}
+                              </strong>
+                              <span className="receptionist-subtext">
+                                ID {appointment.PatientId}
+                              </span>
+                            </td>
+                            <td>
+                              {doctor?.Name ||
+                                `Doctor #${appointment.DoctorId}`}
+                            </td>
+                            <td>
+                              {formatDateTime(appointment.AppointmentDateTime)}
+                            </td>
+                            <td>
+                              <span
+                                className={`receptionist-status ${statusClass(appointment.AppointmentStatus)}`}
+                              >
+                                {appointment.AppointmentStatus}
+                              </span>
+                            </td>
+                            <td>
+                              {appointment.AppointmentStatus === "Scheduled" ? (
                                 <button
                                   type="button"
                                   className="receptionist-button"
-                                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5' }}
-                                  onClick={() => handleCancelAppointment(appointment.AppointmentId)}
+                                  style={{
+                                    padding: "0.2rem 0.6rem",
+                                    fontSize: "0.75rem",
+                                    background: "#fee2e2",
+                                    color: "#b91c1c",
+                                    border: "1px solid #fca5a5",
+                                  }}
+                                  onClick={() =>
+                                    handleCancelAppointment(
+                                      appointment.AppointmentId,
+                                    )
+                                  }
                                   title="Cancel Appointment"
                                 >
                                   Cancel
                                 </button>
                               ) : (
-                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{appointment.AppointmentStatus}</span>
+                                <span
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    color: "#64748b",
+                                  }}
+                                >
+                                  {appointment.AppointmentStatus}
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -337,27 +667,145 @@ export default function ReceptionistDashboard() {
           </section>
 
           <section className="receptionist-card" id="patients">
-            <div className="receptionist-card-header"><div><h2>Patient registry</h2><p>Search by patient name, ID, phone, or address.</p></div><form className="receptionist-search-row" onSubmit={searchPatients}><input className="receptionist-search" value={patientQuery} onChange={(event) => setPatientQuery(event.target.value)} placeholder="Search patient…" aria-label="Search patients" /><button className="receptionist-button" type="submit" disabled={searchingPatients}>{searchingPatients ? 'Searching…' : 'Search'}</button></form></div>
-            {errors.patients ? <p className="receptionist-api-error receptionist-card-body">{errors.patients}</p> : errors.patientSearch ? <p className="receptionist-api-error receptionist-card-body">{errors.patientSearch}</p> : loading ? <p className="receptionist-loading">Loading patients…</p> : <div className="receptionist-table-wrap"><table className="receptionist-table"><thead><tr><th>ID</th><th>Name</th><th>DOB</th><th>Age / gender</th><th>Blood group</th><th>Phone</th></tr></thead><tbody>{visiblePatients.length === 0 ? <tr><td colSpan="6" className="receptionist-empty">No patients found.</td></tr> : visiblePatients.map((patient) => <tr key={patient.PatientId}><td><strong>{patient.PatientId}</strong></td><td>{patient.Name}</td><td>{formatDate(patient.DOB)}</td><td>{ageFromDob(patient.DOB)} / {patient.Gender}</td><td>{patient.BloodGroup}</td><td>{patient.PhoneNumber}</td></tr>)}</tbody></table></div>}
+            <div className="receptionist-card-header">
+              <div>
+                <h2>Patient registry</h2>
+                <p>Search by patient name, ID, phone, or address.</p>
+              </div>
+              <form
+                className="receptionist-search-row"
+                onSubmit={searchPatients}
+              >
+                <input
+                  className="receptionist-search"
+                  value={patientQuery}
+                  onChange={(event) => setPatientQuery(event.target.value)}
+                  placeholder="Search patient…"
+                  aria-label="Search patients"
+                />
+                <button
+                  className="receptionist-button"
+                  type="submit"
+                  disabled={searchingPatients}
+                >
+                  {searchingPatients ? "Searching…" : "Search"}
+                </button>
+              </form>
+            </div>
+            {errors.patients ? (
+              <p className="receptionist-api-error receptionist-card-body">
+                {errors.patients}
+              </p>
+            ) : errors.patientSearch ? (
+              <p className="receptionist-api-error receptionist-card-body">
+                {errors.patientSearch}
+              </p>
+            ) : loading ? (
+              <p className="receptionist-loading">Loading patients…</p>
+            ) : (
+              <div className="receptionist-table-wrap">
+                <table className="receptionist-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>DOB</th>
+                      <th>Age / gender</th>
+                      <th>Blood group</th>
+                      <th>Phone</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visiblePatients.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="receptionist-empty">
+                          No patients found.
+                        </td>
+                      </tr>
+                    ) : (
+                      visiblePatients.map((patient) => (
+                        <tr key={patient.PatientId}>
+                          <td>
+                            <strong>{patient.PatientId}</strong>
+                          </td>
+                          <td>{patient.Name}</td>
+                          <td>{formatDate(patient.DOB)}</td>
+                          <td>
+                            {ageFromDob(patient.DOB)} / {patient.Gender}
+                          </td>
+                          <td>{patient.BloodGroup}</td>
+                          <td>{patient.PhoneNumber}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </div>
 
         <div className="receptionist-column">
-          <section className="receptionist-card" id="register"><div className="receptionist-card-header"><div><h2>Register patient</h2><p>All fields required by the Django patient model.</p></div></div><form className="receptionist-card-body receptionist-form" onSubmit={registerPatient}><PatientFields value={form} onChange={setForm} disabled={formState.submitting} />{formState.error && <p className="receptionist-form-error" role="alert">{formState.error}</p>}{formState.success && <p className="receptionist-form-success" role="status">{formState.success}</p>}<button type="submit" className="receptionist-button" disabled={formState.submitting}>{formState.submitting ? 'Registering…' : 'Register patient'}</button></form></section>
+          <section className="receptionist-card" id="register">
+            <div className="receptionist-card-header">
+              <div>
+                <h2>Register patient</h2>
+                <p>All fields required by the Django patient model.</p>
+              </div>
+            </div>
+            <form
+              className="receptionist-card-body receptionist-form"
+              onSubmit={registerPatient}
+            >
+              <PatientFields
+                value={form}
+                onChange={setForm}
+                disabled={formState.submitting}
+              />
+              {formState.error && (
+                <p className="receptionist-form-error" role="alert">
+                  {formState.error}
+                </p>
+              )}
+              {formState.success && (
+                <p className="receptionist-form-success" role="status">
+                  {formState.success}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="receptionist-button"
+                disabled={formState.submitting}
+              >
+                {formState.submitting ? "Registering…" : "Register patient"}
+              </button>
+            </form>
+          </section>
           <section className="receptionist-card" id="book-appointment">
             <div className="receptionist-card-header">
               <div>
                 <h2>Book appointment</h2>
-                <p>Schedule a patient appointment with a doctor and issue a token.</p>
+                <p>
+                  Schedule a patient appointment with a doctor and issue a
+                  token.
+                </p>
               </div>
             </div>
-            <form className="receptionist-card-body receptionist-form" onSubmit={handleBookAppointment}>
+            <form
+              className="receptionist-card-body receptionist-form"
+              onSubmit={handleBookAppointment}
+            >
               <div className="receptionist-field">
                 <label htmlFor="booking-patient">Select Patient</label>
                 <select
                   id="booking-patient"
                   value={bookingForm.PatientId}
-                  onChange={(e) => setBookingForm({ ...bookingForm, PatientId: e.target.value })}
+                  onChange={(e) =>
+                    setBookingForm({
+                      ...bookingForm,
+                      PatientId: e.target.value,
+                    })
+                  }
                   disabled={bookingState.submitting}
                   required
                 >
@@ -375,36 +823,59 @@ export default function ReceptionistDashboard() {
                 <select
                   id="booking-doctor"
                   value={bookingForm.DoctorId}
-                  onChange={(e) => setBookingForm({ ...bookingForm, DoctorId: e.target.value })}
+                  onChange={(e) =>
+                    setBookingForm({ ...bookingForm, DoctorId: e.target.value })
+                  }
                   disabled={bookingState.submitting}
                   required
                 >
                   <option value="">-- Choose doctor --</option>
                   {data.doctors.map((d) => (
                     <option key={d.DoctorId} value={d.DoctorId}>
-                      Dr. {d.Name} ({d.Specialization || 'General Practice'})
+                      Dr. {d.Name} ({d.Specialization || "General Practice"})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="receptionist-field">
-                <label htmlFor="booking-datetime">Appointment Date &amp; Time</label>
+                <label htmlFor="booking-datetime">
+                  Appointment Date &amp; Time (IST)
+                </label>
                 <input
                   id="booking-datetime"
                   type="datetime-local"
                   value={bookingForm.AppointmentDateTime}
-                  onChange={(e) => setBookingForm({ ...bookingForm, AppointmentDateTime: e.target.value })}
+                  onChange={(e) =>
+                    setBookingForm({
+                      ...bookingForm,
+                      AppointmentDateTime: e.target.value,
+                    })
+                  }
                   disabled={bookingState.submitting}
                   required
                 />
               </div>
 
-              {bookingState.error && <p className="receptionist-form-error" role="alert">{bookingState.error}</p>}
-              {bookingState.success && <p className="receptionist-form-success" role="status">{bookingState.success}</p>}
+              {bookingState.error && (
+                <p className="receptionist-form-error" role="alert">
+                  {bookingState.error}
+                </p>
+              )}
+              {bookingState.success && (
+                <p className="receptionist-form-success" role="status">
+                  {bookingState.success}
+                </p>
+              )}
 
-              <button type="submit" className="receptionist-button" disabled={bookingState.submitting}>
-                {bookingState.submitting ? 'Booking…' : 'Book Appointment & Issue Token'}
+              <button
+                type="submit"
+                className="receptionist-button"
+                disabled={bookingState.submitting}
+              >
+                {bookingState.submitting
+                  ? "Booking…"
+                  : "Book Appointment & Issue Token"}
               </button>
             </form>
           </section>
@@ -415,11 +886,16 @@ export default function ReceptionistDashboard() {
         <div className="receptionist-card-header">
           <div>
             <h2>Billing</h2>
-            <p>Existing receptionist bill records. Invoice preview is read-only and does not record payment.</p>
+            <p>
+              Existing receptionist bill records. Invoice preview is read-only
+              and does not record payment.
+            </p>
           </div>
         </div>
         {errors.bills ? (
-          <p className="receptionist-api-error receptionist-card-body">{errors.bills}</p>
+          <p className="receptionist-api-error receptionist-card-body">
+            {errors.bills}
+          </p>
         ) : loading ? (
           <p className="receptionist-loading">Loading bills…</p>
         ) : (
@@ -438,18 +914,35 @@ export default function ReceptionistDashboard() {
               <tbody>
                 {data.bills.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="receptionist-empty">No billing records found.</td>
+                    <td colSpan="6" className="receptionist-empty">
+                      No billing records found.
+                    </td>
                   </tr>
                 ) : (
                   data.bills.map((bill) => (
                     <tr key={bill.BillId}>
                       <td>{formatDate(bill.BillDate)}</td>
-                      <td><strong>{patientById.get(String(bill.PatientId))?.Name || `Patient #${bill.PatientId}`}</strong></td>
+                      <td>
+                        <strong>
+                          {patientById.get(String(bill.PatientId))?.Name ||
+                            `Patient #${bill.PatientId}`}
+                        </strong>
+                      </td>
                       <td>{bill.BillType}</td>
                       <td>₹{Number(bill.Amount || 0).toFixed(2)}</td>
-                      <td><span className={`receptionist-status ${statusClass(bill.BillStatus)}`}>{bill.BillStatus}</span></td>
                       <td>
-                        <button type="button" className="receptionist-text-button" onClick={() => setSelectedBill(bill)}>
+                        <span
+                          className={`receptionist-status ${statusClass(bill.BillStatus)}`}
+                        >
+                          {bill.BillStatus}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="receptionist-text-button"
+                          onClick={() => setSelectedBill(bill)}
+                        >
                           Preview bill
                         </button>
                       </td>
@@ -466,14 +959,22 @@ export default function ReceptionistDashboard() {
               <div className="receptionist-invoice-brand">
                 <div className="receptionist-invoice-brand-icon">⌁</div>
                 <div>
-                  <h3 className="receptionist-invoice-title">CarePoint Reception &middot; Bill Invoice</h3>
-                  <p className="receptionist-invoice-subtitle">Official Billing Record</p>
+                  <h3 className="receptionist-invoice-title">
+                    CarePoint Reception &middot; Bill Invoice
+                  </h3>
+                  <p className="receptionist-invoice-subtitle">
+                    Official Billing Record
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 className="receptionist-button secondary"
-                style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                style={{
+                  minHeight: "32px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                }}
                 onClick={() => setSelectedBill(null)}
               >
                 Close preview
@@ -482,32 +983,49 @@ export default function ReceptionistDashboard() {
 
             <div className="receptionist-invoice-grid">
               <div className="receptionist-invoice-meta">
-                <span className="receptionist-invoice-label">Invoice / Bill ID</span>
-                <span className="receptionist-invoice-value">#{selectedBill.BillId}</span>
+                <span className="receptionist-invoice-label">
+                  Invoice / Bill ID
+                </span>
+                <span className="receptionist-invoice-value">
+                  #{selectedBill.BillId}
+                </span>
               </div>
               <div className="receptionist-invoice-meta">
                 <span className="receptionist-invoice-label">Patient</span>
                 <span className="receptionist-invoice-value">
-                  {patientById.get(String(selectedBill.PatientId))?.Name || `Patient #${selectedBill.PatientId}`}
+                  {patientById.get(String(selectedBill.PatientId))?.Name ||
+                    `Patient #${selectedBill.PatientId}`}
                 </span>
               </div>
               <div className="receptionist-invoice-meta">
                 <span className="receptionist-invoice-label">Patient ID</span>
-                <span className="receptionist-invoice-value">PAT-{selectedBill.PatientId}</span>
+                <span className="receptionist-invoice-value">
+                  PAT-{selectedBill.PatientId}
+                </span>
               </div>
               <div className="receptionist-invoice-meta">
                 <span className="receptionist-invoice-label">Bill Date</span>
-                <span className="receptionist-invoice-value">{formatDate(selectedBill.BillDate)}</span>
+                <span className="receptionist-invoice-value">
+                  {formatDate(selectedBill.BillDate)}
+                </span>
               </div>
               <div className="receptionist-invoice-meta">
-                <span className="receptionist-invoice-label">Bill Category</span>
-                <span className="receptionist-invoice-value">{selectedBill.BillType || 'General Consultation'}</span>
+                <span className="receptionist-invoice-label">
+                  Bill Category
+                </span>
+                <span className="receptionist-invoice-value">
+                  {selectedBill.BillType || "General Consultation"}
+                </span>
               </div>
               <div className="receptionist-invoice-meta">
-                <span className="receptionist-invoice-label">Payment Status</span>
+                <span className="receptionist-invoice-label">
+                  Payment Status
+                </span>
                 <div>
-                  <span className={`receptionist-status ${statusClass(selectedBill.BillStatus)}`}>
-                    {selectedBill.BillStatus || 'Pending'}
+                  <span
+                    className={`receptionist-status ${statusClass(selectedBill.BillStatus)}`}
+                  >
+                    {selectedBill.BillStatus || "Pending"}
                   </span>
                 </div>
               </div>
@@ -515,7 +1033,10 @@ export default function ReceptionistDashboard() {
 
             <div className="receptionist-invoice-summary">
               <div className="receptionist-invoice-row">
-                <span>Charge Type: {selectedBill.BillType || 'Consultation / Service'}</span>
+                <span>
+                  Charge Type:{" "}
+                  {selectedBill.BillType || "Consultation / Service"}
+                </span>
                 <span>₹{Number(selectedBill.Amount || 0).toFixed(2)}</span>
               </div>
               <div className="receptionist-invoice-row total">
@@ -525,7 +1046,9 @@ export default function ReceptionistDashboard() {
             </div>
 
             <p className="receptionist-notice">
-              Payment processing, pharmacy settlement, and balance collection are unavailable because the backend does not provide a safe settlement workflow.
+              Payment processing, pharmacy settlement, and balance collection
+              are unavailable because the backend does not provide a safe
+              settlement workflow.
             </p>
           </div>
         )}
