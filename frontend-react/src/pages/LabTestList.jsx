@@ -14,7 +14,6 @@ import '../styles/labPages.css';
 
 const SECTIONS = [
   ['orders', '⚗', 'Lab Test Orders'],
-  ['catalog', '📋', 'Master Test Catalog'],
   ['patient', '◷', 'Process Test'],
   ['reports', '▤', 'Reports'],
   ['billing', '▣', 'Billing'],
@@ -236,7 +235,6 @@ export default function LabTestList() {
         <div className="stats-grid lab-stats">
           {[
             ['flask', counts.total, 'Active Test Orders'],
-            ['report', data.testMaster.length, 'Master Tests (SQL)'],
             ['clock', counts.pending, 'Pending Tests'],
             ['progress', counts.progress, 'In Progress'],
             ['check', counts.completed, 'Completed Tests'],
@@ -287,46 +285,6 @@ export default function LabTestList() {
           {renderQueue('Completed', 'Completed Queue', 'No completed tests.')}
         </>}
 
-
-        {section === 'catalog' && (
-          <section className="card lab-card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 className="card-title">Hospital Lab Test Catalog (SQL Database)</h2>
-                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                  All {data.testMaster.length} diagnostic tests available in the hospital (from apibackendapp_labtest)
-                </p>
-              </div>
-              <span className="badge badge-completed">{data.testMaster.length} Tests in SQL</span>
-            </div>
-            <div className="card-body table-responsive">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Test ID</th>
-                    <th>Test Name</th>
-                    <th>Sample Type Required</th>
-                    <th>Standard Reference / Normal Range</th>
-                    <th>Cost (₹)</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.testMaster.map((test) => (
-                    <tr key={test.testId}>
-                      <td><span style={{ fontWeight: 600, color: '#0f766e' }}>{test.testId}</span></td>
-                      <td><strong>{test.testName}</strong></td>
-                      <td>{test.sampleType || 'Blood / Serum'}</td>
-                      <td><code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '0.85rem' }}>{test.normalValue || 'Standard Reference Range'}</code></td>
-                      <td><strong>₹{test.charge || 0}</strong></td>
-                      <td><span className="badge badge-completed">Active in System</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
 
         {section === 'patient' && <>
           <section className="card lab-card">
