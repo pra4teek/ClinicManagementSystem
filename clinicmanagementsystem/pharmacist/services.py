@@ -1,7 +1,13 @@
 from django.db import transaction
 from django.utils import timezone
 
-from apibackendapp.models import PharmacyStock, PharmacyBill, PharmacyBillItem, Bill
+from apibackendapp.models import (
+    PharmacyStock,
+    PharmacyBill,
+    PharmacyBillItem,
+    Bill,
+    PrescriptionItem,
+)
 
 
 class DispenseError(Exception):
@@ -12,27 +18,50 @@ class DispenseError(Exception):
 @transaction.atomic
 def dispense_prescription(prescription, items_data, dispensing_staff):
     """
-    Core dispensing workflow (SRS requirement 5).
-
+    Core dispensing workflow:
     - Validates each requested item actually belongs to this prescription.
     - Locks the matching stock row with select_for_update() so concurrent
       dispensing against the same medicine can't oversell stock.
-    - Decrements stock and creates the PharmacyBill + PharmacyBillItem rows.
-    - Updates Prescription.Status based on medicine coverage.
-
-    Runs inside one transaction: any DispenseError raised here rolls back
-    every stock decrement and bill row created earlier in this same call,
-    so a failure partway through never leaves a half-dispensed record.
+    - Validates stockOnHand >= quantity (raises DispenseError with clear message).
+    - Decrements stockOnHand -= quantity and saves to MySQL.
+    - Creates PharmacyBill and PharmacyBillItem rows in MySQL.
+    - Updates Prescription.Status = "Dispensed".
+    - Auto-generates a Receptionist Bill (BillType="Pharmacy", BillStatus="Pending").
     """
 
+    if not items_data:
+        raise DispenseError("No items provided for dispensing.")
+
     seen_item_ids = set()
+    normalized_items = []
     for entry in items_data:
-        item_id = entry["PrescriptionItemId"].pk
+        prescription_item = entry.get("PrescriptionItemId")
+        if isinstance(prescription_item, (int, str)):
+            try:
+                clean_pk = int(str(prescription_item).replace("RX-", "").replace("MED-", ""))
+                prescription_item = PrescriptionItem.objects.select_related("MedicineId").get(pk=clean_pk)
+            except (PrescriptionItem.DoesNotExist, ValueError):
+                raise DispenseError(f"PrescriptionItem ID '{prescription_item}' not found.")
+
+        if not prescription_item:
+            raise DispenseError("Missing PrescriptionItem in dispense payload.")
+
+        item_id = prescription_item.pk
         if item_id in seen_item_ids:
             raise DispenseError(
                 f"PrescriptionItem {item_id} was submitted more than once in this request."
             )
         seen_item_ids.add(item_id)
+
+        qty = entry.get("Quantity") or entry.get("quantity") or 1
+        try:
+            qty = int(qty)
+        except (ValueError, TypeError):
+            qty = 1
+        if qty <= 0:
+            qty = 1
+
+        normalized_items.append((prescription_item, qty))
 
     bill = PharmacyBill.objects.create(
         Patient=prescription.PatientId,
@@ -42,10 +71,7 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
     )
 
     total = 0
-    for entry in items_data:
-        prescription_item = entry["PrescriptionItemId"]
-        quantity = entry["Quantity"]
-
+    for prescription_item, quantity in normalized_items:
         if prescription_item.PrescriptionId_id != prescription.pk:
             raise DispenseError(
                 f"PrescriptionItem {prescription_item.pk} does not belong to "
@@ -61,6 +87,10 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
         )
         if stock is None:
             raise DispenseError(f"No stock record exists for '{medicine.MedicineName}'.")
+        if stock.QuantityOnHand <= 0:
+            raise DispenseError(
+                f"Medicine '{medicine.MedicineName}' is out of stock (available: 0, required: {quantity})."
+            )
         if stock.QuantityOnHand < quantity:
             raise DispenseError(
                 f"Insufficient stock for '{medicine.MedicineName}': "
@@ -70,8 +100,7 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
         stock.QuantityOnHand -= quantity
         stock.save(update_fields=["QuantityOnHand", "LastUpdated"])
 
-        # Billed at SellingPrice (what the patient is charged), not UnitPrice
-        # (the pharmacy's cost basis) — see "Assumptions" in chat.
+        # Billed at SellingPrice (what the patient is charged)
         line_amount = quantity * stock.SellingPrice
         PharmacyBillItem.objects.create(
             Bill=bill,
@@ -85,7 +114,9 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
     bill.TotalAmount = total
     bill.save(update_fields=["TotalAmount"])
 
-    _update_prescription_status(prescription)
+    # Update prescription status
+    prescription.Status = "Dispensed"
+    prescription.save(update_fields=["Status"])
 
     # Auto-generate a general Bill for the patient after dispensing
     Bill.objects.create(
@@ -96,35 +127,4 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
         BillType='Pharmacy',
     )
 
-    return bill
-
-
-def _update_prescription_status(prescription):
-    """
-    PharmacyBillItem has no direct FK to PrescriptionItem — the only link
-    between a bill and a prescription is at the Bill level
-    (PharmacyBill.Prescription). So "fully dispensed" is inferred by
-    comparing the set of prescribed medicines against the set of medicines
-    actually billed against this prescription across all its bills. This
-    detects per-medicine coverage, not partial-quantity fulfillment of a
-    single medicine — see "Assumptions" in chat for the shared-model gap
-    this works around.
-    """
-
-    prescribed_medicine_ids = set(
-        prescription.items.values_list("MedicineId_id", flat=True)
-    )
-    dispensed_medicine_ids = set(
-        PharmacyBillItem.objects.filter(Bill__Prescription=prescription).values_list(
-            "Medicine_id", flat=True
-        )
-    )
-
-    if prescribed_medicine_ids and prescribed_medicine_ids.issubset(dispensed_medicine_ids):
-        prescription.Status = "Dispensed"
-    elif dispensed_medicine_ids:
-        prescription.Status = "Partially Dispensed"
-    else:
-        prescription.Status = "Not Dispensed"
-
-    prescription.save(update_fields=["Status"])
+    return bill

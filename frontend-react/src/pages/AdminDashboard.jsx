@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../services/authService';
-import adminService, { CMS_MEDICINES_KEY, CMS_REORDERS_KEY } from '../services/adminService';
+import adminService from '../services/adminService';
+import NotificationBell from '../components/NotificationBell';
 import '../styles/admin.css';
 
 // SVG Icons matching CarePoint Design System
@@ -282,7 +283,7 @@ export default function AdminDashboard() {
 
   // Pending reorders count
   const pendingReordersCount = useMemo(() => {
-    return (Array.isArray(reorders) ? reorders : []).filter(r => r.status === 'Ordered' || r.status === 'Pending Approval').length;
+    return (Array.isArray(reorders) ? reorders : []).filter(r => r.status === 'Pending Admin Approval' || r.status === 'Ordered' || r.status === 'Pending Approval').length;
   }, [reorders]);
 
   // Form states for modals
@@ -462,18 +463,27 @@ export default function AdminDashboard() {
   };
 
   // Reorder approval / rejection
-  const handleApproveReorder = (orderId) => {
-    adminService.approveReorderRequest(orderId, 'Approved and inventory stock credited by Administrator.');
-    showToast(`Purchase order ${orderId} approved! Stock added to pharmacy inventory.`);
-    loadAdminData();
+  const handleApproveReorder = async (orderId) => {
+    try {
+      const note = prompt('Enter admin approval note (optional):', 'Confirmed and permission granted.');
+      await adminService.approveReorderRequest(orderId, note || 'Confirmed and permission granted.');
+      showToast(`Permission confirmed for ${orderId}. Pharmacist notified to order from supplier.`);
+      loadAdminData();
+    } catch (err) {
+      showToast(err.message || 'Approval failed', 'error');
+    }
   };
 
-  const handleRejectReorder = (orderId) => {
+  const handleRejectReorder = async (orderId) => {
     const note = prompt('Please enter rejection reason:', 'Budget allocation reached or duplicate item.');
     if (note) {
-      adminService.rejectReorderRequest(orderId, note);
-      showToast(`Purchase order ${orderId} rejected.`);
-      loadAdminData();
+      try {
+        await adminService.rejectReorderRequest(orderId, note);
+        showToast(`Purchase order ${orderId} rejected.`);
+        loadAdminData();
+      } catch (err) {
+        showToast(err.message || 'Rejection failed', 'error');
+      }
     }
   };
 
@@ -666,6 +676,17 @@ export default function AdminDashboard() {
         </div>
 
         <div className="admin-main-content">
+          <div className="admin-top-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem', gap: '0.85rem' }}>
+            <NotificationBell
+              role="Admin"
+              showToast={showToast}
+              onNotificationClick={(notif) => {
+                if (notif.NotificationType?.includes('REORDER')) {
+                  setActiveTab('reorders');
+                }
+              }}
+            />
+          </div>
           {backendError && (
             <div className="admin-alert-banner" style={{ background: '#fee2e2', borderColor: '#f87171', color: '#991b1b', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1771,7 +1792,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="admin-toolbar">
-                {['All', 'Pending Approval', 'Ordered', 'Received', 'Rejected'].map(status => (
+                {['All', 'Pending Admin Approval', 'Approved by Admin', 'Ordered from Supplier', 'Received', 'Rejected by Admin'].map(status => (
                   <button
                     key={status}
                     type="button"
@@ -1809,7 +1830,7 @@ export default function AdminDashboard() {
                         (Array.isArray(reorders) ? reorders : [])
                           .filter(r => {
                             if (reorderFilter === 'All') return true;
-                            if (reorderFilter === 'Pending Approval') return r.status === 'Ordered' || r.status === 'Pending Approval' || r.status === 'Critical' || r.status === 'Pending Review';
+                            if (reorderFilter === 'Pending Admin Approval') return r.status === 'Pending Admin Approval' || r.status === 'Ordered' || r.status === 'Pending Approval' || r.status === 'Critical' || r.status === 'Pending Review';
                             return r.status === reorderFilter;
                           })
                           .map(order => (
@@ -1822,32 +1843,41 @@ export default function AdminDashboard() {
                               <td>₹{Number(order.estimatedCost || 0).toFixed(2)}</td>
                               <td>
                                 <span className={`adm-badge ${
-                                  order.status === 'Received' || order.status === 'Approved' ? 'adm-badge-active' :
-                                  order.status === 'Rejected' ? 'adm-badge-inactive' : 'adm-badge-warning'
+                                  order.status === 'Received' ? 'adm-badge-active' :
+                                  order.status === 'Approved by Admin' ? 'adm-badge-info' :
+                                  order.status === 'Ordered from Supplier' ? 'adm-badge-warning' :
+                                  order.status === 'Rejected by Admin' ? 'adm-badge-inactive' : 'adm-badge-warning'
                                 }`}>
                                   {order.status}
                                 </span>
                               </td>
                               <td style={{ textAlign: 'right' }}>
-                                {order.status !== 'Received' && order.status !== 'Rejected' ? (
+                                {order.status === 'Pending Admin Approval' ? (
                                   <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
                                     <button
                                       className="btn btn-sm btn-primary"
                                       onClick={() => handleApproveReorder(order.id)}
                                     >
-                                      ✓ Approve & Restock
+                                      ✓ Confirm Permission
                                     </button>
                                     <button
                                       className="btn btn-sm btn-outline"
-                                      style={{ color: '#dc2626' }}
+                                      style={{ color: '#dc2626', borderColor: '#fca5a5' }}
                                       onClick={() => handleRejectReorder(order.id)}
                                     >
-                                      ✗ Reject
+                                      ✗ Reject Request
                                     </button>
                                   </div>
                                 ) : (
-                                  <span style={{ fontSize: '0.8rem', color: order.status === 'Received' ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                                    {order.status === 'Received' ? '✓ Stock Credited' : 'Rejected'}
+                                  <span style={{
+                                    fontSize: '0.8rem',
+                                    color: order.status === 'Received' ? '#16a34a' : order.status === 'Rejected by Admin' ? '#dc2626' : '#0284c7',
+                                    fontWeight: 600
+                                  }}>
+                                    {order.status === 'Received' ? '✓ Stock Credited' :
+                                     order.status === 'Approved by Admin' ? 'Approved (Waiting Pharmacist Order)' :
+                                     order.status === 'Ordered from Supplier' ? 'Ordered from Supplier (In Transit)' :
+                                     order.status === 'Rejected by Admin' ? 'Rejected by Admin' : order.status}
                                   </span>
                                 )}
                               </td>

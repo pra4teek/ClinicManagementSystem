@@ -1,8 +1,6 @@
 import api from './api.js';
 
-// Storage key compatibility
-export const CMS_MEDICINES_KEY = 'cms_medicines';
-export const CMS_REORDERS_KEY = 'cms_reorder_requests';
+// Helper error handler
 
 // Helper error handler
 function handleApiError(err) {
@@ -839,49 +837,82 @@ export const adminService = {
     }
   },
 
-  // 10. REORDERS (DIRECTLY FROM MYSQL PHARMACY REPORT)
+  // 10. REORDERS (DIRECTLY FROM MYSQL PHARMACY REORDERS)
   getReorderRequests: async () => {
     try {
-      const res = await api.get('/pharmacist/reports/reorder/');
+      const res = await api.get('/pharmacist/reorders/');
       const rawList = Array.isArray(res.data?.results) ? res.data.results : (Array.isArray(res.data) ? res.data : []);
       return rawList.map(r => ({
-        id: `PO-${r.MedicineId}`,
-        medicineId: r.MedicineId,
-        medicineName: r.MedicineName,
-        currentStock: Number(r.QuantityOnHand || 0),
+        id: `PO-${r.ReorderId}`,
+        reorderId: r.ReorderId,
+        ReorderId: r.ReorderId,
+        medicineId: r.Medicine,
+        medicineName: r.MedicineName || 'Medicine',
+        currentStock: Number(r.CurrentStock || 0),
         reorderLevel: Number(r.ReorderLevel || 10),
-        requestedQty: Math.max(50, (r.ReorderLevel || 10) * 3),
-        unitPrice: Number(r.UnitPrice || 10),
-        status: Number(r.QuantityOnHand || 0) <= 0 ? 'Critical' : 'Pending Review',
-        stockStatus: r.StockStatus,
-        orderDate: new Date().toISOString().split('T')[0]
+        requestedQty: Number(r.RequestedQuantity || 50),
+        estimatedCost: Number(r.EstimatedCost || 0),
+        supplier: r.SupplierName || 'Wholesale Supplier',
+        status: r.Status || 'Pending Admin Approval',
+        adminNote: r.AdminNote || '',
+        reviewedBy: r.ReviewedBy || '',
+        orderDate: r.CreatedAt ? r.CreatedAt.split('T')[0] : new Date().toISOString().split('T')[0]
       }));
     } catch {
       return [];
     }
   },
 
-  approveReorderRequest: async (medicineId, requestedQty = 100, adminNote = '') => {
+  approveReorderRequest: async (orderId, adminNote = '') => {
     try {
-      const stocksRes = await api.get('/pharmacist/stock/');
-      const stocks = Array.isArray(stocksRes.data) ? stocksRes.data : (stocksRes.data?.results || []);
-      const medNumId = Number(String(medicineId).replace(/\D/g, ''));
-      const stock = stocks.find(s => s.Medicine === medNumId || s.Medicine?.MedicineId === medNumId);
-
-      if (stock) {
-        const newQty = (Number(stock.QuantityOnHand) || 0) + Number(requestedQty);
-        await api.patch(`/pharmacist/stock/${stock.StockId}/`, {
-          QuantityOnHand: newQty
-        });
-      }
-      return true;
+      const cleanId = String(orderId).replace(/\D/g, '');
+      const res = await api.post(`/pharmacist/reorders/${cleanId}/approve_permission/`, {
+        AdminNote: adminNote || 'Admin confirmed reorder permission.'
+      });
+      return res.data;
     } catch (err) {
       handleApiError(err);
     }
   },
 
-  rejectReorderRequest: async (medicineId, adminNote = '') => {
-    return true;
+  rejectReorderRequest: async (orderId, adminNote = '') => {
+    try {
+      const cleanId = String(orderId).replace(/\D/g, '');
+      const res = await api.post(`/pharmacist/reorders/${cleanId}/reject_permission/`, {
+        AdminNote: adminNote || 'Admin rejected reorder request.'
+      });
+      return res.data;
+    } catch (err) {
+      handleApiError(err);
+    }
+  },
+
+  // Notification endpoints for Admin
+  getNotifications: async (role = 'Admin') => {
+    try {
+      const res = await api.get('/pharmacist/notifications/', { params: { role } });
+      return res.data; // { unread_count: number, results: [...] }
+    } catch {
+      return { unread_count: 0, results: [] };
+    }
+  },
+
+  markNotificationRead: async (notifId) => {
+    try {
+      const res = await api.post(`/pharmacist/notifications/${notifId}/mark_read/`);
+      return res.data;
+    } catch {
+      return false;
+    }
+  },
+
+  markAllNotificationsRead: async (role = 'Admin') => {
+    try {
+      const res = await api.post('/pharmacist/notifications/mark_all_read/', { role }, { params: { role } });
+      return res.data;
+    } catch {
+      return false;
+    }
   },
 
   // 11. APPOINTMENTS & PATIENTS MONITORING

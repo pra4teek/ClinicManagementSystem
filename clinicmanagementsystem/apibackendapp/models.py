@@ -313,3 +313,55 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment #{self.PaymentId}"
+
+
+class Supplier(models.Model):
+    SupplierId = models.AutoField(primary_key=True)
+    SupplierName = models.CharField(max_length=200)
+    ContactPerson = models.CharField(max_length=100, blank=True)
+    PhoneNumber = models.CharField(max_length=20)
+    Email = models.CharField(max_length=100, blank=True)
+    City = models.CharField(max_length=100, blank=True)
+    IsActive = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.SupplierName
+
+
+class StockReorderRequest(models.Model):
+    STATUS_CHOICES = [
+        ('Pending Admin Approval', 'Pending Admin Approval'),
+        ('Approved by Admin', 'Approved by Admin'),
+        ('Rejected by Admin', 'Rejected by Admin'),
+        ('Ordered from Supplier', 'Ordered from Supplier'),
+        ('Received', 'Received'),
+    ]
+    ReorderId = models.AutoField(primary_key=True)
+    Medicine = models.ForeignKey(MasterMedicine, on_delete=models.CASCADE, related_name='reorder_requests')
+    Supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
+    SupplierName = models.CharField(max_length=200, default='Default Pharma Supplier')
+    RequestedQuantity = models.IntegerField(default=50)
+    EstimatedCost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    Status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='Pending Admin Approval')
+    RequestedBy = models.CharField(max_length=100, default='Pharmacist')
+    AdminNote = models.TextField(blank=True, null=True)
+    ReviewedBy = models.CharField(max_length=100, blank=True, null=True)
+    CreatedAt = models.DateTimeField(auto_now_add=True)
+    UpdatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"PO-{self.ReorderId} ({self.Medicine.MedicineName} - {self.Status})"
+
+
+class Notification(models.Model):
+    NotificationId = models.AutoField(primary_key=True)
+    RecipientRole = models.CharField(max_length=50, db_index=True)  # 'Pharmacist', 'Admin', 'Doctor', 'Receptionist'
+    Title = models.CharField(max_length=200)
+    Message = models.TextField()
+    NotificationType = models.CharField(max_length=50, default='INFO')
+    RelatedRecordId = models.IntegerField(null=True, blank=True)
+    IsRead = models.BooleanField(default=False)
+    CreatedAt = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"[{self.RecipientRole}] {self.Title}"

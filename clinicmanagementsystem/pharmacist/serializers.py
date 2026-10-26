@@ -7,7 +7,63 @@ from apibackendapp.models import (
     PharmacyBillItem,
     Prescription,
     PrescriptionItem,
+    Supplier,
+    StockReorderRequest,
+    Notification,
 )
+
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = '__all__'
+
+
+class StockReorderRequestSerializer(serializers.ModelSerializer):
+    MedicineName = serializers.CharField(source='Medicine.MedicineName', read_only=True)
+    CurrentStock = serializers.SerializerMethodField()
+    ReorderLevel = serializers.SerializerMethodField()
+    UnitPrice = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StockReorderRequest
+        fields = [
+            'ReorderId',
+            'Medicine',
+            'MedicineName',
+            'Supplier',
+            'SupplierName',
+            'RequestedQuantity',
+            'EstimatedCost',
+            'Status',
+            'RequestedBy',
+            'AdminNote',
+            'ReviewedBy',
+            'CreatedAt',
+            'UpdatedAt',
+            'CurrentStock',
+            'ReorderLevel',
+            'UnitPrice',
+        ]
+        read_only_fields = ['ReorderId', 'CreatedAt', 'UpdatedAt']
+
+    def get_CurrentStock(self, obj):
+        stock = PharmacyStock.objects.filter(Medicine=obj.Medicine).first()
+        return stock.QuantityOnHand if stock else 0
+
+    def get_ReorderLevel(self, obj):
+        stock = PharmacyStock.objects.filter(Medicine=obj.Medicine).first()
+        return stock.ReorderLevel if stock else 10
+
+    def get_UnitPrice(self, obj):
+        stock = PharmacyStock.objects.filter(Medicine=obj.Medicine).first()
+        return float(stock.UnitPrice) if stock else float(obj.Medicine.CostValue or 0)
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = '__all__'
 
 
 class MasterMedicineSerializer(serializers.ModelSerializer):
@@ -65,10 +121,6 @@ class PharmacyStockSerializer(serializers.ModelSerializer):
                 "Selling price cannot be lower than unit (cost) price."
             )
 
-        # The shared PharmacyStock model has no unique constraint on Medicine,
-        # so nothing stops two stock rows existing for the same medicine.
-        # Enforced here at the app level; a DB-level unique=True on Medicine
-        # would be the cleaner fix but that's a models.py change for the leader.
         medicine = data.get("Medicine", getattr(self.instance, "Medicine", None))
         if medicine is not None:
             existing = PharmacyStock.objects.filter(Medicine=medicine)
@@ -137,27 +189,23 @@ class PrescriptionQueueSerializer(serializers.ModelSerializer):
 class DispenseItemInputSerializer(serializers.Serializer):
     """One line of what's actually being dispensed right now."""
 
-    PrescriptionItemId = serializers.PrimaryKeyRelatedField(queryset=PrescriptionItem.objects.all())
-    Quantity = serializers.IntegerField(min_value=1)
+    PrescriptionItemId = serializers.IntegerField(required=False, allow_null=True)
+    prescriptionItemId = serializers.IntegerField(required=False, allow_null=True)
+    MedicineId = serializers.IntegerField(required=False, allow_null=True)
+    medicine_id = serializers.IntegerField(required=False, allow_null=True)
+    medicineId = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    MedicineName = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    medicineName = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    Quantity = serializers.IntegerField(required=False, default=1, min_value=1)
+    quantity = serializers.IntegerField(required=False, default=1, min_value=1)
 
 
 class DispenseRequestSerializer(serializers.Serializer):
     """
     Input for POST /api/pharmacist/prescriptions/{id}/dispense/.
-
-    NOTE: PrescriptionItem stores Duration/Frequency as free text (e.g.
-    "5 days", "twice a day") — there is no numeric prescribed-quantity field
-    on the shared model. So the pharmacist confirms/enters the actual
-    dispense quantity per item here, rather than the system reading a
-    stored "quantity prescribed" value that doesn't exist.
     """
 
-    items = DispenseItemInputSerializer(many=True)
-
-    def validate_items(self, value):
-        if not value:
-            raise serializers.ValidationError("At least one item is required to dispense.")
-        return value
+    items = DispenseItemInputSerializer(many=True, required=False, default=list)
 
 
 class PharmacyBillItemSerializer(serializers.ModelSerializer):
@@ -180,19 +228,32 @@ class PharmacyBillSerializer(serializers.ModelSerializer):
 
     PatientName = serializers.CharField(source="Patient.Name", read_only=True)
     DispensedByName = serializers.CharField(source="DispensedBy.Name", read_only=True)
+    DoctorName = serializers.SerializerMethodField()
+    billNumber = serializers.SerializerMethodField()
     items = PharmacyBillItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = PharmacyBill
         fields = [
             "BillId",
+            "billNumber",
             "Patient",
             "PatientName",
             "Prescription",
             "DispensedBy",
             "DispensedByName",
+            "DoctorName",
             "BillDate",
             "TotalAmount",
             "items",
         ]
         read_only_fields = fields
+
+    def get_billNumber(self, obj):
+        return f"PB-{obj.BillId}"
+
+    def get_DoctorName(self, obj):
+        if obj.Prescription and obj.Prescription.DoctorId:
+            doc_name = obj.Prescription.DoctorId.Name
+            return doc_name if doc_name.startswith("Dr.") else f"Dr. {doc_name}"
+        return "Staff Physician"

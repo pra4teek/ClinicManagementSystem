@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils import timezone
 from apibackendapp.models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
 from apibackendapp.models import User, Department, MasterMedicine, Dosage, LabTest
 import re
@@ -103,6 +104,7 @@ class PrescriptionItemWriteSerializer(serializers.ModelSerializer):
 
 class PrescriptionCreateSerializer(serializers.ModelSerializer):
     items = PrescriptionItemWriteSerializer(many=True, write_only=True)
+    PrescriptionDateTime = serializers.DateTimeField(required=False, default=timezone.now)
 
     class Meta:
         model = Prescription

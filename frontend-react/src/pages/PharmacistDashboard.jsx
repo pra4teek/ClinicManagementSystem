@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
-import pharmacistService, { PHARMACY_STORAGE_KEYS } from '../services/pharmacistService';
+import pharmacistService, { normalizeBill, normalizeReorder } from '../services/pharmacistService';
+import NotificationBell from '../components/NotificationBell';
 import '../styles/pharmacist.css';
 
 // SVG Icons matching CarePoint Design System
@@ -182,17 +183,18 @@ export default function PharmacistDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [medsList, rxList, billsList, reordersList] = await Promise.all([
+      const [medsList, rxList, billsList, reordersList, suppliersList] = await Promise.all([
         pharmacistService.getMedicines(),
         pharmacistService.getPrescriptions(),
         pharmacistService.getBills(),
-        pharmacistService.getReorders()
+        pharmacistService.getReorders(),
+        pharmacistService.getSuppliers()
       ]);
       setMedicines(medsList);
       setPrescriptions(rxList);
       setBills(billsList);
       setReorders(reordersList);
-      setSuppliers(pharmacistService.getSuppliers());
+      setSuppliers(suppliersList);
       setDispenseLog(pharmacistService.getDispenseLog());
     } catch (err) {
       console.error('Error loading pharmacy data:', err);
@@ -287,9 +289,12 @@ export default function PharmacistDashboard() {
     try {
       setDispensingRxId(prescriptionId);
       const res = await pharmacistService.dispensePrescription(prescriptionId, currentUser.name || 'Adarsh Chandran');
-      showToast(`Prescription ${prescriptionId} successfully dispensed! Bill ${res.bill.billNumber} created.`);
+      showToast(`Prescription ${prescriptionId} successfully dispensed! Bill ${res.bill?.billNumber || ''} created.`);
       setSelectedRx(null);
       await loadData();
+      if (res?.bill) {
+        setViewBill(res.bill);
+      }
     } catch (err) {
       showToast(err.message || 'Dispensing failed due to insufficient stock.', 'error');
     } finally {
@@ -319,7 +324,7 @@ export default function PharmacistDashboard() {
         minThreshold: '20',
         unitPrice: '8',
         sellingPrice: '14',
-        supplier: 'MedLife Pharma Distribution',
+        supplier: suppliers[0]?.name || 'MedLife Pharma Distribution',
         batchNo: `BAT-${Math.floor(1000 + Math.random() * 9000)}`,
         expiryDate: '2027-06-30'
       });
@@ -335,33 +340,55 @@ export default function PharmacistDashboard() {
       medicineId: medicine.id,
       medicineName: `${medicine.name} ${medicine.dosage}`,
       requestedQty: 60,
-      supplier: medicine.supplier || 'MedLife Pharma Distribution',
+      supplier: medicine.supplier || (suppliers[0]?.name || 'MedLife Pharma Distribution'),
       estimatedCost: Math.round(60 * (medicine.unitPrice || 8))
     });
     setShowReorderModal(true);
   };
 
-  const handleReorderSubmit = (e) => {
+  const handleReorderSubmit = async (e) => {
     e.preventDefault();
-    pharmacistService.createReorder(reorderFormData);
-    showToast(`Purchase order created for ${reorderFormData.requestedQty} units of ${reorderFormData.medicineName}.`);
-    setShowReorderModal(false);
-    loadData();
+    try {
+      await pharmacistService.createReorder(reorderFormData);
+      showToast(`Reorder permission request submitted for ${reorderFormData.requestedQty} units of ${reorderFormData.medicineName}. Waiting for Admin approval.`);
+      setShowReorderModal(false);
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit reorder request.', 'error');
+    }
   };
 
-  const handleMarkReceived = (orderId) => {
-    pharmacistService.markOrderReceived(orderId);
-    showToast(`Order ${orderId} marked as received! Medicine stock updated.`);
-    loadData();
+  const handleOrderFromSupplier = async (orderId) => {
+    try {
+      await pharmacistService.orderFromSupplier(orderId);
+      showToast(`Order PO-${orderId} requested from supplier.`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to order from supplier.', 'error');
+    }
   };
 
-  const handleAdjustStockSubmit = (e) => {
+  const handleMarkReceived = async (orderId) => {
+    try {
+      await pharmacistService.markOrderReceived(orderId);
+      showToast(`Order PO-${orderId} marked as received! Medicine stock updated.`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to mark order as received.', 'error');
+    }
+  };
+
+  const handleAdjustStockSubmit = async (e) => {
     e.preventDefault();
     if (!showAdjustStockModal) return;
-    pharmacistService.updateStockQuantity(showAdjustStockModal.id, parseInt(stockAdjustQty, 10), stockAdjustReason);
-    showToast(`Stock updated for ${showAdjustStockModal.name}.`);
-    setShowAdjustStockModal(null);
-    loadData();
+    try {
+      await pharmacistService.updateStockQuantity(showAdjustStockModal.id, parseInt(stockAdjustQty, 10), stockAdjustReason);
+      showToast(`Stock updated for ${showAdjustStockModal.name}.`);
+      setShowAdjustStockModal(null);
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to update stock.', 'error');
+    }
   };
 
   // Filtered inventory
@@ -596,6 +623,20 @@ export default function PharmacistDashboard() {
         </div>
 
         <div className="pharmacist-main-content">
+          <div className="pharmacist-top-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '1rem', gap: '0.85rem' }}>
+            <NotificationBell
+              role="Pharmacist"
+              showToast={showToast}
+              onNotificationClick={(notif) => {
+                if (notif.NotificationType?.includes('PRESCRIPTION')) {
+                  setActiveTab('prescriptions');
+                } else if (notif.NotificationType?.includes('REORDER')) {
+                  setActiveTab('stock-orders');
+                }
+              }}
+            />
+          </div>
+
           {/* TAB 1: DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div>
@@ -803,7 +844,7 @@ export default function PharmacistDashboard() {
                                   onClick={() => handleQuickReorder(med)}
                                   style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
                                 >
-                                  + Order Stock
+                                  Request Admin Permission
                                 </button>
                               </td>
                             </tr>
@@ -1126,9 +1167,9 @@ export default function PharmacistDashboard() {
                                   <button
                                     className="btn btn-sm btn-primary"
                                     onClick={() => handleQuickReorder(med)}
-                                    title="Create Purchase Order"
+                                    title="Request Admin Permission to Reorder"
                                   >
-                                    Reorder
+                                    Request Admin Permission
                                   </button>
                                 )}
                               </div>
@@ -1245,16 +1286,16 @@ export default function PharmacistDashboard() {
                   onClick={() => {
                     const firstMed = medicines[0];
                     setReorderFormData({
-                      medicineId: firstMed ? firstMed.id : 'MED-001',
-                      medicineName: firstMed ? `${firstMed.name} ${firstMed.dosage}` : 'Paracetamol 500mg',
+                      medicineId: firstMed ? firstMed.id : '',
+                      medicineName: firstMed ? `${firstMed.name} ${firstMed.dosage}` : '',
                       requestedQty: 50,
-                      supplier: 'MedLife Pharma Distribution',
-                      estimatedCost: 350
+                      supplier: suppliers[0]?.name || 'MedLife Pharma Distribution',
+                      estimatedCost: firstMed ? Math.round(50 * (firstMed.unitPrice || 8)) : 350
                     });
                     setShowReorderModal(true);
                   }}
                 >
-                  + New Reorder Request
+                  + Request Admin Permission
                 </button>
               </div>
 
@@ -1288,22 +1329,51 @@ export default function PharmacistDashboard() {
                             <span className={`ph-badge ${
                               order.status === 'Received'
                                 ? 'ph-badge-completed'
-                                : (order.status === 'Shipped' ? 'ph-badge-normal' : 'ph-badge-pending')
+                                : (order.status === 'Ordered from Supplier'
+                                  ? 'ph-badge-normal'
+                                  : (order.status === 'Approved by Admin'
+                                    ? 'ph-badge-normal'
+                                    : (order.status === 'Rejected by Admin' ? 'ph-badge-outofstock' : 'ph-badge-pending')))
                             }`}>
                               {order.status}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {order.status !== 'Received' ? (
+                            {order.status === 'Pending Admin Approval' && (
+                              <button
+                                className="btn btn-sm btn-outline"
+                                disabled
+                                style={{ opacity: 0.7, cursor: 'not-allowed', fontSize: '0.78rem' }}
+                              >
+                                ⏳ Waiting for Admin Permission
+                              </button>
+                            )}
+                            {order.status === 'Approved by Admin' && (
                               <button
                                 className="btn btn-sm btn-primary"
-                                onClick={() => handleMarkReceived(order.id)}
+                                style={{ fontSize: '0.78rem' }}
+                                onClick={() => handleOrderFromSupplier(order.reorderId || order.id)}
                               >
-                                Mark Received (Restock)
+                                📦 Request from Supplier
                               </button>
-                            ) : (
+                            )}
+                            {order.status === 'Ordered from Supplier' && (
+                              <button
+                                className="btn btn-sm btn-success"
+                                style={{ background: '#16a34a', color: '#fff', borderColor: '#16a34a', fontSize: '0.78rem' }}
+                                onClick={() => handleMarkReceived(order.reorderId || order.id)}
+                              >
+                                ✓ Mark Received (Restock)
+                              </button>
+                            )}
+                            {order.status === 'Received' && (
                               <span style={{ color: '#16a34a', fontSize: '0.8rem', fontWeight: 600 }}>
-                                ✓ Restocked into Inventory
+                                ✓ Stock Credited
+                              </span>
+                            )}
+                            {order.status === 'Rejected by Admin' && (
+                              <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+                                ✗ Rejected {order.adminNote ? `(${order.adminNote})` : ''}
                               </span>
                             )}
                           </td>
@@ -1684,50 +1754,52 @@ export default function PharmacistDashboard() {
 
               {/* Items Table with Live Stock Check */}
               <h4 style={{ margin: '1rem 0 0.5rem', fontSize: '0.95rem' }}>Prescribed Items & Inventory Stock Check:</h4>
-              <table className="pharmacist-table" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
-                <thead>
-                  <tr>
-                    <th>Medicine</th>
-                    <th>Dosage & Frequency</th>
-                    <th>Duration</th>
-                    <th>Req. Qty</th>
-                    <th>Live Stock</th>
-                    <th>Unit MRP</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(selectedRx.items || []).map((item, i) => {
-                    const matchMed = medicines.find(m =>
-                      m.id === item.medicineId ||
-                      (item.medicineName && m.name.toLowerCase().trim() === item.medicineName.toLowerCase().trim())
-                    );
-                    const stockAvail = matchMed ? matchMed.quantity : 0;
-                    const reqQty = item.quantity || 1;
-                    const hasStock = stockAvail >= reqQty;
+              <div className="pharmacist-table-wrap">
+                <table className="pharmacist-table" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
+                  <thead>
+                    <tr>
+                      <th>Medicine</th>
+                      <th>Dosage & Frequency</th>
+                      <th>Duration</th>
+                      <th>Req. Qty</th>
+                      <th>Live Stock</th>
+                      <th>Unit MRP</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedRx.items || []).map((item, i) => {
+                      const matchMed = medicines.find(m =>
+                        m.id === item.medicineId ||
+                        (item.medicineName && m.name.toLowerCase().trim() === item.medicineName.toLowerCase().trim())
+                      );
+                      const stockAvail = matchMed ? matchMed.quantity : 0;
+                      const reqQty = item.quantity || 1;
+                      const hasStock = stockAvail >= reqQty;
 
-                    return (
-                      <tr key={i}>
-                        <td><strong>{item.medicineName || item.name}</strong></td>
-                        <td>{item.dosage || ''} · {item.frequency || 'Daily'}</td>
-                        <td>{item.duration || '—'}</td>
-                        <td><strong>{reqQty}</strong></td>
-                        <td>
-                          <span style={{ fontWeight: 700, color: hasStock ? '#166534' : '#dc2626' }}>
-                            {stockAvail} units
-                          </span>
-                        </td>
-                        <td>₹{matchMed ? matchMed.sellingPrice : (item.unitPrice || 10)}</td>
-                        <td>
-                          <span className={`ph-badge ${hasStock ? 'ph-badge-completed' : 'ph-badge-outofstock'}`}>
-                            {hasStock ? '✓ In Stock' : '✗ Insufficient'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      return (
+                        <tr key={i}>
+                          <td><strong>{item.medicineName || item.name}</strong></td>
+                          <td>{item.dosage || ''} · {item.frequency || 'Daily'}</td>
+                          <td>{item.duration || '—'}</td>
+                          <td><strong>{reqQty}</strong></td>
+                          <td>
+                            <span style={{ fontWeight: 700, color: hasStock ? '#166534' : '#dc2626' }}>
+                              {stockAvail} units
+                            </span>
+                          </td>
+                          <td>₹{matchMed ? matchMed.sellingPrice : (item.unitPrice || 10)}</td>
+                          <td>
+                            <span className={`ph-badge ${hasStock ? 'ph-badge-completed' : 'ph-badge-outofstock'}`}>
+                              {hasStock ? '✓ In Stock' : '✗ Insufficient'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="pharmacist-modal-footer">
@@ -2007,7 +2079,7 @@ export default function PharmacistDashboard() {
         <div className="pharmacist-modal-overlay" onClick={() => setShowReorderModal(false)}>
           <div className="pharmacist-modal" onClick={(e) => e.stopPropagation()}>
             <div className="pharmacist-modal-header">
-              <h3>Create Restock Purchase Order</h3>
+              <h3>Request Admin Permission to Reorder</h3>
               <button
                 style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                 onClick={() => setShowReorderModal(false)}
@@ -2018,13 +2090,25 @@ export default function PharmacistDashboard() {
             <form onSubmit={handleReorderSubmit}>
               <div className="pharmacist-modal-body">
                 <div style={{ marginBottom: '1rem' }}>
-                  <label className="form-label">Medicine</label>
-                  <input
-                    type="text"
+                  <label className="form-label">Medicine *</label>
+                  <select
                     className="form-control"
-                    value={reorderFormData.medicineName}
-                    readOnly
-                  />
+                    value={reorderFormData.medicineId}
+                    onChange={(e) => {
+                      const selected = medicines.find(m => String(m.id) === String(e.target.value));
+                      setReorderFormData({
+                        ...reorderFormData,
+                        medicineId: e.target.value,
+                        medicineName: selected ? `${selected.name} ${selected.dosage}` : '',
+                        estimatedCost: selected ? Math.round(Number(reorderFormData.requestedQty || 50) * (selected.unitPrice || 8)) : reorderFormData.estimatedCost
+                      });
+                    }}
+                    required
+                  >
+                    {medicines.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} {m.dosage} (Stock: {m.quantity})</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
@@ -2035,7 +2119,15 @@ export default function PharmacistDashboard() {
                       min="10"
                       className="form-control"
                       value={reorderFormData.requestedQty}
-                      onChange={(e) => setReorderFormData({ ...reorderFormData, requestedQty: e.target.value })}
+                      onChange={(e) => {
+                        const q = parseInt(e.target.value, 10) || 0;
+                        const selected = medicines.find(m => String(m.id) === String(reorderFormData.medicineId));
+                        setReorderFormData({
+                          ...reorderFormData,
+                          requestedQty: e.target.value,
+                          estimatedCost: selected ? Math.round(q * (selected.unitPrice || 8)) : reorderFormData.estimatedCost
+                        });
+                      }}
                       required
                     />
                   </div>
@@ -2068,7 +2160,7 @@ export default function PharmacistDashboard() {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Dispatch Purchase Order
+                  Request Admin Permission
                 </button>
               </div>
             </form>

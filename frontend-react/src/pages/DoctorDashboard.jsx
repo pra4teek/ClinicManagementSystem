@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import doctorService from '../services/doctorService';
+import NotificationBell from '../components/NotificationBell';
 import '../styles/doctor.css';
 
 // SVG Icons matching original doctor portal
@@ -992,10 +993,12 @@ export default function DoctorDashboard() {
                   </p>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label htmlFor="doctor-queue-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Active Doctor Profile:
-                  </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <NotificationBell role="Doctor" showToast={showToast} />
+                  <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label htmlFor="doctor-queue-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Active Doctor Profile:
+                    </label>
                   <select
                     id="doctor-queue-select"
                     className="form-control"
@@ -1022,6 +1025,7 @@ export default function DoctorDashboard() {
                   </select>
                 </div>
               </div>
+            </div>
 
               {/* 4 Stat Cards */}
               <div className="doctor-stats-grid">

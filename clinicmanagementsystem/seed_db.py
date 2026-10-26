@@ -14,7 +14,7 @@ from apibackendapp.models import (
     Role, User, Department, Staff, Doctor, Patient, Appointment,
     Token, Dosage, MasterMedicine, LabTest, Consultation,
     Prescription, PrescriptionItem, LabPrescription, LabReport,
-    PharmacyStock
+    PharmacyStock, Supplier, StockReorderRequest, Notification
 )
 
 def seed():
@@ -324,6 +324,28 @@ def seed():
                 }
             )
             print(f"  -> Generated Verified Lab Report for {patient_objs[4].Name}")
+
+    # 13. SUPPLIERS
+    suppliers_data = [
+        ('MedLife Pharma Distribution', 'Rajesh Sharma', '+91 98450 12345', 'orders@medlifepharma.in', 'Ernakulam, Kerala'),
+        ('Sun Health Corporation', 'Priya Nambiar', '+91 94471 67890', 'supply@sunhealthcorp.com', 'Kochi, Kerala'),
+        ('Cipla Regional Agency', 'Anand Menon', '+91 98952 34567', 'kerala.agency@cipla.com', 'Thiruvananthapuram, Kerala'),
+        ('Apollo Wholesale Logistics', 'Sunil Kumar', '+91 97443 89012', 'wholesale@apollologistics.in', 'Thrissur, Kerala'),
+        ('Glaxo Respiratory Care', 'Deepa Varghese', '+91 98460 45678', 'orders@glaxorespiratory.com', 'Kottayam, Kerala'),
+    ]
+    for s_name, contact, phone, email, city in suppliers_data:
+        sup, created = Supplier.objects.get_or_create(
+            SupplierName=s_name,
+            defaults={
+                'ContactPerson': contact,
+                'PhoneNumber': phone,
+                'Email': email,
+                'City': city,
+                'IsActive': True,
+            }
+        )
+        if created:
+            print(f"Created Supplier: {s_name}")
 
     print("--- SUCCESS: Database successfully populated with realistic data! ---")
 

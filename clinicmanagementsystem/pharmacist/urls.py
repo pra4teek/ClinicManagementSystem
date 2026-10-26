@@ -9,6 +9,9 @@ from .views import (
     PharmacyRevenueReportView,
     PharmacyStockViewSet,
     PrescriptionQueueViewSet,
+    SupplierViewSet,
+    StockReorderRequestViewSet,
+    NotificationViewSet,
 )
 
 router = DefaultRouter()
@@ -17,6 +20,9 @@ router.register(r"stock", PharmacyStockViewSet, basename="pharmacy-stock")
 router.register(r"prescriptions", PrescriptionQueueViewSet, basename="pharmacy-prescription")
 router.register(r"bills", PharmacyBillViewSet, basename="pharmacy-bill")
 router.register(r"bill-items", PharmacyBillItemViewSet, basename="pharmacy-bill-item")
+router.register(r"suppliers", SupplierViewSet, basename="supplier")
+router.register(r"reorders", StockReorderRequestViewSet, basename="reorder")
+router.register(r"notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = router.urls + [
     path("reports/revenue/", PharmacyRevenueReportView.as_view(), name="pharmacy-revenue-report"),

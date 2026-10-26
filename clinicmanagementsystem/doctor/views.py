@@ -1,6 +1,13 @@
 from django.shortcuts import render
 from rest_framework import viewsets, filters, permissions
-from apibackendapp.models import Doctor, Consultation, Prescription, PrescriptionItem, LabPrescription
+from apibackendapp.models import (
+    Doctor,
+    Consultation,
+    Prescription,
+    PrescriptionItem,
+    LabPrescription,
+    Notification,
+)
 from .serializers import DoctorSerializer,ConsultationSerializer,PrescriptionSerializer,PrescriptionCreateSerializer,PrescriptionItemSerializer,LabPrescriptionSerializer
 
 
@@ -54,6 +61,18 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return PrescriptionCreateSerializer
         return PrescriptionSerializer
+
+    def perform_create(self, serializer):
+        prescription = serializer.save()
+        doc_name = prescription.DoctorId.Name if prescription.DoctorId else "Doctor"
+        patient_name = prescription.PatientId.Name if prescription.PatientId else "Patient"
+        Notification.objects.create(
+            RecipientRole="Pharmacist",
+            Title=f"New Prescription RX-{prescription.PrescriptionId}",
+            Message=f"Dr. {doc_name} sent a new prescription for patient {patient_name}.",
+            NotificationType="NEW_PRESCRIPTION",
+            RelatedRecordId=prescription.PrescriptionId,
+        )
 
 
 class PrescriptionItemViewSet(viewsets.ModelViewSet):
