@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import doctorService from '../services/doctorService';
@@ -231,9 +231,33 @@ function setStorage(key, val) {
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const loggedUser = authService.getCurrentUser();
-  const currentDoctor = (loggedUser && loggedUser.role === 'Doctor')
-    ? loggedUser
-    : { name: 'Dr. Prateek Pradeep', role: 'Doctor', specialization: 'General Medicine' };
+  const [availableDoctors, setAvailableDoctors] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState(() => {
+    if (loggedUser?.doctorId) return Number(loggedUser.doctorId);
+    if (loggedUser?.name && loggedUser.name.toLowerCase().includes('arun')) return 2;
+    return 3;
+  });
+
+  const currentDoctor = useMemo(() => {
+    const matched = availableDoctors.find((d) => Number(d.DoctorId) === Number(selectedDoctorId));
+    if (matched) {
+      return {
+        doctorId: matched.DoctorId,
+        name: matched.Name.startsWith('Dr.') ? matched.Name : `Dr. ${matched.Name}`,
+        role: 'Doctor',
+        specialization: matched.Specialization || 'Physician',
+        departmentName: matched.Department?.DepartmentName || 'General',
+      };
+    }
+    const isArun = String(selectedDoctorId) === '2' || (loggedUser?.name && loggedUser.name.toLowerCase().includes('arun'));
+    return {
+      doctorId: selectedDoctorId || (isArun ? 2 : 3),
+      name: isArun ? 'Dr. Arun' : (loggedUser?.name || 'Dr. Prateek Pradeep'),
+      role: 'Doctor',
+      specialization: isArun ? 'Otolaryngology (ENT)' : (loggedUser?.specialization || 'Consultant Physician'),
+      departmentName: isArun ? 'ENT' : 'General Medicine',
+    };
+  }, [availableDoctors, selectedDoctorId, loggedUser]);
   const currentUser = currentDoctor;
 
   // Navigation tab state: 'dashboard' | 'history' | 'labrequests' | 'labresults'
@@ -296,11 +320,13 @@ export default function DoctorDashboard() {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleStorageChange);
     window.addEventListener('cms_rx_updated', handleStorageChange);
+    const pollInterval = setInterval(refreshAllData, 5000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleStorageChange);
       window.removeEventListener('cms_rx_updated', handleStorageChange);
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -359,15 +385,20 @@ export default function DoctorDashboard() {
     ];
 
     try {
-      const [backendAppts, backendPatients, backendMeds, backendLabs, backendCons] = await Promise.all([
+      const [backendAppts, backendPatients, backendMeds, backendLabs, backendCons, backendDoctors] = await Promise.all([
         doctorService.getAppointments(),
         doctorService.getPatients(),
         doctorService.getMedicineCatalog(),
         doctorService.getLabCatalog(),
-        doctorService.getAllConsultations()
+        doctorService.getAllConsultations(),
+        doctorService.getDoctors(),
       ]);
 
-      if (Array.isArray(backendAppts) && backendAppts.length > 0) {
+      if (Array.isArray(backendDoctors) && backendDoctors.length > 0) {
+        setAvailableDoctors(backendDoctors);
+      }
+
+      if (Array.isArray(backendAppts)) {
         const localAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
         const mergedAppts = backendAppts.map((b) => {
           const loc = localAppts.find((l) => l.appointmentId === b.appointmentId || String(l.rawId) === String(b.rawId));
@@ -378,31 +409,22 @@ export default function DoctorDashboard() {
         });
         setAppointments(mergedAppts);
         setStorage(CMS_KEYS.APPOINTMENTS, mergedAppts);
-      } else {
-        const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
-        setAppointments(storedAppts);
       }
 
-      if (Array.isArray(backendPatients) && backendPatients.length > 0) {
+      if (Array.isArray(backendPatients)) {
         setPatients(backendPatients);
-      } else {
-        const storedPatients = getStorage(CMS_KEYS.PATIENTS, defaultPatients);
-        setPatients(storedPatients);
       }
 
-      if (Array.isArray(backendMeds) && backendMeds.length > 0) {
+      if (Array.isArray(backendMeds)) {
         setMedicines(backendMeds);
-      } else {
-        const storedMeds = getStorage(CMS_KEYS.MEDICINES, defaultMeds);
-        setMedicines(storedMeds);
       }
     } catch (err) {
-      console.warn('Backend live data sync error; using local storage:', err);
-      const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, defaultAppts);
+      console.warn('Backend live data sync error:', err);
+      const storedAppts = getStorage(CMS_KEYS.APPOINTMENTS, []);
       setAppointments(storedAppts);
-      const storedPatients = getStorage(CMS_KEYS.PATIENTS, defaultPatients);
+      const storedPatients = getStorage(CMS_KEYS.PATIENTS, []);
       setPatients(storedPatients);
-      const storedMeds = getStorage(CMS_KEYS.MEDICINES, defaultMeds);
+      const storedMeds = getStorage(CMS_KEYS.MEDICINES, []);
       setMedicines(storedMeds);
     }
   };
@@ -757,13 +779,18 @@ export default function DoctorDashboard() {
       await doctorService.createConsultation(
         newCons,
         { items: rxItems },
-        { tests: selectedLabs }
+        { tests: selectedLabs },
+        currentDoctor.doctorId
       );
     } catch (err) {
       console.warn('Backend sync failed, saved locally:', err);
     }
 
-    // Now dispatch so Pharmacist and Lab Technician portals update
+    // Now dispatch cross-tab and cross-module so Pharmacist, Receptionist, and Lab portals update immediately
+    try {
+      localStorage.setItem('cms_rx_updated_at', String(Date.now()));
+      localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+    } catch (e) {}
     window.dispatchEvent(new Event('cms_rx_updated'));
     window.dispatchEvent(new Event('cms_stock_updated'));
   };
@@ -780,8 +807,24 @@ export default function DoctorDashboard() {
     return found || { name: fallbackName || 'Patient', age: '—', gender: '—', bloodGroup: '—', phone: '—' };
   };
 
-  // Filtered queue
-  const filteredQueue = appointments
+  // Filter appointments specifically for THIS logged-in/selected doctor
+  const doctorAppointments = useMemo(() => {
+    const docId = Number(currentDoctor?.doctorId);
+    return appointments.filter((a) => {
+      if (docId && a.doctorId) {
+        return Number(a.doctorId) === docId;
+      }
+      if (currentDoctor?.name && a.doctorName) {
+        const cleanDoc = currentDoctor.name.toLowerCase().replace(/dr\.?\s*/g, '').trim();
+        const cleanAppt = a.doctorName.toLowerCase().replace(/dr\.?\s*/g, '').trim();
+        return cleanAppt.includes(cleanDoc) || cleanDoc.includes(cleanAppt);
+      }
+      return false;
+    });
+  }, [appointments, currentDoctor]);
+
+  // Filtered queue for this doctor
+  const filteredQueue = doctorAppointments
     .filter((a) => {
       if (queueFilter === 'Scheduled') return a.status === 'Scheduled';
       if (queueFilter === 'Completed') return a.status === 'Completed';
@@ -790,15 +833,15 @@ export default function DoctorDashboard() {
     .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
 
   // Lowest pending token
-  const nextScheduled = appointments
+  const nextScheduled = doctorAppointments
     .filter((a) => a.status === 'Scheduled')
     .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
   const nextTokenNum = nextScheduled.length > 0 ? nextScheduled[0].tokenNumber : null;
 
-  // Stats calculation
-  const totalCount = appointments.length;
-  const waitingCount = appointments.filter((a) => a.status === 'Scheduled').length;
-  const completedCount = appointments.filter((a) => a.status === 'Completed').length;
+  // Stats calculation for this doctor
+  const totalCount = doctorAppointments.length;
+  const waitingCount = doctorAppointments.filter((a) => a.status === 'Scheduled').length;
+  const completedCount = doctorAppointments.filter((a) => a.status === 'Completed').length;
   const prescriptionsCount = getStorage(CMS_KEYS.PRESCRIPTIONS, []).length;
 
   // Greeting date
@@ -938,14 +981,46 @@ export default function DoctorDashboard() {
           {activeSection === 'dashboard' && (
             <div>
               {/* Header Greeting */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <p className="doctor-greeting-eyebrow">{todayFormatted}</p>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main, #0f172a)', margin: '0 0 0.35rem 0' }}>
-                  {greetingTime}, {currentUser.name || 'Doctor'}
-                </h1>
-                <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.9rem', margin: 0 }}>
-                  Your patient queue is ready. Review appointments, record clinical findings, and issue prescriptions below.
-                </p>
+              <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <p className="doctor-greeting-eyebrow">{todayFormatted}</p>
+                  <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main, #0f172a)', margin: '0 0 0.35rem 0' }}>
+                    {greetingTime}, {currentUser.name || 'Doctor'}
+                  </h1>
+                  <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.9rem', margin: 0 }}>
+                    {currentUser.specialization ? `${currentUser.specialization} • ` : ''}Displaying assigned patient queue from MySQL database.
+                  </p>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label htmlFor="doctor-queue-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Active Doctor Profile:
+                  </label>
+                  <select
+                    id="doctor-queue-select"
+                    className="form-control"
+                    style={{ width: 'auto', fontWeight: 600, padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                    value={selectedDoctorId}
+                    onChange={(e) => {
+                      const newId = Number(e.target.value);
+                      setSelectedDoctorId(newId);
+                      setActiveAppt(null);
+                    }}
+                  >
+                    {availableDoctors.length > 0 ? (
+                      availableDoctors.map((doc) => (
+                        <option key={doc.DoctorId} value={doc.DoctorId}>
+                          Dr. {doc.Name} ({doc.Specialization || doc.Department?.DepartmentName || 'General'})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value={3}>Dr. Prateek Pradeep (General Medicine)</option>
+                        <option value={2}>Dr. Arun (ENT)</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
 
               {/* 4 Stat Cards */}

@@ -7,7 +7,10 @@ from apibackendapp.models import (
     Token,
     Bill,
     Payment,
+    Staff,
+    Department,
 )
+from django.utils import timezone
 
 
 # ---------- Validation helper functions (same style as reference project) ----------
@@ -76,6 +79,19 @@ class PatientSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
+    PatientName = serializers.CharField(source="PatientId.Name", read_only=True)
+    DoctorName = serializers.CharField(source="DoctorId.Name", read_only=True)
+    DepartmentName = serializers.CharField(source="DepartmentId.DepartmentName", read_only=True)
+    ReceptionistName = serializers.CharField(source="ReceptionistId.Name", read_only=True)
+
+    ReceptionistId = serializers.PrimaryKeyRelatedField(
+        queryset=Staff.objects.all(), required=False
+    )
+    DepartmentId = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(), required=False
+    )
+    AppointmentStatus = serializers.CharField(default="Scheduled", required=False)
+
     class Meta:
         model = Appointment
         fields = [
@@ -86,15 +102,25 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "DepartmentId",
             "AppointmentStatus",
             "AppointmentDateTime",
+            "PatientName",
+            "DoctorName",
+            "DepartmentName",
+            "ReceptionistName",
         ]
         read_only_fields = ["AppointmentId"]
 
     def validate(self, data):
         doctor = data.get("DoctorId")
         department = data.get("DepartmentId")
+        receptionist = data.get("ReceptionistId")
 
-        # Doctor must belong to the selected department (business rule)
-        if doctor and department:
+        if not receptionist:
+            rec_staff = Staff.objects.filter(RoleId__RoleName__iexact="Receptionist").first() or Staff.objects.first()
+            data["ReceptionistId"] = rec_staff
+
+        if doctor and not department:
+            data["DepartmentId"] = doctor.DepartmentId
+        elif doctor and department:
             if doctor.DepartmentId_id != department.DepartmentId:
                 raise serializers.ValidationError(
                     "Selected doctor does not belong to the selected department."
@@ -103,6 +129,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
 
 class TokenSerializer(serializers.ModelSerializer):
+    TokenDate = serializers.DateTimeField(default=timezone.now, required=False)
+
     class Meta:
         model = Token
         fields = [
@@ -112,7 +140,7 @@ class TokenSerializer(serializers.ModelSerializer):
             "DoctorId",
             "TokenDate",
         ]
-        read_only_fields = ["TokenNo", "TokenDate"]
+        read_only_fields = ["TokenNo"]
 
     def validate(self, data):
         appointment = data.get("AppointmentId")
@@ -120,11 +148,16 @@ class TokenSerializer(serializers.ModelSerializer):
         doctor = data.get("DoctorId")
 
         if appointment:
-            if patient and appointment.PatientId_id != patient.PatientId:
+            if not patient:
+                data["PatientId"] = appointment.PatientId
+            elif appointment.PatientId_id != patient.PatientId:
                 raise serializers.ValidationError(
                     "Patient does not match the selected appointment."
                 )
-            if doctor and appointment.DoctorId_id != doctor.DoctorId:
+
+            if not doctor:
+                data["DoctorId"] = appointment.DoctorId
+            elif appointment.DoctorId_id != doctor.DoctorId:
                 raise serializers.ValidationError(
                     "Doctor does not match the selected appointment."
                 )

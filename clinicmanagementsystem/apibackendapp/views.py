@@ -58,10 +58,17 @@ class ClinicLoginView(APIView):
         # Resolve display name and role
         role_name = user.RoleId.RoleName if user.RoleId else "Staff"
         display_name = user.Username
+        doctor_id = None
+        specialization = None
+        department_name = None
 
         doctor_profile = Doctor.objects.filter(UserId=user).first()
         if doctor_profile:
             display_name = f"Dr. {doctor_profile.Name}"
+            doctor_id = doctor_profile.DoctorId
+            specialization = doctor_profile.Specialization
+            if doctor_profile.DepartmentId:
+                department_name = doctor_profile.DepartmentId.DepartmentName
         else:
             staff_profile = Staff.objects.filter(UserId=user).first()
             if staff_profile:
@@ -83,6 +90,8 @@ class ClinicLoginView(APIView):
         access_token["user_id"] = user.UserId
         access_token["username"] = user.Username
         access_token["role"] = role_name
+        if doctor_id:
+            access_token["doctor_id"] = doctor_id
 
         user_payload = {
             "userId": user.UserId,
@@ -92,7 +101,11 @@ class ClinicLoginView(APIView):
             "role": role_name,
             "Role": role_name,
             "name": display_name,
-            "Name": display_name
+            "Name": display_name,
+            "doctorId": doctor_id,
+            "DoctorId": doctor_id,
+            "specialization": specialization,
+            "departmentName": department_name,
         }
 
         return Response(

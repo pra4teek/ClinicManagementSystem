@@ -226,10 +226,26 @@ export default function PharmacistDashboard() {
     window.addEventListener('cms_rx_updated', handleRxUpdate);
     window.addEventListener('cms_billing_updated', handleStockUpdate);
 
+    const handleStorageChange = (e) => {
+      if (!e.key || e.key.includes('rx') || e.key.includes('med') || e.key.includes('stock') || e.key.includes('bill')) {
+        handleRxUpdate();
+        handleStockUpdate();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleRxUpdate);
+    const pollInterval = setInterval(() => {
+      handleRxUpdate();
+    }, 5000);
+
     return () => {
       window.removeEventListener('cms_stock_updated', handleStockUpdate);
       window.removeEventListener('cms_rx_updated', handleRxUpdate);
       window.removeEventListener('cms_billing_updated', handleStockUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleRxUpdate);
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -244,7 +260,7 @@ export default function PharmacistDashboard() {
     const totalMedicines = medicines.length;
     const lowStockMedicines = medicines.filter(m => m.quantity > 0 && m.quantity <= (m.minThreshold || 20));
     const outOfStockMedicines = medicines.filter(m => m.quantity === 0);
-    const pendingPrescriptions = prescriptions.filter(r => r.status === 'Pending' || !r.status);
+    const pendingPrescriptions = prescriptions.filter(r => r.status === 'Pending' || r.status === 'Not Dispensed' || !r.status);
     const dispensedPrescriptions = prescriptions.filter(r => r.status === 'Dispensed');
     
     const todayBills = bills;
@@ -375,7 +391,11 @@ export default function PharmacistDashboard() {
         (r.doctorName || '').toLowerCase().includes(rxSearch.toLowerCase()) ||
         (r.diagnosis || '').toLowerCase().includes(rxSearch.toLowerCase());
       
-      const matchStatus = rxStatusFilter === 'All' || r.status === rxStatusFilter;
+      const matchStatus = rxStatusFilter === 'All'
+        ? true
+        : rxStatusFilter === 'Pending'
+          ? (r.status === 'Pending' || r.status === 'Not Dispensed' || !r.status)
+          : r.status === rxStatusFilter;
       return matchSearch && matchStatus;
     });
   }, [prescriptions, rxSearch, rxStatusFilter]);

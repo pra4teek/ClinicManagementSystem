@@ -48,7 +48,7 @@ export const pharmacistService = {
         if (medId) stockMap.set(Number(medId), s);
       });
 
-      return meds.map(m => {
+      const mapped = meds.map(m => {
         const s = stockMap.get(Number(m.MedicineId)) || {};
         const qty = s.QuantityOnHand !== undefined ? Number(s.QuantityOnHand) : (m.StockQuantity !== undefined ? Number(m.StockQuantity) : 0);
         const minThresh = s.ReorderLevel !== undefined ? Number(s.ReorderLevel) : 20;
@@ -81,6 +81,8 @@ export const pharmacistService = {
           isActive: m.isActive !== false
         };
       });
+      localStorage.setItem(PHARMACY_STORAGE_KEYS.MEDICINES, JSON.stringify(mapped));
+      return mapped;
     } catch (err) {
       console.warn('Backend medicines fetch error:', err);
       return [];
@@ -141,6 +143,14 @@ export const pharmacistService = {
   },
 
   getLocalMedicines: () => {
+    try {
+      const stored = localStorage.getItem(PHARMACY_STORAGE_KEYS.MEDICINES);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('getLocalMedicines parse error:', e);
+    }
     return [];
   },
 
@@ -170,6 +180,8 @@ export const pharmacistService = {
           } catch (e) {}
         }
 
+        const isPending = !p.Status || p.Status === 'Not Dispensed' || p.Status === 'Pending';
+
         return {
           id: 'RX-' + p.PrescriptionId,
           prescriptionId: 'RX-' + p.PrescriptionId,
@@ -185,7 +197,8 @@ export const pharmacistService = {
           date: formattedDate,
           diagnosis: p.Diagnosis || 'Prescribed by Doctor',
           notes: p.Notes || 'Dispense as directed',
-          status: p.Status || 'Pending',
+          status: isPending ? 'Pending' : p.Status,
+          rawStatus: p.Status,
           items
         };
       });
@@ -208,7 +221,10 @@ export const pharmacistService = {
     }
 
     // Check inventory stock availability
-    const inventory = pharmacistService.getLocalMedicines();
+    let inventory = pharmacistService.getLocalMedicines();
+    if (!inventory || inventory.length === 0) {
+      inventory = await pharmacistService.getMedicines();
+    }
     const stockErrors = [];
 
     const itemsToDispense = (targetRx.items || targetRx.Medicines || []).map(item => {
@@ -218,7 +234,7 @@ export const pharmacistService = {
       
       // Find matching inventory medicine by ID or name
       const foundMed = inventory.find(m => 
-        (medId && m.id === medId) || 
+        (medId && (m.id === medId || String(m.rawId) === String(medId) || String(m.MedicineId) === String(medId))) || 
         (name && m.name.toLowerCase().trim() === name.toLowerCase().trim())
       );
 
@@ -230,6 +246,7 @@ export const pharmacistService = {
 
       const unitPrice = foundMed ? foundMed.sellingPrice : (parseFloat(item.unitPrice || 10));
       return {
+        prescriptionItemId: item.prescriptionItemId || item.id,
         medicineId: foundMed ? foundMed.id : medId,
         medicineName: foundMed ? foundMed.name : name,
         dosage: item.dosage || foundMed?.dosage || '',
@@ -248,7 +265,7 @@ export const pharmacistService = {
     // Try backend dispense endpoint if real API
     let backendSuccess = false;
     try {
-      const rawRxId = targetRx.id ? String(targetRx.id).replace(/\D/g, '') : null;
+      const rawRxId = targetRx.rawId || (targetRx.id ? String(targetRx.id).replace(/\D/g, '') : null);
       if (rawRxId) {
         await api.post(`/pharmacist/prescriptions/${rawRxId}/dispense/`, {
           items: itemsToDispense.map(it => ({
@@ -258,8 +275,8 @@ export const pharmacistService = {
         });
         backendSuccess = true;
       }
-    } catch {
-      // Continue with atomic local synchronization
+    } catch (apiErr) {
+      console.warn('Backend dispense endpoint warning:', apiErr?.response?.data || apiErr?.message);
     }
 
     // Deduct stock in inventory
@@ -349,7 +366,11 @@ export const pharmacistService = {
       timestamp: new Date().toISOString()
     });
 
-    // Fire cross-module events
+    // Fire cross-module events across tabs and windows
+    try {
+      localStorage.setItem('cms_rx_updated_at', String(Date.now()));
+      localStorage.setItem('cms_billing_updated_at', String(Date.now()));
+    } catch (e) {}
     window.dispatchEvent(new Event('cms_stock_updated'));
     window.dispatchEvent(new Event('cms_rx_updated'));
     window.dispatchEvent(new Event('cms_billing_updated'));

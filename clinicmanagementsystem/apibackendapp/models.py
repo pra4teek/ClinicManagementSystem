@@ -197,6 +197,7 @@ class Prescription(models.Model):
     PRESCRIPTION_CHOICES=[
                 ('Dispensed','Dispensed'),
                 ('Not Dispensed','Not Dispensed'),
+                ('Pending','Pending'),
                 ('Partially Dispensed','Partially Dispensed')
             ]
     PrescriptionId=models.AutoField(primary_key=True)

@@ -95,64 +95,78 @@ function saveLocal(key, val) {
 
 const doctorService = {
   // ── APPOINTMENT QUEUE (FETCHES REAL MYSQL BACKEND DATA) ───────────
+  getDoctors: async () => {
+    try {
+      const res = await api.get('/doctors/');
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {}
+    return [];
+  },
+
   getAppointments: async () => {
     try {
-      const [apptsRes, tokensRes, patientsRes] = await Promise.all([
+      const [apptsRes, tokensRes, patientsRes, doctorsRes] = await Promise.all([
         api.get('/receptionist/appointments/'),
         api.get('/receptionist/tokens/'),
         api.get('/receptionist/patients/'),
+        api.get('/doctors/').catch(() => ({ data: [] })),
       ]);
 
       const appts = Array.isArray(apptsRes.data) ? apptsRes.data : [];
       const tokens = Array.isArray(tokensRes.data) ? tokensRes.data : [];
       const patients = Array.isArray(patientsRes.data) ? patientsRes.data : [];
+      const doctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
 
-      if (appts.length > 0) {
-        const mapped = appts.map((a) => {
-          const pat = patients.find((p) => p.PatientId === a.PatientId) || {};
-          const tok = tokens.find((t) => t.AppointmentId === a.AppointmentId) || {};
+      const mapped = appts.map((a) => {
+        const pat = patients.find((p) => Number(p.PatientId) === Number(a.PatientId)) || {};
+        const tok = tokens.find((t) => Number(t.AppointmentId) === Number(a.AppointmentId)) || {};
+        const doc = doctors.find((d) => Number(d.DoctorId) === Number(a.DoctorId)) || {};
 
-          let formattedTime = '10:00 AM';
-          if (a.AppointmentDateTime) {
-            try {
-              formattedTime = new Date(a.AppointmentDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } catch (e) {}
-          }
+        let formattedTime = '10:00 AM';
+        if (a.AppointmentDateTime) {
+          try {
+            formattedTime = new Date(a.AppointmentDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } catch (e) {}
+        }
 
-          let age = 30;
-          if (pat.DOB) {
-            const birthYear = new Date(pat.DOB).getFullYear();
-            age = new Date().getFullYear() - birthYear;
-          }
+        let age = 30;
+        if (pat.DOB) {
+          const birthYear = new Date(pat.DOB).getFullYear();
+          age = new Date().getFullYear() - birthYear;
+        }
 
-          return {
-            id: a.AppointmentId,
-            appointmentId: `APT-${a.AppointmentId}`,
-            rawId: a.AppointmentId,
-            patientId: `PAT-${pat.PatientId || a.PatientId}`,
-            rawPatientId: pat.PatientId || a.PatientId,
-            patientName: pat.Name || `Patient #${a.PatientId}`,
-            age: age,
-            gender: pat.Gender || 'Male',
-            phone: pat.PhoneNumber || '—',
-            bloodGroup: pat.BloodGroup || 'O+',
-            doctorName: 'Dr. Prateek Pradeep',
-            tokenNumber: tok.TokenNo || a.AppointmentId,
-            time: formattedTime,
-            status: a.AppointmentStatus || 'Scheduled',
-            reason: a.AppointmentStatus === 'Completed' ? 'Follow-up checkup' : 'Clinical consultation & checkup'
-          };
-        });
+        const resolvedDoctorName = doc.Name
+          ? (doc.Name.startsWith('Dr.') ? doc.Name : `Dr. ${doc.Name}`)
+          : (a.DoctorName ? (a.DoctorName.startsWith('Dr.') ? a.DoctorName : `Dr. ${a.DoctorName}`) : 'Doctor');
 
-        saveLocal(STORAGE_KEYS.APPOINTMENTS, mapped);
-        return mapped;
-      }
+        return {
+          id: a.AppointmentId,
+          appointmentId: `APT-${a.AppointmentId}`,
+          rawId: a.AppointmentId,
+          patientId: `PAT-${pat.PatientId || a.PatientId}`,
+          rawPatientId: pat.PatientId || a.PatientId,
+          patientName: pat.Name || `Patient #${a.PatientId}`,
+          age: age,
+          gender: pat.Gender || 'Male',
+          phone: pat.PhoneNumber || '—',
+          bloodGroup: pat.BloodGroup || 'O+',
+          doctorId: a.DoctorId,
+          doctorName: resolvedDoctorName,
+          tokenNumber: tok.TokenNo || a.AppointmentId,
+          time: formattedTime,
+          status: a.AppointmentStatus || 'Scheduled',
+          reason: a.AppointmentStatus === 'Completed' ? 'Follow-up checkup' : 'Clinical consultation & checkup'
+        };
+      });
+
+      saveLocal(STORAGE_KEYS.APPOINTMENTS, mapped);
+      return mapped;
     } catch (err) {
-      console.warn('API getAppointments fallback:', err);
+      console.warn('API getAppointments error:', err);
+      return getLocal(STORAGE_KEYS.APPOINTMENTS, []);
     }
-    const local = getLocal(STORAGE_KEYS.APPOINTMENTS, DEFAULT_APPOINTMENTS);
-    saveLocal(STORAGE_KEYS.APPOINTMENTS, local);
-    return local;
   },
 
   // ── PATIENTS CATALOG ─────────────────────────────────────────────
@@ -373,7 +387,7 @@ const doctorService = {
   },
 
   // ── SAVE CONSULTATION TO BACKEND ─────────────────────────────────
-  createConsultation: async (consultationData, rxData, labData) => {
+  createConsultation: async (consultationData, rxData, labData, passedDoctorId = null) => {
     try {
       const rawApptId = typeof consultationData.appointmentId === 'string' && consultationData.appointmentId.startsWith('APT-')
         ? parseInt(consultationData.appointmentId.replace('APT-', ''), 10)
@@ -383,10 +397,12 @@ const doctorService = {
         ? parseInt(consultationData.patientId.replace('PAT-', ''), 10)
         : parseInt(consultationData.patientId, 10);
 
+      const resolvedDocId = passedDoctorId || consultationData.doctorId || 3;
+
       const consPayload = {
         AppointmentId: rawApptId,
         PatientId: rawPatId,
-        DoctorId: 3, // Dr. Prateek Pradeep (seeded DoctorId: 3)
+        DoctorId: resolvedDocId,
         ConsultationStatus: 'Completed',
         Diagnosis: (consultationData.diagnosis || 'Clinical evaluation').slice(0, 100),
         Symptoms: (consultationData.symptoms || 'General discomfort').slice(0, 100),
@@ -405,9 +421,9 @@ const doctorService = {
           const rxPayload = {
             ConsultationId: createdConsId,
             PatientId: rawPatId,
-            DoctorId: 3,
+            DoctorId: resolvedDocId,
             PrescriptionDateTime: new Date().toISOString(),
-            Status: 'Pending',
+            Status: 'Not Dispensed',
             items: rxData.items.map((it) => {
               const matchedMed = medsList.find((m) => m.MedicineName.toLowerCase().includes(it.medicineName.toLowerCase()) || it.medicineName.toLowerCase().includes(m.MedicineName.toLowerCase()));
               return {
@@ -439,9 +455,9 @@ const doctorService = {
               await api.post('/lab/lab-prescriptions/', {
                 ConsultationId: createdConsId,
                 PatientId: rawPatId,
-                DoctorId: 3,
+                DoctorId: resolvedDocId,
                 LabTestId: matchedTest.LabtestId,
-                Status: 'Pending',
+                Status: 'Not Dispensed',
                 SampleType: 'Venous Blood',
                 LabTestDate: new Date().toISOString()
               });
@@ -464,18 +480,19 @@ const doctorService = {
   },
 
   // ── INSTANT LAB TEST REQUEST ─────────────────────────────────────
-  requestLabTest: async (patientId, tests, remarks = '') => {
+  requestLabTest: async (patientId, tests, remarks = '', passedDoctorId = null) => {
     try {
       const rawPatId = typeof patientId === 'string' ? parseInt(patientId.replace(/\D/g, ''), 10) : patientId;
       const testsRes = await api.get('/lab/lab-tests/');
       const testsList = Array.isArray(testsRes.data) ? testsRes.data : [];
+      const resolvedDocId = passedDoctorId || 3;
 
       for (const testName of tests) {
         let matchedTest = testsList.find(t => testName.toLowerCase().includes(t.TestName.toLowerCase()) || t.TestName.toLowerCase().includes(testName.toLowerCase()));
         const testId = matchedTest ? matchedTest.LabtestId : (testsList[0]?.LabtestId || 1);
         await api.post('/lab/lab-prescriptions/', {
           PatientId: rawPatId,
-          DoctorId: 3,
+          DoctorId: resolvedDocId,
           LabTestId: testId,
           Status: 'Pending',
           SampleType: 'Venous Blood',

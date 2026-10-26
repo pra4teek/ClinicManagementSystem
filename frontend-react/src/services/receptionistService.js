@@ -36,6 +36,21 @@ const receptionistService = {
     return asList(response.data);
   },
 
+  async createAppointment(payload) {
+    const response = await api.post('/receptionist/appointments/', payload);
+    return response.data;
+  },
+
+  async updateAppointment(id, payload) {
+    const response = await api.patch(`/receptionist/appointments/${id}/`, payload);
+    return response.data;
+  },
+
+  async cancelAppointment(id) {
+    const response = await api.patch(`/receptionist/appointments/${id}/`, { AppointmentStatus: 'Cancelled' });
+    return response.data;
+  },
+
   async getTokens() {
     const response = await api.get('/receptionist/tokens/');
     return asList(response.data);

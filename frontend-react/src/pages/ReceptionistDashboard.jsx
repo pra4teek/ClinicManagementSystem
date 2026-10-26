@@ -61,6 +61,8 @@ export default function ReceptionistDashboard() {
   const [form, setForm] = useState(emptyPatient);
   const [formState, setFormState] = useState({ submitting: false, error: '', success: '' });
   const [selectedBill, setSelectedBill] = useState(null);
+  const [bookingForm, setBookingForm] = useState({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
+  const [bookingState, setBookingState] = useState({ submitting: false, error: '', success: '' });
 
   const refresh = async () => {
     setLoading(true);
@@ -88,7 +90,61 @@ export default function ReceptionistDashboard() {
     setLoading(false);
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+    const handleUpdate = () => refresh();
+    window.addEventListener('cms_rx_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    const poll = setInterval(refresh, 5000);
+    return () => {
+      window.removeEventListener('cms_rx_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      clearInterval(poll);
+    };
+  }, []);
+
+  const handleBookAppointment = async (e) => {
+    e.preventDefault();
+    setBookingState({ submitting: true, error: '', success: '' });
+    try {
+      const res = await receptionistService.createAppointment({
+        PatientId: Number(bookingForm.PatientId),
+        DoctorId: Number(bookingForm.DoctorId),
+        AppointmentDateTime: bookingForm.AppointmentDateTime || new Date().toISOString(),
+        AppointmentStatus: 'Scheduled',
+      });
+      setBookingState({
+        submitting: false,
+        error: '',
+        success: `Appointment #${res.AppointmentId} booked for ${res.PatientName || 'Patient'} with Dr. ${res.DoctorName || 'Doctor'}! Token issued.`
+      });
+      setBookingForm({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
+      try {
+        localStorage.setItem('cms_appointments_updated_at', String(Date.now()));
+      } catch (e) {}
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      refresh();
+    } catch (err) {
+      setBookingState({
+        submitting: false,
+        error: getApiErrorMessage(err, 'Unable to book appointment.'),
+        success: ''
+      });
+    }
+  };
+
+  const handleCancelAppointment = async (apptId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    try {
+      await receptionistService.cancelAppointment(apptId);
+      window.dispatchEvent(new Event('cms_rx_updated'));
+      refresh();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Unable to cancel appointment.'));
+    }
+  };
 
   const patientById = useMemo(() => new Map(data.patients.map((patient) => [String(patient.PatientId), patient])), [data.patients]);
   const doctorById = useMemo(() => new Map(data.doctors.map((doctor) => [String(doctor.DoctorId), doctor])), [data.doctors]);
@@ -228,14 +284,19 @@ export default function ReceptionistDashboard() {
                             <td>{formatDateTime(appointment.AppointmentDateTime)}</td>
                             <td><span className={`receptionist-status ${statusClass(appointment.AppointmentStatus)}`}>{appointment.AppointmentStatus}</span></td>
                             <td>
-                              <button
-                                type="button"
-                                className="receptionist-text-button"
-                                disabled
-                                title="Appointment status changes are not writable through the backend serializer."
-                              >
-                                Unavailable
-                              </button>
+                              {appointment.AppointmentStatus === 'Scheduled' ? (
+                                <button
+                                  type="button"
+                                  className="receptionist-button"
+                                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5' }}
+                                  onClick={() => handleCancelAppointment(appointment.AppointmentId)}
+                                  title="Cancel Appointment"
+                                >
+                                  Cancel
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{appointment.AppointmentStatus}</span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -255,8 +316,70 @@ export default function ReceptionistDashboard() {
 
         <div className="receptionist-column">
           <section className="receptionist-card" id="register"><div className="receptionist-card-header"><div><h2>Register patient</h2><p>All fields required by the Django patient model.</p></div></div><form className="receptionist-card-body receptionist-form" onSubmit={registerPatient}><PatientFields value={form} onChange={setForm} disabled={formState.submitting} />{formState.error && <p className="receptionist-form-error" role="alert">{formState.error}</p>}{formState.success && <p className="receptionist-form-success" role="status">{formState.success}</p>}<button type="submit" className="receptionist-button" disabled={formState.submitting}>{formState.submitting ? 'Registering…' : 'Register patient'}</button></form></section>
-          <section className="receptionist-card"><div className="receptionist-card-header"><div><h2>Book appointment</h2><p>Appointment booking is currently unavailable.</p></div></div><div className="receptionist-card-body"><p className="receptionist-notice">The backend requires a valid <strong>ReceptionistId</strong>, but the current authentication flow does not expose a staff profile ID. It also has no field for the legacy reason-for-visit value. No appointment will be created.</p></div></section>
-          <section className="receptionist-card"><div className="receptionist-card-header"><div><h2>Update appointment</h2><p>Status changes and cancellation are unavailable.</p></div></div><div className="receptionist-card-body"><p className="receptionist-notice">The backend marks <strong>AppointmentStatus</strong> as read-only. Token creation is also unavailable because <strong>TokenDate</strong> is required by the model but read-only in the API serializer.</p></div></section>
+          <section className="receptionist-card" id="book-appointment">
+            <div className="receptionist-card-header">
+              <div>
+                <h2>Book appointment</h2>
+                <p>Schedule a patient appointment with a doctor and issue a token.</p>
+              </div>
+            </div>
+            <form className="receptionist-card-body receptionist-form" onSubmit={handleBookAppointment}>
+              <div className="receptionist-field">
+                <label htmlFor="booking-patient">Select Patient</label>
+                <select
+                  id="booking-patient"
+                  value={bookingForm.PatientId}
+                  onChange={(e) => setBookingForm({ ...bookingForm, PatientId: e.target.value })}
+                  disabled={bookingState.submitting}
+                  required
+                >
+                  <option value="">-- Choose registered patient --</option>
+                  {data.patients.map((p) => (
+                    <option key={p.PatientId} value={p.PatientId}>
+                      {p.Name} (ID: PAT-{p.PatientId}) - {p.PhoneNumber}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="receptionist-field">
+                <label htmlFor="booking-doctor">Select Doctor</label>
+                <select
+                  id="booking-doctor"
+                  value={bookingForm.DoctorId}
+                  onChange={(e) => setBookingForm({ ...bookingForm, DoctorId: e.target.value })}
+                  disabled={bookingState.submitting}
+                  required
+                >
+                  <option value="">-- Choose doctor --</option>
+                  {data.doctors.map((d) => (
+                    <option key={d.DoctorId} value={d.DoctorId}>
+                      Dr. {d.Name} ({d.Specialization || 'General Practice'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="receptionist-field">
+                <label htmlFor="booking-datetime">Appointment Date &amp; Time</label>
+                <input
+                  id="booking-datetime"
+                  type="datetime-local"
+                  value={bookingForm.AppointmentDateTime}
+                  onChange={(e) => setBookingForm({ ...bookingForm, AppointmentDateTime: e.target.value })}
+                  disabled={bookingState.submitting}
+                  required
+                />
+              </div>
+
+              {bookingState.error && <p className="receptionist-form-error" role="alert">{bookingState.error}</p>}
+              {bookingState.success && <p className="receptionist-form-success" role="status">{bookingState.success}</p>}
+
+              <button type="submit" className="receptionist-button" disabled={bookingState.submitting}>
+                {bookingState.submitting ? 'Booking…' : 'Book Appointment & Issue Token'}
+              </button>
+            </form>
+          </section>
         </div>
       </div>
 

@@ -51,6 +51,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
     permission_classes = [permissions.AllowAny]
 
+    def perform_create(self, serializer):
+        appointment = serializer.save()
+        from apibackendapp.models import Token
+        if not Token.objects.filter(AppointmentId=appointment).exists():
+            Token.objects.create(
+                AppointmentId=appointment,
+                PatientId=appointment.PatientId,
+                DoctorId=appointment.DoctorId,
+                TokenDate=appointment.AppointmentDateTime
+            )
+
 
 class TokenViewSet(viewsets.ModelViewSet):
     queryset = (

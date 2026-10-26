@@ -38,7 +38,7 @@ export default function AppointmentList() {
       </div>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <Link to="/receptionist" className="btn btn-sm btn-outline">Reception Portal</Link>
-        <Link to="/appointments/new" className="btn btn-sm btn-outline">Booking unavailable</Link>
+        <Link to="/appointments/new" className="btn btn-sm btn-primary">+ Book Appointment</Link>
       </div>
     </div>
     {error && <p className="text-danger text-sm">{error}</p>}

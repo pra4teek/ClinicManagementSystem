@@ -51,6 +51,9 @@ const authService = {
         username: returnedUser.username || returnedUser.Username || trimmedUser,
         role: returnedUser.role || returnedUser.Role || (trimmedUser.toLowerCase() === 'admin' ? 'Admin' : 'Staff'),
         name: returnedUser.name || returnedUser.Name || (trimmedUser.toLowerCase() === 'admin' ? 'Bala Weslin' : trimmedUser),
+        doctorId: returnedUser.doctorId || returnedUser.DoctorId || null,
+        specialization: returnedUser.specialization || null,
+        departmentName: returnedUser.departmentName || null,
       };
 
       localStorage.setItem('token', token);

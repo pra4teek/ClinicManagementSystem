@@ -50,9 +50,15 @@ export default function Login() {
   };
 
   // Quick Demo Access for each role
-  const loginAsRole = (name, role, path) => {
+  const loginAsRole = (name, role, path, doctorId = null, specialization = null) => {
     localStorage.setItem('token', `demo-token-${role.toLowerCase()}-${Date.now()}`);
-    localStorage.setItem('user', JSON.stringify({ name, role, username: role.toLowerCase() }));
+    localStorage.setItem('user', JSON.stringify({
+      name,
+      role,
+      username: doctorId === 2 ? 'Dr.Arun' : (doctorId === 3 ? 'prateek' : role.toLowerCase()),
+      doctorId,
+      specialization
+    }));
     navigate(path);
   };
 
@@ -150,10 +156,20 @@ export default function Login() {
               type="button"
               className="btn btn-sm btn-outline"
               style={{ justifyContent: 'center', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-              onClick={() => loginAsRole('Dr. Prateek Pradeep', 'Doctor', '/doctor')}
+              onClick={() => loginAsRole('Dr. Prateek Pradeep', 'Doctor', '/doctor', 3, 'Consultant Physician')}
             >
               <StethoscopeIcon size={14} color="var(--primary)" />
-              Doctor
+              Dr. Prateek (Med)
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              style={{ justifyContent: 'center', borderColor: '#0f766e', color: '#0f766e', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => loginAsRole('Dr. Arun', 'Doctor', '/doctor', 2, 'Otolaryngology (ENT)')}
+            >
+              <StethoscopeIcon size={14} color="#0f766e" />
+              Dr. Arun (ENT)
             </button>
 
             <button
