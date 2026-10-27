@@ -1862,7 +1862,7 @@ export default function PharmacistDashboard() {
       {viewBill && (
         <div className="pharmacist-modal-overlay" onClick={() => setViewBill(null)}>
           <div className="pharmacist-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="pharmacist-modal-header">
+            <div className="pharmacist-modal-header no-print">
               <h3>Pharmacy Tax Invoice — {viewBill.billNumber}</h3>
               <button
                 style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -1871,7 +1871,7 @@ export default function PharmacistDashboard() {
                 ×
               </button>
             </div>
-            <div className="pharmacist-modal-body" id="printable-receipt">
+            <div className="pharmacist-modal-body invoice-print-container" id="invoice-print-area">
               <div style={{ textAlign: 'center', marginBottom: '1.25rem', borderBottom: '1px dashed var(--border)', paddingBottom: '1rem' }}>
                 <h2 style={{ margin: '0 0 0.25rem', color: 'var(--primary)', fontSize: '1.4rem' }}>CarePoint Clinic & Pharmacy</h2>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -1888,7 +1888,7 @@ export default function PharmacistDashboard() {
                 <div><strong>Patient Name:</strong> {viewBill.patientName}</div>
                 <div><strong>Prescription Ref:</strong> {viewBill.prescriptionId || 'Direct'}</div>
                 <div><strong>Doctor:</strong> {viewBill.doctorName || 'Staff Doctor'}</div>
-                <div><strong>Dispensed By:</strong> {viewBill.dispensedBy || 'Adarsh Chandran'}</div>
+                <div><strong>Dispensed By:</strong> {viewBill.dispensedBy || currentUser.name || 'Adarsh Chandran'}</div>
               </div>
 
               <table className="pharmacist-table" style={{ border: '1px solid var(--border)', marginBottom: '1rem' }}>
@@ -1919,9 +1919,13 @@ export default function PharmacistDashboard() {
                   Grand Total: <strong>₹{viewBill.totalAmount}</strong>
                 </div>
               </div>
+
+              <div className="invoice-footer-line" style={{ textAlign: 'center', marginTop: '1.5rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border, #cbd5e1)', fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
+                Thank you for choosing CarePoint Clinic & Pharmacy. Get well soon! · Computer generated tax invoice, no signature required.
+              </div>
             </div>
 
-            <div className="pharmacist-modal-footer">
+            <div className="pharmacist-modal-footer no-print">
               <button className="btn btn-outline" onClick={() => setViewBill(null)}>
                 Close
               </button>

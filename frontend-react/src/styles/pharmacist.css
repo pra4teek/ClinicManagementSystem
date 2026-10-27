@@ -652,3 +652,174 @@
     padding: 1.25rem 1rem 2rem;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   10. PRINT FLOW STYLES (CarePoint Pharmacy Invoice)
+────────────────────────────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  /* Hide non-printable application UI, sidebars, banners, and modal controls */
+  .no-print,
+  .pharmacist-sidebar,
+  .pharmacist-main-area,
+  .pharmacist-toast,
+  .pharmacist-top-banner,
+  .pharmacist-modal-header,
+  .pharmacist-modal-footer {
+    display: none !important;
+  }
+
+  /* Explicitly re-show invoice container and its entire contents (overriding doctor.css body * { visibility: hidden }) */
+  #invoice-print-area,
+  #invoice-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Reset document and viewport layout to single clean sheet */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    width: 100% !important;
+  }
+
+  /* Reset outer shell and modal containers so they don't clip, shadow, or trap flow */
+  .pharmacist-shell {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    min-height: auto !important;
+    width: 100% !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .pharmacist-modal-overlay {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    animation: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    z-index: auto !important;
+  }
+
+  .pharmacist-modal {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .pharmacist-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  /* Dedicated Invoice Print Area - crisp, clean, single A4 page */
+  #invoice-print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* High contrast colors and clean typography for print */
+  #invoice-print-area h2 {
+    color: #0057b8 !important;
+    font-size: 1.35rem !important;
+    margin-bottom: 0.25rem !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #invoice-print-area p,
+  #invoice-print-area div,
+  #invoice-print-area span {
+    color: #0f172a !important;
+  }
+
+  #invoice-print-area strong,
+  #invoice-print-area b {
+    color: #000000 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Clean, professional tabular layout for medicines */
+  #invoice-print-area table,
+  #invoice-print-area .pharmacist-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    font-size: 9.5pt !important;
+    margin: 1rem 0 !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  #invoice-print-area th,
+  #invoice-print-area td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  #invoice-print-area th {
+    background-color: #f1f5f9 !important;
+    font-weight: 600 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #invoice-print-area .invoice-footer-line {
+    color: #64748b !important;
+    border-top: 1px dashed #cbd5e1 !important;
+    margin-top: 1.5rem !important;
+    padding-top: 0.75rem !important;
+    font-size: 8pt !important;
+  }
+}
+
