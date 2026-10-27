@@ -70,25 +70,46 @@ const BuildingIcon = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
-const BarChartIcon = ({ size = 18, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="20" x2="12" y2="10" />
-    <line x1="18" y1="20" x2="18" y2="4" />
-    <line x1="6" y1="20" x2="6" y2="16" />
-  </svg>
-);
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="pharmacist-card" style={{ padding: '2rem', textAlign: 'center', margin: '1rem 0' }}>
+          <h3 style={{ color: '#dc2626', marginBottom: '0.5rem' }}>Failed to load Dispense & Audit Log</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            {this.state.error?.message || 'An error occurred while displaying this section.'}
+          </p>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const HistoryIcon = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
     <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-
-const SettingsIcon = ({ size = 18, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 );
 
@@ -125,6 +146,9 @@ export default function PharmacistDashboard() {
   const [bills, setBills] = useState([]);
   const [reorders, setReorders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState(null);
   const [dispenseLog, setDispenseLog] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -184,23 +208,29 @@ export default function PharmacistDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [medsList, rxList, billsList, reordersList, suppliersList] = await Promise.all([
+      setLogsLoading(true);
+      setLogsError(null);
+      const [medsList, rxList, billsList, reordersList, suppliersList, logsList] = await Promise.all([
         pharmacistService.getMedicines(),
         pharmacistService.getPrescriptions(),
         pharmacistService.getBills(),
         pharmacistService.getReorders(),
-        pharmacistService.getSuppliers()
+        pharmacistService.getSuppliers(),
+        pharmacistService.getDispenseLog()
       ]);
-      setMedicines(medsList);
-      setPrescriptions(rxList);
-      setBills(billsList);
-      setReorders(reordersList);
-      setSuppliers(suppliersList);
-      setDispenseLog(pharmacistService.getDispenseLog());
+      setMedicines(medsList || []);
+      setPrescriptions(rxList || []);
+      setBills(billsList || []);
+      setReorders(reordersList || []);
+      setSuppliers(suppliersList || []);
+      setLogs(Array.isArray(logsList) ? logsList : []);
+      setDispenseLog(Array.isArray(logsList) ? logsList : []);
     } catch (err) {
       console.error('Error loading pharmacy data:', err);
+      setLogsError('Failed to load dispense records.');
     } finally {
       setLoading(false);
+      setLogsLoading(false);
     }
   };
 
@@ -209,15 +239,21 @@ export default function PharmacistDashboard() {
 
     // Listen for live updates from Doctor or Receptionist modules
     const handleStockUpdate = async () => {
-      const [medsList, billsList, reordersList] = await Promise.all([
-        pharmacistService.getMedicines(),
-        pharmacistService.getBills(),
-        pharmacistService.getReorders()
-      ]);
-      setMedicines(medsList);
-      setBills(billsList);
-      setReorders(reordersList);
-      setDispenseLog(pharmacistService.getDispenseLog());
+      try {
+        const [medsList, billsList, reordersList, logsList] = await Promise.all([
+          pharmacistService.getMedicines(),
+          pharmacistService.getBills(),
+          pharmacistService.getReorders(),
+          pharmacistService.getDispenseLog()
+        ]);
+        setMedicines(medsList || []);
+        setBills(billsList || []);
+        setReorders(reordersList || []);
+        setLogs(Array.isArray(logsList) ? logsList : []);
+        setDispenseLog(Array.isArray(logsList) ? logsList : []);
+      } catch (err) {
+        console.error('Error updating stock/logs:', err);
+      }
     };
 
     const handleRxUpdate = async () => {
@@ -559,16 +595,7 @@ export default function PharmacistDashboard() {
             Dispense & Audit Log
           </button>
 
-          <div className="pharmacist-nav-section-label">Analytics & Admin</div>
-
-          <button
-            type="button"
-            className={`pharmacist-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
-          >
-            <BarChartIcon size={18} />
-            Pharmacy Reports
-          </button>
+          <div className="pharmacist-nav-section-label">Stock Control</div>
 
           <button
             type="button"
@@ -577,15 +604,6 @@ export default function PharmacistDashboard() {
           >
             <span className="icon" style={{ fontSize: '1.1rem' }}>♻</span>
             Returns & Expiry
-          </button>
-
-          <button
-            type="button"
-            className={`pharmacist-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
-          >
-            <SettingsIcon size={18} />
-            Pharmacy Settings
           </button>
         </nav>
 
@@ -1457,174 +1475,69 @@ export default function PharmacistDashboard() {
 
           {/* TAB 7: DISPENSE & AUDIT LOG */}
           {activeTab === 'dispense-log' && (
-            <div>
-              <div className="pharmacist-header-flex">
-                <div>
-                  <h1 className="pharmacist-page-title">Dispensing & Audit Log</h1>
-                  <p className="pharmacist-page-subtitle">
-                    Immutable event audit trail for dispensing operations, stock adjustments, and replenishment
-                  </p>
+            <ErrorBoundary>
+              <div>
+                <div className="pharmacist-header-flex">
+                  <div>
+                    <h1 className="pharmacist-page-title">Dispense & Audit Log</h1>
+                    <p className="pharmacist-page-subtitle">
+                      Immutable event audit trail for dispensing operations, stock adjustments, and replenishment
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="pharmacist-card">
-                <div className="pharmacist-table-wrap">
-                  <table className="pharmacist-table">
-                    <thead>
-                      <tr>
-                        <th>Log ID</th>
-                        <th>Event Type</th>
-                        <th>Reference</th>
-                        <th>Details</th>
-                        <th>Authorized By</th>
-                        <th>Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dispenseLog.length === 0 ? (
+                <div className="pharmacist-card">
+                  <div className="pharmacist-table-wrap">
+                    <table className="pharmacist-table">
+                      <thead>
                         <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                            No audit log events recorded yet in this session.
-                          </td>
+                          <th>Date / Time</th>
+                          <th>Bill #</th>
+                          <th>Patient</th>
+                          <th>Medicine</th>
+                          <th>Quantity</th>
+                          <th>Pharmacist</th>
+                          <th>Total</th>
                         </tr>
-                      ) : (
-                        dispenseLog.map(log => (
-                          <tr key={log.id}>
-                            <td><code>{log.id}</code></td>
-                            <td>
-                              <span className={`ph-badge ${
-                                log.type === 'PRESCRIPTION_DISPENSED'
-                                  ? 'ph-badge-completed'
-                                  : (log.type === 'STOCK_RESTOCKED' ? 'ph-badge-normal' : 'ph-badge-lowstock')
-                              }`}>
-                                {log.type}
-                              </span>
+                      </thead>
+                      <tbody>
+                        {logsLoading ? (
+                          <tr>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                              Loading dispense records...
                             </td>
-                            <td><strong>{log.prescriptionId || log.medicineId || '—'}</strong></td>
-                            <td>
-                              {log.patientName && `Patient: ${log.patientName} (Bill: ${log.billNumber}, Total: ₹${log.totalAmount})`}
-                              {log.medicineName && `${log.reason || 'Stock Update'}: ${log.qty} units for ${log.medicineName}`}
-                            </td>
-                            <td>{log.dispensedBy || currentUser.name}</td>
-                            <td>{new Date(log.timestamp).toLocaleString('en-IN')}</td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 8: PHARMACY REPORTS */}
-          {activeTab === 'reports' && (
-            <div>
-              <div className="pharmacist-header-flex">
-                <div>
-                  <h1 className="pharmacist-page-title">Pharmacy Analytics & Reports</h1>
-                  <p className="pharmacist-page-subtitle">
-                    Dispensing turnover, inventory valuation, stock distribution, and medication consumption
-                  </p>
-                </div>
-              </div>
-
-              <div className="pharmacist-stats-grid">
-                <div className="pharmacist-stat-card">
-                  <div className="pharmacist-stat-icon green">
-                    <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>₹</span>
-                  </div>
-                  <div>
-                    <span className="pharmacist-stat-val">
-                      ₹{medicines.reduce((acc, m) => acc + (m.quantity * m.sellingPrice), 0).toLocaleString('en-IN')}
-                    </span>
-                    <span className="pharmacist-stat-label">Total Inventory Valuation</span>
-                  </div>
-                </div>
-
-                <div className="pharmacist-stat-card">
-                  <div className="pharmacist-stat-icon blue">
-                    <ReceiptIcon size={22} />
-                  </div>
-                  <div>
-                    <span className="pharmacist-stat-val">
-                      {prescriptions.length > 0
-                        ? `${Math.round((metrics.dispensedRxCount / prescriptions.length) * 100)}%`
-                        : '100%'}
-                    </span>
-                    <span className="pharmacist-stat-label">Prescription Fulfillment Rate</span>
-                  </div>
-                </div>
-
-                <div className="pharmacist-stat-card">
-                  <div className="pharmacist-stat-icon purple">
-                    <BoxArchiveIcon size={22} />
-                  </div>
-                  <div>
-                    <span className="pharmacist-stat-val">
-                      {medicines.reduce((acc, m) => acc + m.quantity, 0)}
-                    </span>
-                    <span className="pharmacist-stat-label">Total Units in Storage</span>
-                  </div>
-                </div>
-
-                <div className="pharmacist-stat-card">
-                  <div className="pharmacist-stat-icon amber">
-                    <TruckIcon size={22} />
-                  </div>
-                  <div>
-                    <span className="pharmacist-stat-val">{suppliers.length}</span>
-                    <span className="pharmacist-stat-label">Active Supply Partners</span>
+                        ) : logsError ? (
+                          <tr>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: '#dc2626' }}>
+                              {logsError}
+                            </td>
+                          </tr>
+                        ) : (!logs || logs.length === 0) ? (
+                          <tr>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                              No dispense records yet
+                            </td>
+                          </tr>
+                        ) : (
+                          logs.map((log, idx) => (
+                            <tr key={log?.id ?? idx}>
+                              <td>{log?.timestamp ?? log?.dispensedAt ?? "-"}</td>
+                              <td><strong>{log?.billNumber ?? log?.billId ?? "-"}</strong></td>
+                              <td>{log?.patient?.name ?? log?.patientName ?? log?.patient ?? "-"}</td>
+                              <td>{log?.medicine?.name ?? log?.medicineName ?? log?.medicine ?? "-"}</td>
+                              <td>{log?.quantity ?? log?.qty ?? "-"}</td>
+                              <td>{log?.pharmacist ?? log?.dispensedBy ?? currentUser?.name ?? "-"}</td>
+                              <td><strong>{log?.total != null ? log.total : (log?.totalAmount != null ? `₹${log.totalAmount}` : "-")}</strong></td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
-
-              <div className="pharmacist-panel-grid">
-                {/* Category Inventory Breakdown */}
-                <div className="pharmacist-card">
-                  <div className="pharmacist-card-header">
-                    <h3 className="pharmacist-card-title">Inventory Stock by Category</h3>
-                  </div>
-                  <div className="pharmacist-card-body">
-                    {['Antibiotic', 'Analgesic', 'Antacid', 'Antihistamine', 'Antidiabetic', 'Respiratory'].map(cat => {
-                      const count = medicines.filter(m => m.category === cat).reduce((acc, m) => acc + m.quantity, 0);
-                      const pct = Math.min(100, Math.round((count / 200) * 100));
-                      return (
-                        <div key={cat} style={{ marginBottom: '1rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', marginBottom: '0.3rem' }}>
-                            <strong>{cat}</strong>
-                            <span>{count} units ({pct}%)</span>
-                          </div>
-                          <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--primary)' }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* High Dispensing Turnover */}
-                <div className="pharmacist-card">
-                  <div className="pharmacist-card-header">
-                    <h3 className="pharmacist-card-title">High Demand / Fast Moving Medicines</h3>
-                  </div>
-                  <div className="pharmacist-card-body">
-                    {medicines.slice(0, 5).map((med, idx) => (
-                      <div key={med.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: idx < 4 ? '1px solid var(--border)' : 'none' }}>
-                        <div>
-                          <strong>{med.name}</strong>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{med.dosage} · MRP: ₹{med.sellingPrice}</div>
-                        </div>
-                        <span className="ph-badge ph-badge-normal">
-                          {med.quantity} in stock
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            </ErrorBoundary>
           )}
 
           {/* TAB 9: RETURNS & EXPIRED */}
@@ -1687,57 +1600,7 @@ export default function PharmacistDashboard() {
             </div>
           )}
 
-          {/* TAB 10: PHARMACY SETTINGS */}
-          {activeTab === 'settings' && (
-            <div>
-              <div className="pharmacist-header-flex">
-                <div>
-                  <h1 className="pharmacist-page-title">Pharmacy Settings & Configuration</h1>
-                  <p className="pharmacist-page-subtitle">
-                    Dispensing rules, license details, and billing parameters
-                  </p>
-                </div>
-              </div>
 
-              <div className="pharmacist-card" style={{ maxWidth: '680px' }}>
-                <div className="pharmacist-card-header">
-                  <h3 className="pharmacist-card-title">Pharmacy Operations Profile</h3>
-                </div>
-                <div className="pharmacist-card-body">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                    <div>
-                      <label className="form-label">Pharmacy Name</label>
-                      <input type="text" className="form-control" defaultValue="CarePoint Central Pharmacy" readOnly />
-                    </div>
-                    <div>
-                      <label className="form-label">Drug License Number</label>
-                      <input type="text" className="form-control" defaultValue="KL-EKM-2024-PH-8841" readOnly />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                    <div>
-                      <label className="form-label">GST Tax Rate on Medications</label>
-                      <input type="text" className="form-control" defaultValue="5.0% (Healthcare Standard)" readOnly />
-                    </div>
-                    <div>
-                      <label className="form-label">Default Reorder Threshold</label>
-                      <input type="text" className="form-control" defaultValue="20 Units" readOnly />
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label className="form-label">Head Pharmacist On Duty</label>
-                    <input type="text" className="form-control" defaultValue={`${currentUser.name} (Registration #PH-99420)`} readOnly />
-                  </div>
-
-                  <button className="btn btn-primary" onClick={() => showToast('Pharmacy settings updated successfully.')}>
-                    Save Preferences
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </main>
 

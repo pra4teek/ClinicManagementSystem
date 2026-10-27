@@ -403,17 +403,49 @@ export const pharmacistService = {
   getDispenseLog: async () => {
     try {
       const bills = await pharmacistService.getBills();
-      return bills.slice(0, 30).map((b) => ({
-        id: `LOG-${b.id}`,
-        type: 'PRESCRIPTION_DISPENSED',
-        prescriptionId: b.prescriptionId,
-        patientName: b.patientName,
-        billNumber: b.billNumber,
-        totalAmount: b.totalAmount,
-        dispensedBy: b.dispensedBy,
-        itemCount: b.items?.length || 0,
-        timestamp: b.dispensedAt
-      }));
+      const logs = [];
+      const safeBills = Array.isArray(bills) ? bills : [];
+      safeBills.forEach((b) => {
+        const items = Array.isArray(b?.items) ? b.items : [];
+        if (items.length > 0) {
+          items.forEach((it, idx) => {
+            logs.push({
+              id: `LOG-${b?.id || b?.billNumber || 'BILL'}-${it?.id || idx}`,
+              type: 'PRESCRIPTION_DISPENSED',
+              prescriptionId: b?.prescriptionId,
+              billNumber: b?.billNumber ?? (b?.BillId ? `PB-${b.BillId}` : '-'),
+              patient: { name: b?.patientName ?? b?.PatientName ?? '-' },
+              patientName: b?.patientName ?? b?.PatientName ?? '-',
+              medicine: { name: it?.medicineName ?? it?.MedicineName ?? it?.name ?? '-' },
+              medicineName: it?.medicineName ?? it?.MedicineName ?? it?.name ?? '-',
+              quantity: it?.quantity ?? it?.Quantity ?? 1,
+              pharmacist: b?.dispensedBy ?? b?.DispensedByName ?? 'Pharmacist',
+              dispensedBy: b?.dispensedBy ?? b?.DispensedByName ?? 'Pharmacist',
+              total: it?.subtotal != null ? `₹${Number(it.subtotal).toFixed(2)}` : (it?.unitPrice != null ? `₹${(Number(it.quantity || 1) * Number(it.unitPrice)).toFixed(2)}` : (b?.totalAmount != null ? `₹${b.totalAmount}` : '-')),
+              totalAmount: b?.totalAmount ?? 0,
+              timestamp: b?.dispensedAt ?? b?.BillDate ?? '-'
+            });
+          });
+        } else {
+          logs.push({
+            id: `LOG-${b?.id || b?.billNumber || 'BILL'}`,
+            type: 'PRESCRIPTION_DISPENSED',
+            prescriptionId: b?.prescriptionId,
+            billNumber: b?.billNumber ?? (b?.BillId ? `PB-${b.BillId}` : '-'),
+            patient: { name: b?.patientName ?? b?.PatientName ?? '-' },
+            patientName: b?.patientName ?? b?.PatientName ?? '-',
+            medicine: { name: '-' },
+            medicineName: '-',
+            quantity: '-',
+            pharmacist: b?.dispensedBy ?? b?.DispensedByName ?? 'Pharmacist',
+            dispensedBy: b?.dispensedBy ?? b?.DispensedByName ?? 'Pharmacist',
+            total: b?.totalAmount != null ? `₹${b.totalAmount}` : '-',
+            totalAmount: b?.totalAmount ?? 0,
+            timestamp: b?.dispensedAt ?? b?.BillDate ?? '-'
+          });
+        }
+      });
+      return logs;
     } catch {
       return [];
     }
