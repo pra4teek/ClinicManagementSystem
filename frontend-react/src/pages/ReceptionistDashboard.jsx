@@ -176,6 +176,17 @@ export default function ReceptionistDashboard() {
   const patientById = useMemo(() => new Map(data.patients.map((patient) => [String(patient.PatientId), patient])), [data.patients]);
   const doctorById = useMemo(() => new Map(data.doctors.map((doctor) => [String(doctor.DoctorId), doctor])), [data.doctors]);
   const tokenByAppointment = useMemo(() => new Map(data.tokens.map((token) => [String(token.AppointmentId), token])), [data.tokens]);
+  const visibleBills = useMemo(() => {
+    const uniqueBills = new Map();
+    data.bills.forEach((bill) => {
+      const key = `${bill.PatientId}::${bill.BillDate}::${String(bill.BillType || '').toLowerCase()}::${bill.Amount}`;
+      const existing = uniqueBills.get(key);
+      if (!existing || String(bill.BillStatus).toLowerCase() === 'paid') {
+        uniqueBills.set(key, bill);
+      }
+    });
+    return [...uniqueBills.values()];
+  }, [data.bills]);
   const visiblePatients = patientResults ?? data.patients;
   const todaysAppointments = useMemo(() => {
     const today = new Date().toDateString();
@@ -480,12 +491,12 @@ export default function ReceptionistDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {data.bills.length === 0 ? (
+                {visibleBills.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="receptionist-empty">No billing records found.</td>
                   </tr>
                 ) : (
-                  data.bills.map((bill) => (
+                  visibleBills.map((bill) => (
                     <tr key={bill.BillId}>
                       <td>{formatDate(bill.BillDate)}</td>
                       <td><strong>{patientById.get(String(bill.PatientId))?.Name || `Patient #${bill.PatientId}`}</strong></td>
