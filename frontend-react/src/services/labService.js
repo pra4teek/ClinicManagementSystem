@@ -240,15 +240,18 @@ export async function fetchLabDataFromApi() {
     api.get('/lab/lab-tests/'),
     api.get('/lab/lab-prescriptions/'),
     api.get('/lab/lab-reports/'),
-    api.get('/receptionist/bills/'),
+    api.get('/receptionist/bills/').catch((err) => {
+      console.warn('Could not load bills for lab:', err?.response?.data || err.message);
+      return { data: [] };
+    }),
   ]);
-  const testMaster = testsResponse.data.filter((test) => test.isActive).map(mapApiTest);
-  const orders = ordersResponse.data.map(mapApiOrder);
+  const testMaster = (testsResponse.data || []).filter((test) => test.isActive).map(mapApiTest);
+  const orders = (ordersResponse.data || []).map(mapApiOrder);
   return {
     testMaster,
     orders,
-    reports: reportsResponse.data.map((report) => mapApiReport(report, orders)),
-    bills: billsResponse.data
+    reports: (reportsResponse.data || []).map((report) => mapApiReport(report, orders)),
+    bills: (billsResponse.data || [])
       .filter((bill) => String(bill.BillType || '').toLowerCase().includes('lab'))
       .map((bill) => mapApiBill(bill, orders, testMaster)),
   };

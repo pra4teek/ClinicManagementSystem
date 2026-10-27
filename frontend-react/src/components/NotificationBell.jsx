@@ -51,11 +51,13 @@ export default function NotificationBell({ role = 'Pharmacist', onNotificationCl
 
     window.addEventListener('cms_rx_updated', handleCustomEvent);
     window.addEventListener('cms_stock_updated', handleCustomEvent);
+    window.addEventListener('storage', handleCustomEvent);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('cms_rx_updated', handleCustomEvent);
       window.removeEventListener('cms_stock_updated', handleCustomEvent);
+      window.removeEventListener('storage', handleCustomEvent);
     };
   }, [role]);
 

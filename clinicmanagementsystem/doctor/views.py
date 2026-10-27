@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import action
@@ -102,56 +103,78 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
         if not isinstance(prescription_items, list):
             raise ValidationError({'prescription_items': 'Expected a list of prescribed medicines.'})
         existing_prescription = consultation.prescriptions.order_by('PrescriptionId').first()
-        if prescription_items and existing_prescription is None:
-            prescription = Prescription.objects.create(
-                ConsultationId=consultation,
-                PatientId=appointment.PatientId,
-                DoctorId=doctor,
-                PrescriptionDateTime=timezone.now(),
-                Status='Not Dispensed',
-            )
-            Notification.objects.create(
-                RecipientRole='Pharmacist',
-                Title=f'New Prescription RX-{prescription.PrescriptionId}',
-                Message=f'Dr. {doctor.Name} sent a new prescription for patient {appointment.PatientId.Name}.',
-                NotificationType='NEW_PRESCRIPTION',
-                RelatedRecordId=prescription.PrescriptionId,
-            )
-            for index, item in enumerate(prescription_items):
-                if not isinstance(item, dict):
-                    raise ValidationError({'prescription_items': f'Item {index + 1} is invalid.'})
-                medicine_name = str(item.get('medicineName') or '').strip()
-                dosage_value = str(item.get('dosage') or '').strip()
-                medicine = MasterMedicine.objects.filter(MedicineName__iexact=medicine_name, isActive=True).first()
-                dosage = Dosage.objects.filter(DosageValue__iexact=dosage_value).first()
-                if medicine is None:
-                    raise ValidationError({'prescription_items': f'Medicine "{medicine_name}" is not in the active medicine catalog.'})
-                if not dosage_value:
-                    raise ValidationError({'prescription_items': f'Item {index + 1} needs a dosage.'})
-                if dosage is None:
-                    dosage = Dosage.objects.create(
-                        DosageValue=dosage_value[:50],
-                        Instructions=str(item.get('instructions') or '').strip()[:255],
-                    )
-                try:
-                    quantity = int(item.get('quantity'))
-                except (TypeError, ValueError):
-                    quantity = 0
-                if quantity < 1:
-                    raise ValidationError({'prescription_items': f'Item {index + 1} needs a valid quantity.'})
-                PrescriptionItem.objects.create(
-                    PrescriptionId=prescription,
-                    MedicineId=medicine,
-                    DosageId=dosage,
-                    Duration=str(item.get('duration') or '').strip()[:30],
-                    Frequency=str(item.get('frequency') or '').strip()[:30],
-                    Instructions=str(item.get('instructions') or '').strip()[:255],
-                    Quantity=quantity,
+        if prescription_items:
+            if existing_prescription is None:
+                prescription = Prescription.objects.create(
+                    ConsultationId=consultation,
+                    PatientId=appointment.PatientId,
+                    DoctorId=doctor,
+                    PrescriptionDateTime=timezone.now(),
+                    Status='Not Dispensed',
                 )
+                Notification.objects.create(
+                    RecipientRole='Pharmacist',
+                    Title=f'New Prescription RX-{prescription.PrescriptionId}',
+                    Message=f'Dr. {doctor.Name} sent a new prescription for patient {appointment.PatientId.Name}.',
+                    NotificationType='NEW_PRESCRIPTION',
+                    RelatedRecordId=prescription.PrescriptionId,
+                )
+            else:
+                prescription = existing_prescription
+                if prescription.Status != 'Dispensed':
+                    prescription.items.all().delete()
+                    prescription.PrescriptionDateTime = timezone.now()
+                    prescription.save(update_fields=['PrescriptionDateTime'])
+                    Notification.objects.create(
+                        RecipientRole='Pharmacist',
+                        Title=f'New Prescription RX-{prescription.PrescriptionId}',
+                        Message=f'Dr. {doctor.Name} updated prescription for patient {appointment.PatientId.Name}.',
+                        NotificationType='NEW_PRESCRIPTION',
+                        RelatedRecordId=prescription.PrescriptionId,
+                    )
+
+            if prescription.Status != 'Dispensed':
+                for index, item in enumerate(prescription_items):
+                    if not isinstance(item, dict):
+                        raise ValidationError({'prescription_items': f'Item {index + 1} is invalid.'})
+                    medicine_name = str(item.get('medicineName') or '').strip()
+                    dosage_value = str(item.get('dosage') or '').strip()
+                    medicine = MasterMedicine.objects.filter(
+                        Q(MedicineName__iexact=medicine_name) |
+                        Q(GenericName__iexact=medicine_name) |
+                        Q(MedicineName__istartswith=medicine_name),
+                        isActive=True
+                    ).first()
+                    dosage = Dosage.objects.filter(DosageValue__iexact=dosage_value).first()
+                    if medicine is None:
+                        raise ValidationError({'prescription_items': f'Medicine "{medicine_name}" is not in the active medicine catalog.'})
+                    if not dosage_value:
+                        raise ValidationError({'prescription_items': f'Item {index + 1} needs a dosage.'})
+                    if dosage is None:
+                        dosage = Dosage.objects.create(
+                            DosageValue=dosage_value[:50],
+                            Instructions=str(item.get('instructions') or '').strip()[:255],
+                        )
+                    try:
+                        quantity = int(item.get('quantity'))
+                    except (TypeError, ValueError):
+                        quantity = 0
+                    if quantity < 1:
+                        raise ValidationError({'prescription_items': f'Item {index + 1} needs a valid quantity.'})
+                    PrescriptionItem.objects.create(
+                        PrescriptionId=prescription,
+                        MedicineId=medicine,
+                        DosageId=dosage,
+                        Duration=str(item.get('duration') or '').strip()[:30],
+                        Frequency=str(item.get('frequency') or '').strip()[:30],
+                        Instructions=str(item.get('instructions') or '').strip()[:255],
+                        Quantity=quantity,
+                    )
 
         lab_orders = request.data.get('lab_orders') or []
         if not isinstance(lab_orders, list):
             raise ValidationError({'lab_orders': 'Expected a list of lab tests.'})
+        seen_test_ids = set()
         for index, item in enumerate(lab_orders):
             if isinstance(item, dict):
                 test_name = str(item.get('testName') or '').strip()
@@ -162,8 +185,24 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
             lab_test = LabTest.objects.filter(TestName__iexact=test_name, isActive=True).first()
             if lab_test is None:
                 raise ValidationError({'lab_orders': f'Lab test "{test_name}" is not in the active test catalog.'})
+            if lab_test.LabTestId in seen_test_ids:
+                continue
+            seen_test_ids.add(lab_test.LabTestId)
+
             if consultation.lab_orders.filter(LabTestId=lab_test).exists():
                 continue
+
+            existing_lp = LabPrescription.objects.filter(
+                PatientId=appointment.PatientId,
+                LabTestId=lab_test,
+                Status='Pending'
+            ).order_by('-LabTestDate').first()
+            if existing_lp:
+                if existing_lp.ConsultationId is None:
+                    existing_lp.ConsultationId = consultation
+                    existing_lp.save(update_fields=['ConsultationId'])
+                continue
+
             LabPrescription.objects.create(
                 LabTestId=lab_test,
                 PatientId=appointment.PatientId,

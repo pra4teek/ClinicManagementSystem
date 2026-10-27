@@ -281,6 +281,7 @@ export default function DoctorDashboard() {
   const [remarks, setRemarks] = useState('');
   const [rxItems, setRxItems] = useState([]);
   const [selectedLabs, setSelectedLabs] = useState([]);
+  const [sentLabs, setSentLabs] = useState([]);
   const [labRemarks, setLabRemarks] = useState('');
 
   // Prescription builder row inputs
@@ -317,23 +318,50 @@ export default function DoctorDashboard() {
     toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
   };
 
-  // Initial Data Load
+  // Initial Data Load & Gentle Background Sync
   useEffect(() => {
     refreshAllData();
 
-    const handleStorageChange = () => refreshAllData();
+    const handleStorageChange = (e) => {
+      if (!e.key || e.key.includes('appointment') || e.key.includes('rx')) {
+        syncAppointmentsOnly();
+      }
+    };
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleStorageChange);
-    window.addEventListener('cms_rx_updated', handleStorageChange);
-    const pollInterval = setInterval(refreshAllData, 5000);
+
+    const handleCustomUpdate = () => syncAppointmentsOnly();
+    window.addEventListener('cms_rx_updated', handleCustomUpdate);
+
+    // Non-disruptive periodic poll for queue updates
+    const pollInterval = setInterval(syncAppointmentsOnly, 15000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleStorageChange);
-      window.removeEventListener('cms_rx_updated', handleStorageChange);
+      window.removeEventListener('cms_rx_updated', handleCustomUpdate);
       clearInterval(pollInterval);
     };
   }, []);
+
+  const syncAppointmentsOnly = async () => {
+    try {
+      const backendAppts = await doctorService.getAppointments();
+      if (Array.isArray(backendAppts)) {
+        const mergedAppts = backendAppts.map((b) => ({
+          ...b,
+          status: b.status || 'Scheduled'
+        }));
+        setAppointments((prevAppts) => {
+          const prevKey = (prevAppts || []).map((a) => `${a.id}:${a.status}`).join('|');
+          const nextKey = mergedAppts.map((a) => `${a.id}:${a.status}`).join('|');
+          if (prevKey !== nextKey) {
+            setStorage(CMS_KEYS.APPOINTMENTS, mergedAppts);
+            return mergedAppts;
+          }
+          return prevAppts;
+        });
+      }
+    } catch (e) {}
+  };
 
   const refreshAllData = async () => {
     try {
@@ -478,6 +506,7 @@ export default function DoctorDashboard() {
         setDiagnosis('');
         setRemarks('');
         setSelectedLabs([]);
+        setSentLabs([]);
         setLabRemarks('');
         setRxItems([]);
       }
@@ -636,7 +665,8 @@ export default function DoctorDashboard() {
 
     const updatedList = [newOrder, ...labList];
     setStorage(CMS_KEYS.LAB_ORDERS, updatedList);
-    saveDraft();
+    setSentLabs((prev) => Array.from(new Set([...prev, ...selectedLabs])));
+    saveDraft({ labTests: [] });
     window.dispatchEvent(new Event('cms_rx_updated'));
     showToast(`Lab test requested for ${activeAppt.patientName}. Sent to Lab Technician pending queue!`, 'success');
   };
@@ -667,9 +697,35 @@ export default function DoctorDashboard() {
       return;
     }
 
+    let currentRxItems = [...rxItems];
     if (rxMedName.trim()) {
-      showToast(`You entered "${rxMedName}" without clicking "+ Add". Please add it or clear the input to complete.`, 'warning');
-      return;
+      const name = rxMedName.trim();
+      const rawDosage = rxDosage.trim() || '500mg';
+      const freq = rxFrequency.trim() || '1-0-1';
+      const rawDur = rxDuration.trim() || '5 Days';
+      const inst = rxInstructions.trim() || 'After Food';
+      const quantity = Number.parseInt(rxQuantity, 10) || 10;
+      const dosage = normalizeDosage(rawDosage) || rawDosage;
+      const dur = normalizeDuration(rawDur) || rawDur;
+
+      const stockInfo = medicines.find((m) => (m.name || '').toLowerCase() === name.toLowerCase());
+      const qty = stockInfo ? Number(stockInfo.quantity ?? stockInfo.stock ?? 0) : 50;
+
+      const autoAddedItem = {
+        medicineName: name,
+        dosage,
+        frequency: freq,
+        duration: dur,
+        instructions: inst,
+        quantity,
+        inStock: qty > 0,
+        availableStock: qty
+      };
+      currentRxItems.push(autoAddedItem);
+      setRxItems(currentRxItems);
+      setRxMedName('');
+      setRxDosage('');
+      setRxQuantity('');
     }
 
     // Validate vitals
@@ -700,13 +756,15 @@ export default function DoctorDashboard() {
       remarks: remarks.trim(),
       status: 'Completed'
     };
+    const unsentLabs = selectedLabs.filter((t) => !sentLabs.includes(t));
+
     setSavingConsultation(true);
     let savedConsultation;
     try {
       savedConsultation = await doctorService.createConsultation(
         newCons,
-        { items: rxItems },
-        { tests: selectedLabs },
+        { items: currentRxItems },
+        { tests: unsentLabs },
       );
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -726,7 +784,7 @@ export default function DoctorDashboard() {
     setStorage(CMS_KEYS.CONSULTATIONS, consList);
 
     // 2. Save Prescription
-    if (rxItems.length > 0) {
+    if (currentRxItems.length > 0) {
       const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
       const savedPrescription = savedConsultation?.prescription_details?.[0];
       const newRx = {
@@ -741,7 +799,7 @@ export default function DoctorDashboard() {
         createdAt: Date.now(),
         symptoms: symptoms.trim(),
         diagnosis: diagnosis.trim(),
-        items: rxItems,
+        items: currentRxItems,
         status: 'Pending'
       };
       const rIdx = rxList.findIndex((r) => r.appointmentId === activeAppt.appointmentId);
@@ -750,8 +808,8 @@ export default function DoctorDashboard() {
       setStorage(CMS_KEYS.PRESCRIPTIONS, rxList);
     }
 
-    // 3. Save Lab Orders if tests selected
-    if (selectedLabs.length > 0) {
+    // 3. Save Lab Orders if tests selected and not already sent
+    if (unsentLabs.length > 0) {
       const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
       const alreadyExists = labList.some((o) => o.appointmentId === activeAppt.appointmentId);
       if (!alreadyExists) {
@@ -767,13 +825,15 @@ export default function DoctorDashboard() {
           date: todayStr,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           createdAt: Date.now(),
-          tests: selectedLabs,
+          tests: unsentLabs,
           remarks: labRemarks.trim(),
           status: 'Pending'
         });
         setStorage(CMS_KEYS.LAB_ORDERS, labList);
       }
     }
+    setSelectedLabs([]);
+    setSentLabs([]);
 
     // 4. Update Appointment to Completed
     const appts = getStorage(CMS_KEYS.APPOINTMENTS, []);
@@ -992,12 +1052,12 @@ export default function DoctorDashboard() {
                     {greetingTime}, {currentUser.name || 'Doctor'}
                   </h1>
                   <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.9rem', margin: 0 }}>
-                    {currentUser.specialization ? `${currentUser.specialization} • ` : ''}Displaying assigned patient queue from MySQL database.
+                    {currentUser.specialization ? `${currentUser.specialization} • ` : ''}Displaying today's patient queue.
                   </p>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <NotificationBell role="Doctor" showToast={showToast} />
+                  <NotificationBell role="Doctor" showToast={showToast} onNotificationClick={() => refreshAllData()} />
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Signed in as:
                   </span>
@@ -1006,7 +1066,7 @@ export default function DoctorDashboard() {
               </div>
 
               {/* 4 Stat Cards */}
-              <div className="doctor-stats-grid">
+              {/* <div className="doctor-stats-grid">
                 <div className="doctor-stat-card">
                   <div className="doctor-stat-icon blue">
                     <CalendarStatIcon size={22} color="var(--primary, #0057b8)" />
@@ -1046,7 +1106,7 @@ export default function DoctorDashboard() {
                     <div className="doctor-stat-label">Prescriptions Issued</div>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               {/* Workspace Layout: Left Queue + Right Clinical Examination */}
               <div className="doctor-layout-grid">

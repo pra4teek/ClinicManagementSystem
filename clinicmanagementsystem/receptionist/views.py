@@ -6,6 +6,7 @@ from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from adminapp.authentication import (
+    IsClinicReadOrReceptionistWrite,
     IsDoctorOrReceptionistWrite,
     IsDoctorOrReceptionistAppointment,
     IsReceptionistOrPharmacistRead,
@@ -32,7 +33,7 @@ from .serializers import (
 class PatientViewSet(viewsets.ModelViewSet):
     queryset = Patient.objects.all().order_by("PatientId")
     serializer_class = PatientSerializer
-    permission_classes = [IsDoctorOrReceptionistWrite]
+    permission_classes = [IsClinicReadOrReceptionistWrite]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -48,6 +49,20 @@ class PatientViewSet(viewsets.ModelViewSet):
         "PhoneNumber",
         "Address",
     ]
+
+    def perform_create(self, serializer):
+        patient = serializer.save()
+        try:
+            from apibackendapp.models import Notification
+            Notification.objects.create(
+                RecipientRole='Doctor',
+                Title=f'New Patient Registered: {patient.Name}',
+                Message=f'Patient {patient.Name} (ID: #{patient.PatientId}) has been registered in the clinic system.',
+                NotificationType='NEW_PATIENT',
+                RelatedRecordId=patient.PatientId,
+            )
+        except Exception:
+            pass
 
 
 class AppointmentViewSet(viewsets.ModelViewSet):
@@ -75,7 +90,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         appointment = serializer.save()
-        from apibackendapp.models import Token
+        from apibackendapp.models import Token, Notification
         if not Token.objects.filter(AppointmentId=appointment).exists():
             Token.objects.create(
                 AppointmentId=appointment,
@@ -83,6 +98,20 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 DoctorId=appointment.DoctorId,
                 TokenDate=appointment.AppointmentDateTime
             )
+        try:
+            pat_name = appointment.PatientId.Name if (appointment.PatientId and hasattr(appointment.PatientId, 'Name')) else 'Patient'
+            doc_name = f"Dr. {appointment.DoctorId.Name}" if (appointment.DoctorId and hasattr(appointment.DoctorId, 'Name')) else 'Doctor'
+            time_str = appointment.AppointmentDateTime.strftime('%I:%M %p') if appointment.AppointmentDateTime else 'Today'
+            Notification.objects.create(
+                RecipientRole='Doctor',
+                Title=f'New Patient in Queue: {pat_name}',
+                Message=f'{pat_name} has been scheduled for {time_str} with {doc_name}.',
+                NotificationType='NEW_APPOINTMENT',
+                RelatedRecordId=appointment.AppointmentId,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Could not create appointment notification: %s", e)
 
     @action(detail=False, methods=["post"], url_path="reset-all-status", permission_classes=[IsDoctorOrReceptionist])
     def reset_all_status(self, request):

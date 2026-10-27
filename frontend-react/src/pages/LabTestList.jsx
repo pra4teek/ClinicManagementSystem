@@ -79,14 +79,12 @@ export default function LabTestList() {
       }
     };
     refresh();
-    const poll = setInterval(refresh, 5000);
-    window.addEventListener('focus', refresh);
+    const poll = setInterval(refresh, 15000);
     window.addEventListener('storage', refresh);
     window.addEventListener('cms_rx_updated', refresh);
     return () => {
       isMounted = false;
       clearInterval(poll);
-      window.removeEventListener('focus', refresh);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('cms_rx_updated', refresh);
     };

@@ -114,6 +114,20 @@ def dispense_prescription(prescription, items_data, dispensing_staff):
         BillType='Pharmacy',
     )
 
+    # Notify doctor that prescription was dispensed
+    try:
+        from apibackendapp.models import Notification
+        pat_name = prescription.PatientId.Name if prescription.PatientId else 'Patient'
+        Notification.objects.create(
+            RecipientRole="Doctor",
+            Title=f"Prescription Dispensed (RX-{prescription.PrescriptionId})",
+            Message=f"Medicines for {pat_name} have been dispensed by the pharmacy.",
+            NotificationType="PRESCRIPTION_DISPENSED",
+            RelatedRecordId=prescription.PrescriptionId,
+        )
+    except Exception:
+        pass
+
     return bill
 
 

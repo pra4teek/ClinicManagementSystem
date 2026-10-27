@@ -258,20 +258,21 @@ class StockReorderRequestViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all().order_by("-CreatedAt")
     serializer_class = NotificationSerializer
-    permission_classes = [IsPharmacist]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        role = getattr(getattr(self.request.user, "RoleId", None), "RoleName", "")
-        if role.casefold() != "admin":
-            queryset = queryset.filter(RecipientRole__iexact=role)
+        role = self.request.query_params.get("role")
+        if not role and hasattr(self.request, "user") and self.request.user:
+            role_record = getattr(self.request.user, "RoleId", None)
+            if role_record:
+                role = getattr(role_record, "RoleName", "")
+        if role and role.casefold() != "admin":
+            queryset = queryset.filter(RecipientRole__iexact=role.strip())
         return queryset
 
     def list(self, request, *args, **kwargs):
-        role = request.query_params.get("role")
         qs = self.get_queryset()
-        if role:
-            qs = qs.filter(RecipientRole__iexact=role.strip())
         unread_count = qs.filter(IsRead=False).count()
         latest_items = qs[:30]
         data = self.get_serializer(latest_items, many=True).data
@@ -280,18 +281,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "results": data
         })
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny])
     def mark_read(self, request, pk=None):
         notif = self.get_object()
         notif.IsRead = True
         notif.save(update_fields=['IsRead'])
         return Response({"status": "success", "NotificationId": notif.NotificationId, "IsRead": True})
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def mark_all_read(self, request):
         role = request.query_params.get("role") or request.data.get("role")
         qs = Notification.objects.filter(IsRead=False)
-        if role:
+        if role and role.casefold() != "admin":
             qs = qs.filter(RecipientRole__iexact=role.strip())
         updated = qs.update(IsRead=True)
         return Response({"status": "success", "marked_read_count": updated})

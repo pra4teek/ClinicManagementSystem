@@ -65,43 +65,52 @@ export default function ReceptionistDashboard() {
   const [bookingForm, setBookingForm] = useState({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
   const [bookingState, setBookingState] = useState({ submitting: false, error: '', success: '' });
 
-  const refresh = async () => {
-    setLoading(true);
-    const requests = await Promise.allSettled([
-      receptionistService.getPatients(),
-      receptionistService.getAppointments(),
-      receptionistService.getTokens(),
-      receptionistService.getDoctors(),
-      receptionistService.getBills(),
-    ]);
-    const keys = ['patients', 'appointments', 'tokens', 'doctors', 'bills'];
-    const nextData = {};
-    const nextErrors = {};
-    requests.forEach((result, index) => {
-      const key = keys[index];
-      if (result.status === 'fulfilled') nextData[key] = result.value;
-      else {
-        nextData[key] = [];
-        nextErrors[key] = getApiErrorMessage(result.reason, `Unable to load ${key}.`);
-      }
-    });
-    setData(nextData);
-    setErrors(nextErrors);
-    setPatientResults(null);
-    setLoading(false);
+  const refresh = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    try {
+      const requests = await Promise.allSettled([
+        receptionistService.getPatients(),
+        receptionistService.getAppointments(),
+        receptionistService.getTokens(),
+        receptionistService.getDoctors(),
+        receptionistService.getBills(),
+      ]);
+      const keys = ['patients', 'appointments', 'tokens', 'doctors', 'bills'];
+      const nextData = {};
+      const nextErrors = {};
+      requests.forEach((result, index) => {
+        const key = keys[index];
+        if (result.status === 'fulfilled') nextData[key] = result.value;
+        else {
+          nextData[key] = [];
+          nextErrors[key] = getApiErrorMessage(result.reason, `Unable to load ${key}.`);
+        }
+      });
+      setData((prev) => {
+        // Prevent state thrashing if values are equivalent
+        const prevApptStr = (prev.appointments || []).map(a => `${a.AppointmentId}:${a.AppointmentStatus}`).join('|');
+        const nextApptStr = (nextData.appointments || []).map(a => `${a.AppointmentId}:${a.AppointmentStatus}`).join('|');
+        if (prevApptStr !== nextApptStr || prev.patients?.length !== nextData.patients?.length || prev.bills?.length !== nextData.bills?.length) {
+          return nextData;
+        }
+        return prev;
+      });
+      setErrors(nextErrors);
+    } finally {
+      if (isInitial) setLoading(false);
+    }
   };
 
   useEffect(() => {
-    refresh();
-    const handleUpdate = () => refresh();
+    refresh(true);
+    const handleUpdate = () => refresh(false);
     window.addEventListener('cms_rx_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
-    window.addEventListener('focus', handleUpdate);
-    const poll = setInterval(refresh, 5000);
+    // 15-second gentle polling without UI flicker
+    const poll = setInterval(() => refresh(false), 15000);
     return () => {
       window.removeEventListener('cms_rx_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
-      window.removeEventListener('focus', handleUpdate);
       clearInterval(poll);
     };
   }, []);

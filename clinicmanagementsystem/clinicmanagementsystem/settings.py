@@ -10,13 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
 from django.core.exceptions import ImproperlyConfigured
 try:
     from decouple import config
 except ImportError:
-    import os
     def config(key, default='', cast=None):
         val = os.environ.get(key, default)
         if cast is bool and isinstance(val, str):
@@ -31,13 +31,21 @@ except ImportError:
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env if present
+_env_path = BASE_DIR / '.env'
+if _env_path.exists():
+    for _line in _env_path.read_text(encoding='utf-8').splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith('#') and '=' in _line:
+            _k, _v = _line.split('=', 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip("'\""))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-DEBUG = str(config('DEBUG', default='true')).strip().lower() in ('1', 'true', 'yes', 'on')
-SECRET_KEY = config('SECRET_KEY', default='')
+DEBUG = str(config('DJANGO_DEBUG', default=config('DEBUG', default='true'))).strip().lower() in ('1', 'true', 'yes', 'on', 'release', 'dev', 'development')
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-clinic-secret-key-development-12345')
 if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured('Set SECRET_KEY in the environment when DEBUG is disabled.')
@@ -172,6 +180,12 @@ CORS_ALLOWED_ORIGINS = [origin.strip() for origin in config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:5173,http://127.0.0.1:5173',
 ).split(',') if origin.strip()]
+
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'cache-control',
+    'pragma',
+]
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),

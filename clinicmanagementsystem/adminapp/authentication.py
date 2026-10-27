@@ -261,12 +261,12 @@ class IsDoctorOrReceptionistAppointment(ClinicRolePermission):
 
 class IsReceptionistOrPharmacistRead(ClinicRolePermission):
     roles_by_method = {
-        "GET": ("Receptionist", "Pharmacist"),
-        "HEAD": ("Receptionist", "Pharmacist"),
-        "OPTIONS": ("Receptionist", "Pharmacist"),
-        "POST": ("Receptionist",),
-        "PUT": ("Receptionist",),
-        "PATCH": ("Receptionist",),
+        "GET": ("Receptionist", "Pharmacist", "Lab Technician", "Doctor"),
+        "HEAD": ("Receptionist", "Pharmacist", "Lab Technician", "Doctor"),
+        "OPTIONS": ("Receptionist", "Pharmacist", "Lab Technician", "Doctor"),
+        "POST": ("Receptionist", "Lab Technician"),
+        "PUT": ("Receptionist", "Lab Technician"),
+        "PATCH": ("Receptionist", "Lab Technician"),
         "DELETE": ("Receptionist",),
     }
 

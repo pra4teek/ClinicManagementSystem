@@ -237,17 +237,15 @@ export default function PharmacistDashboard() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleRxUpdate);
     const pollInterval = setInterval(() => {
       handleRxUpdate();
-    }, 5000);
+    }, 15000);
 
     return () => {
       window.removeEventListener('cms_stock_updated', handleStockUpdate);
       window.removeEventListener('cms_rx_updated', handleRxUpdate);
       window.removeEventListener('cms_billing_updated', handleStockUpdate);
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleRxUpdate);
       clearInterval(pollInterval);
     };
   }, []);
@@ -644,8 +642,12 @@ export default function PharmacistDashboard() {
               onNotificationClick={(notif) => {
                 if (notif.NotificationType?.includes('PRESCRIPTION')) {
                   setActiveTab('prescriptions');
+                  setRxSearch('');
+                  setRxStatusFilter('All');
+                  loadData();
                 } else if (notif.NotificationType?.includes('REORDER')) {
                   setActiveTab('stock-orders');
+                  loadData();
                 }
               }}
             />
@@ -774,9 +776,19 @@ export default function PharmacistDashboard() {
                               {rx.diagnosis || rx.notes || 'Routine prescription'}
                             </td>
                             <td>
-                              <span className="ph-badge ph-badge-normal">
-                                {(rx.items || []).length} Medicines
-                              </span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                {(rx.items || []).length > 0 ? (
+                                  (rx.items || []).map((it, idx) => (
+                                    <span key={idx} style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main, #0f172a)' }}>
+                                      • {it.medicineName || it.name} ({it.dosage || ''}) × {it.quantity}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="ph-badge ph-badge-normal">
+                                    {(rx.items || []).length} Medicines
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td>{rx.date || 'Today'}</td>
                             <td>

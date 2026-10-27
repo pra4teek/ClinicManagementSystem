@@ -106,6 +106,19 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
                 SampleType=str(request.data.get('SampleType') or 'Diagnostic Specimen')[:100],
                 LabTestDate=timezone.now(),
             ))
+
+        try:
+            from apibackendapp.models import Notification
+            Notification.objects.create(
+                RecipientRole='Lab Technician',
+                Title=f'New Lab Request: {patient.Name}',
+                Message=f'Dr. {doctor.Name} requested {len(orders)} lab test(s) for patient {patient.Name}.',
+                NotificationType='NEW_LAB_REQUEST',
+                RelatedRecordId=orders[0].LabPrescriptionId if orders else patient.PatientId,
+            )
+        except Exception:
+            pass
+
         return Response(
             LabPrescriptionSerializer(orders, many=True).data,
             status=status.HTTP_201_CREATED,
@@ -142,6 +155,22 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
             report = report_serializer.save(LabTechnician=staff)
             prescription.Status = 'Completed'
             prescription.save(update_fields=['Status'])
+
+            try:
+                from apibackendapp.models import Notification
+                pat_name = prescription.PatientId.Name if prescription.PatientId else 'Patient'
+                test_name = prescription.LabTestId.TestName if prescription.LabTestId else 'Lab Test'
+                reading = (report.ActualReading or '').strip()
+                reading_txt = f' (Reading: {reading})' if reading else ''
+                Notification.objects.create(
+                    RecipientRole='Doctor',
+                    Title=f'Lab Results Ready: {pat_name}',
+                    Message=f'Lab results for {pat_name} ({test_name}) are ready{reading_txt}.',
+                    NotificationType='LAB_RESULT_READY',
+                    RelatedRecordId=report.ReportId,
+                )
+            except Exception:
+                pass
 
         return Response({
             'report': LabReportSerializer(report).data,
