@@ -273,16 +273,14 @@ export default function PharmacistDashboard() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    const pollInterval = setInterval(() => {
-      handleRxUpdate();
-    }, 15000);
+    window.addEventListener('focus', handleRxUpdate);
 
     return () => {
       window.removeEventListener('cms_stock_updated', handleStockUpdate);
       window.removeEventListener('cms_rx_updated', handleRxUpdate);
       window.removeEventListener('cms_billing_updated', handleStockUpdate);
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleRxUpdate);
     };
   }, []);
 

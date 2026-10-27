@@ -181,10 +181,10 @@ export const normalizePatient = (p = {}) => ({
   Address: p.Address || p.address || '',
   bloodGroup: p.BloodGroup || p.bloodGroup || '',
   BloodGroup: p.BloodGroup || p.bloodGroup || '',
-  weight: Number(p.Weight || p.weight || 0),
-  Weight: Number(p.Weight || p.weight || 0),
-  height: Number(p.Height || p.height || 0),
-  Height: Number(p.Height || p.height || 0)
+  // weight: Number(p.Weight || p.weight || 0),
+  // Weight: Number(p.Weight || p.weight || 0),
+  // height: Number(p.Height || p.height || 0),
+  // Height: Number(p.Height || p.height || 0)
 });
 
 export const normalizeAuditLog = (log = {}) => ({

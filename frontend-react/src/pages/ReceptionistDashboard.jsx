@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import receptionistService, { getApiErrorMessage } from '../services/receptionistService';
 
-const emptyPatient = { Name: '', Gender: '', DOB: '', PhoneNumber: '', Address: '', BloodGroup: '', Weight: '', Height: '' };
+const emptyPatient = { Name: '', Gender: '', DOB: '', PhoneNumber: '', Address: '', BloodGroup: '' };
 
 const formatDateTime = (value) => value
   ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -43,10 +43,6 @@ function PatientFields({ value, onChange, disabled = false }) {
       <div className="receptionist-field"><label htmlFor="reception-blood">Blood group</label><select id="reception-blood" name="BloodGroup" value={value.BloodGroup} onChange={update} disabled={disabled} required><option value="">Select</option>{['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((group) => <option key={group}>{group}</option>)}</select></div>
     </div>
     <div className="receptionist-field"><label htmlFor="reception-address">Address</label><textarea id="reception-address" name="Address" value={value.Address} onChange={update} disabled={disabled} required /></div>
-    <div className="receptionist-form-grid">
-      <div className="receptionist-field"><label htmlFor="reception-weight">Weight (kg)</label><input id="reception-weight" name="Weight" type="number" min="0.1" step="0.1" value={value.Weight} onChange={update} disabled={disabled} required /></div>
-      <div className="receptionist-field"><label htmlFor="reception-height">Height (cm)</label><input id="reception-height" name="Height" type="number" min="0.1" step="0.1" value={value.Height} onChange={update} disabled={disabled} required /></div>
-    </div>
   </>;
 }
 
@@ -106,12 +102,11 @@ export default function ReceptionistDashboard() {
     const handleUpdate = () => refresh(false);
     window.addEventListener('cms_rx_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
-    // 15-second gentle polling without UI flicker
-    const poll = setInterval(() => refresh(false), 15000);
+    window.addEventListener('focus', handleUpdate);
     return () => {
       window.removeEventListener('cms_rx_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
-      clearInterval(poll);
+      window.removeEventListener('focus', handleUpdate);
     };
   }, []);
 
@@ -204,8 +199,8 @@ export default function ReceptionistDashboard() {
 
   const filteredAppointments = useMemo(() => {
     const q = queueQuery.trim().toLowerCase();
-    if (!q) return todaysAppointments;
-    return todaysAppointments.filter((appointment) => {
+    if (!q) return data.appointments;
+    return data.appointments.filter((appointment) => {
       const patient = patientById.get(String(appointment.PatientId));
       const token = tokenByAppointment.get(String(appointment.AppointmentId));
       const patientName = patient?.Name?.toLowerCase() || '';
@@ -213,7 +208,7 @@ export default function ReceptionistDashboard() {
       const tokenNo = token ? String(token.TokenNo) : '';
       return patientName.includes(q) || patientId.includes(q) || tokenNo.includes(q);
     });
-  }, [todaysAppointments, queueQuery, patientById, tokenByAppointment]);
+  }, [data.appointments, queueQuery, patientById, tokenByAppointment]);
 
   const searchPatients = async (event) => {
     event.preventDefault();
@@ -238,7 +233,7 @@ export default function ReceptionistDashboard() {
     event.preventDefault();
     setFormState({ submitting: true, error: '', success: '' });
     try {
-      const patient = await receptionistService.createPatient({ ...form, Weight: Number(form.Weight), Height: Number(form.Height) });
+      const patient = await receptionistService.createPatient({ ...form, Weight: 1, Height: 1 });
       setData((current) => ({ ...current, patients: [...current.patients, patient].sort((a, b) => a.PatientId - b.PatientId) }));
       setForm(emptyPatient);
       setFormState({ submitting: false, error: '', success: `Patient ${patient.Name} registered successfully.` });
@@ -302,7 +297,7 @@ export default function ReceptionistDashboard() {
             <div className="receptionist-card-header">
               <div>
                 <h2>Appointment queue</h2>
-                <p>Today&apos;s appointments from the receptionist API.</p>
+                <p>All booked appointments from the receptionist API.</p>
               </div>
               <div className="receptionist-search-row">
                 <button
@@ -352,13 +347,9 @@ export default function ReceptionistDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {todaysAppointments.length === 0 ? (
+                    {filteredAppointments.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="receptionist-empty">No appointments booked for today.</td>
-                      </tr>
-                    ) : filteredAppointments.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="receptionist-empty">No appointments matching &quot;{queueQuery}&quot; in today&apos;s queue.</td>
+                        <td colSpan="6" className="receptionist-empty">{queueQuery ? `No appointments matching "${queueQuery}" in the queue.` : 'No appointments booked yet.'}</td>
                       </tr>
                     ) : (
                       filteredAppointments.map((appointment) => {
@@ -407,7 +398,7 @@ export default function ReceptionistDashboard() {
         </div>
 
         <div className="receptionist-column">
-          <section className="receptionist-card" id="register"><div className="receptionist-card-header"><div><h2>Register patient</h2><p>All fields required by the Django patient model.</p></div></div><form className="receptionist-card-body receptionist-form" onSubmit={registerPatient}><PatientFields value={form} onChange={setForm} disabled={formState.submitting} />{formState.error && <p className="receptionist-form-error" role="alert">{formState.error}</p>}{formState.success && <p className="receptionist-form-success" role="status">{formState.success}</p>}<button type="submit" className="receptionist-button" disabled={formState.submitting}>{formState.submitting ? 'Registering…' : 'Register patient'}</button></form></section>
+          <section className="receptionist-card" id="register"><div className="receptionist-card-header"><div><h2>Register patient</h2><p>Enter the patient registration details.</p></div></div><form className="receptionist-card-body receptionist-form" onSubmit={registerPatient}><PatientFields value={form} onChange={setForm} disabled={formState.submitting} />{formState.error && <p className="receptionist-form-error" role="alert">{formState.error}</p>}{formState.success && <p className="receptionist-form-success" role="status">{formState.success}</p>}<button type="submit" className="receptionist-button" disabled={formState.submitting}>{formState.submitting ? 'Registering…' : 'Register patient'}</button></form></section>
           <section className="receptionist-card" id="book-appointment">
             <div className="receptionist-card-header">
               <div>
