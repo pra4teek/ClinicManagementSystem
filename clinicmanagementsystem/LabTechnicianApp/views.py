@@ -98,6 +98,15 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
             if lab_test is None:
                 from rest_framework.exceptions import ValidationError
                 raise ValidationError({'tests': f'Lab test "{name}" is not in the active catalog.'})
+            existing_order = LabPrescription.objects.filter(
+                LabTestId=lab_test,
+                PatientId=patient,
+                DoctorId=doctor,
+                Status__in=('Pending', 'Sample collected', 'In Progress'),
+            ).first()
+            if existing_order is not None:
+                orders.append(existing_order)
+                continue
             orders.append(LabPrescription.objects.create(
                 LabTestId=lab_test,
                 PatientId=patient,

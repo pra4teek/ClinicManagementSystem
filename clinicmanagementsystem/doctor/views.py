@@ -189,6 +189,18 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
                 continue
             seen_test_ids.add(lab_test.LabTestId)
 
+            existing_lab_order = LabPrescription.objects.filter(
+                LabTestId=lab_test,
+                PatientId=appointment.PatientId,
+                DoctorId=doctor,
+                Status__in=('Pending', 'Sample collected', 'In Progress'),
+            ).first()
+            if existing_lab_order is not None:
+                if existing_lab_order.ConsultationId_id is None:
+                    existing_lab_order.ConsultationId = consultation
+                    existing_lab_order.save(update_fields=['ConsultationId'])
+                continue
+
             if consultation.lab_orders.filter(LabTestId=lab_test).exists():
                 continue
 
