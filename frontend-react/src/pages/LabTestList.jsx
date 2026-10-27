@@ -8,6 +8,7 @@ import {
   mergeLabData,
   saveLabData,
   syncLabOrders,
+  createApiLabBill,
   updateApiLabPrescriptionStatus,
 } from '../services/labService';
 import '../styles/labPages.css';
@@ -55,7 +56,9 @@ export default function LabTestList() {
   const [orderSearch, setOrderSearch] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [selectedBill, setSelectedBill] = useState(() => location.state?.selectedTestId || '');
+  const [selectedReportId, setSelectedReportId] = useState('');
   const [message, setMessage] = useState('');
+  const [creatingBill, setCreatingBill] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,11 +79,13 @@ export default function LabTestList() {
       }
     };
     refresh();
+    const poll = setInterval(refresh, 5000);
     window.addEventListener('focus', refresh);
     window.addEventListener('storage', refresh);
     window.addEventListener('cms_rx_updated', refresh);
     return () => {
       isMounted = false;
+      clearInterval(poll);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('cms_rx_updated', refresh);
@@ -99,6 +104,20 @@ export default function LabTestList() {
     setSection(value);
     setMessage('');
     if (value === 'reports') setReportSearch('');
+  };
+
+  const reportKey = (report) => String(report.reportId || report.backendId || report.completedAt);
+
+  const openReportForOrder = (order) => {
+    const report = data.reports.find((item) => String(item.labOrderId) === String(order.backendId)
+      || String(item.testId) === String(order.id));
+    if (report) setSelectedReportId(reportKey(report));
+    openSection('reports');
+  };
+
+  const showAllReports = () => {
+    setSelectedReportId('');
+    setReportSearch('');
   };
 
   const processOrder = async (order) => {
@@ -124,7 +143,8 @@ export default function LabTestList() {
     navigate('/lab-reports/new', { state: { orderId: order.id } });
   };
 
-  const createBill = () => {
+  const createBill = async () => {
+    if (creatingBill) return;
     if (!selectedBill) {
       setMessage('Please select a completed test.');
       return;
@@ -134,13 +154,13 @@ export default function LabTestList() {
       setMessage('Test not found.');
       return;
     }
-    if (data.bills.some((bill) => String(bill.testId) === String(selectedBill))) {
+    if (billForOrder(order)) {
       setMessage('Bill already created for this test.');
       return;
     }
     const test = getLabTest(order.testId, data.testMaster);
     const billId = Date.now();
-    const bill = {
+    let bill = {
       id: String(billId),
       billId,
       testId: order.id,
@@ -152,10 +172,46 @@ export default function LabTestList() {
       status: 'Pending',
       date: new Date().toISOString().split('T')[0],
     };
+
+    setCreatingBill(true);
+    try {
+      if (order.backendId) {
+        const patientId = Number(order.patientDbId || String(order.patientId).replace(/\D/g, ''));
+        if (!Number.isInteger(patientId)) {
+          throw new Error('The lab order is not linked to a database patient.');
+        }
+        const savedBill = await createApiLabBill({
+          PatientId: patientId,
+          BillDate: bill.date,
+          Amount: test.charge,
+          BillStatus: 'Pending',
+          BillType: 'Laboratory Test',
+        });
+        bill = {
+          ...bill,
+          ...savedBill,
+          id: String(savedBill.BillId),
+          billId: savedBill.BillId,
+          testId: order.id,
+          patientId: order.patientId,
+          patientName: order.patient,
+          testName: test.testName,
+          source: 'Lab',
+          amount: test.charge,
+          status: savedBill.BillStatus || 'Pending',
+          date: savedBill.BillDate || bill.date,
+        };
+      }
+    } catch (error) {
+      setMessage(`Unable to send the lab bill to reception: ${error.response?.data?.detail || error.message}`);
+      setCreatingBill(false);
+      return;
+    }
     const next = { ...data, bills: [...data.bills, bill] };
     saveLabData(next);
     setData(next);
     setSelectedBill('');
+    setCreatingBill(false);
     setMessage('Bill created successfully and sent to receptionist.');
   };
 
@@ -166,6 +222,30 @@ export default function LabTestList() {
       return !term || String(report.patientName || '').toLowerCase().includes(term)
         || String(report.patientId || '').toLowerCase().includes(term);
     });
+  const visibleReports = selectedReportId
+    ? filteredReports.filter((report) => reportKey(report) === selectedReportId)
+    : filteredReports;
+
+  const selectedOrder = data.orders.find((order) => String(order.id) === String(selectedBill));
+  const billForOrder = (order) => {
+    if (!order) return null;
+    const testName = getLabTest(order.testId, data.testMaster).testName.trim().toLowerCase();
+    return data.bills.find((bill) => String(bill.patientId) === String(order.patientId)
+      && String(bill.testName || '').trim().toLowerCase() === testName);
+  };
+  const selectedOrderBill = billForOrder(selectedOrder);
+  const billingHistory = useMemo(() => {
+    const uniqueBills = new Map();
+    data.bills.forEach((bill) => {
+      const key = `${String(bill.patientId || '').toLowerCase()}::${String(bill.testName || '').trim().toLowerCase()}`;
+      const existing = uniqueBills.get(key);
+      if (!existing || bill.status === 'Paid' || existing.status !== 'Paid') {
+        uniqueBills.set(key, bill);
+      }
+    });
+    return [...uniqueBills.values()];
+  }, [data.bills]);
+  const billableCompletedOrders = data.orders.filter((order) => order.status === 'Completed' && !billForOrder(order));
 
   const filteredOrders = data.orders.filter((order) => {
     const term = orderSearch.trim().toLowerCase();
@@ -194,7 +274,7 @@ export default function LabTestList() {
                   <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td>
                   <td>{getLabTest(order.testId, data.testMaster).testName}</td>
                   <td>{status === 'Completed'
-                    ? <button className="btn btn-sm btn-outline" onClick={() => openSection('reports')}>View Report</button>
+                    ? <button className="btn btn-sm btn-outline" onClick={() => openReportForOrder(order)}>View Report</button>
                     : <button className="btn btn-sm btn-primary" onClick={() => processOrder(order)}>{status === 'Pending' ? 'Process' : 'Continue'}</button>}
                   </td>
                 </tr>
@@ -272,7 +352,7 @@ export default function LabTestList() {
                       <td>{order.id}</td><td>{order.patientId}</td><td>{order.patient}</td><td>{order.doctorName || '—'}</td><td>{formatOrderDateTime(order)}</td><td>{test.testName}</td><td>{test.sampleType}</td>
                       <td><StatusBadge status={order.status} /></td>
                       <td>{order.status === 'Completed'
-                        ? <button className="btn btn-sm btn-outline" onClick={() => openSection('reports')}>View Report</button>
+                        ? <button className="btn btn-sm btn-outline" onClick={() => openReportForOrder(order)}>View Report</button>
                         : <button className="btn btn-sm btn-primary" onClick={() => processOrder(order)}>{order.status === 'Pending' ? 'Process' : 'Continue'}</button>}</td>
                     </tr>;
                   })}
@@ -306,12 +386,13 @@ export default function LabTestList() {
         {section === 'reports' && <>
           <section className="card lab-card">
             <div className="card-body">
+              {selectedReportId && <button className="btn btn-sm btn-outline" onClick={showAllReports}>View All Reports</button>}
               <label className="form-label" htmlFor="report-search">Search reports by patient name or ID</label>
               <input id="report-search" type="search" className="form-control" placeholder="Enter patient name or patient ID" value={reportSearch} onChange={(event) => setReportSearch(event.target.value)} />
             </div>
           </section>
-          {!filteredReports.length && <p className="lab-empty">{data.reports.length ? 'No reports match that patient name or ID.' : 'No reports available.'}</p>}
-          {filteredReports.map((report) => <ReportCard report={report} key={report.reportId || report.completedAt} />)}
+          {!visibleReports.length && <p className="lab-empty">{data.reports.length ? 'No reports match that patient name or ID.' : 'No reports available.'}</p>}
+          {visibleReports.map((report) => <ReportCard report={report} key={reportKey(report)} />)}
         </>}
 
         {section === 'billing' && <>
@@ -322,17 +403,19 @@ export default function LabTestList() {
                 <label className="form-label" htmlFor="billing-test">Select Completed Test</label>
                 <select className="form-control" id="billing-test" value={selectedBill} onChange={(event) => setSelectedBill(event.target.value)}>
                   <option value="">Select Completed Test</option>
-                  {data.orders.filter((order) => order.status === 'Completed' && !data.bills.some((bill) => String(bill.testId) === String(order.id)))
+                  {billableCompletedOrders
                     .map((order) => <option key={order.id} value={order.id}>{order.id} - {getLabTest(order.testId, data.testMaster).testName} - {order.patient}</option>)}
                 </select>
               </div>
               <div className="form-row">
-                <ReadOnlyField label="Patient ID" value={data.orders.find((order) => String(order.id) === String(selectedBill))?.patientId} />
-                <ReadOnlyField label="Test Name" value={data.orders.find((order) => String(order.id) === String(selectedBill)) ? getLabTest(data.orders.find((order) => String(order.id) === String(selectedBill)).testId, data.testMaster).testName : ''} />
-                <ReadOnlyField label="Test Charge" value={data.orders.find((order) => String(order.id) === String(selectedBill)) ? `₹${getLabTest(data.orders.find((order) => String(order.id) === String(selectedBill)).testId, data.testMaster).charge}` : ''} />
-                <ReadOnlyField label="Payment Status" value={selectedBill ? 'Pending' : 'Pending'} />
+                <ReadOnlyField label="Patient ID" value={selectedOrder?.patientId} />
+                <ReadOnlyField label="Test Name" value={selectedOrder ? getLabTest(selectedOrder.testId, data.testMaster).testName : ''} />
+                <ReadOnlyField label="Test Charge" value={selectedOrder ? `₹${getLabTest(selectedOrder.testId, data.testMaster).charge}` : ''} />
+                <ReadOnlyField label="Payment Status" value={selectedOrderBill?.status || 'Pending'} />
               </div>
-              <button className="btn btn-primary" onClick={createBill}>Create Bill</button>
+              <button className="btn btn-primary" onClick={createBill} disabled={creatingBill}>
+                {creatingBill ? 'Sending Bill…' : 'Create Bill'}
+              </button>
             </div>
           </section>
           <section className="card lab-card">
@@ -341,8 +424,8 @@ export default function LabTestList() {
               <table className="table">
                 <thead><tr><th>Bill ID</th><th>Patient ID</th><th>Test Name</th><th>Amount</th><th>Payment Status</th></tr></thead>
                 <tbody>
-                  {!data.bills.length && <tr><td colSpan="5" className="lab-empty">No bills available.</td></tr>}
-                  {data.bills.map((bill) => <tr key={bill.id || bill.billId}><td>{bill.billId || bill.id}</td><td>{bill.patientId || '--'}</td><td>{bill.testName || '--'}</td><td>₹{bill.amount}</td><td><StatusBadge status={bill.status} /></td></tr>)}
+                  {!billingHistory.length && <tr><td colSpan="5" className="lab-empty">No bills available.</td></tr>}
+                  {billingHistory.map((bill) => <tr key={bill.id || bill.billId}><td>{bill.billId || bill.id}</td><td>{bill.patientId || '--'}</td><td>{bill.testName || '--'}</td><td>₹{bill.amount}</td><td><StatusBadge status={bill.status} /></td></tr>)}
                 </tbody>
               </table>
             </div>

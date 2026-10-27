@@ -459,13 +459,21 @@ const doctorService = {
     try {
       const response = await api.get('/lab/lab-tests/');
       if (Array.isArray(response.data)) {
-        return response.data.map((t) => ({
-          id: t.LabtestId,
-          name: t.TestName,
-          sample: 'Blood / Specimen',
-          ref: t.NormalName,
-          cost: t.TestCost
-        }));
+        const uniqueTests = new Map();
+        response.data.forEach((t) => {
+          const name = String(t.TestName || '').trim();
+          const key = name.toLowerCase();
+          if (name && !uniqueTests.has(key)) {
+            uniqueTests.set(key, {
+              id: t.LabtestId,
+              name,
+              sample: 'Blood / Specimen',
+              ref: t.NormalName,
+              cost: t.TestCost
+            });
+          }
+        });
+        return [...uniqueTests.values()];
       }
     } catch (err) {
       console.warn('Backend lab test fetch error:', err);

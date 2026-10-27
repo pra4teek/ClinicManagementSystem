@@ -61,6 +61,7 @@ export default function ReceptionistDashboard() {
   const [form, setForm] = useState(emptyPatient);
   const [formState, setFormState] = useState({ submitting: false, error: '', success: '' });
   const [selectedBill, setSelectedBill] = useState(null);
+  const [processingBillId, setProcessingBillId] = useState(null);
   const [bookingForm, setBookingForm] = useState({ PatientId: '', DoctorId: '', AppointmentDateTime: '' });
   const [bookingState, setBookingState] = useState({ submitting: false, error: '', success: '' });
 
@@ -104,6 +105,14 @@ export default function ReceptionistDashboard() {
       clearInterval(poll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedBill) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('invoice-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedBill]);
 
   const handleBookAppointment = async (e) => {
     e.preventDefault();
@@ -216,6 +225,41 @@ export default function ReceptionistDashboard() {
     } catch (error) {
       setFormState({ submitting: false, success: '', error: getApiErrorMessage(error, 'Unable to register patient.') });
     }
+  };
+
+  const handleProcessBill = async (bill) => {
+    if (bill.BillStatus !== 'Pending' || processingBillId === bill.BillId) return;
+    setProcessingBillId(bill.BillId);
+    const optimisticBill = { ...bill, BillStatus: 'Paid' };
+    setData((current) => ({
+      ...current,
+      bills: current.bills.map((item) => item.BillId === bill.BillId ? optimisticBill : item),
+    }));
+    setSelectedBill(optimisticBill);
+    try {
+      const updatedBill = await receptionistService.updateBill(bill.BillId, { BillStatus: 'Paid' });
+      setData((current) => ({
+        ...current,
+        bills: current.bills.map((item) => item.BillId === bill.BillId ? updatedBill : item),
+      }));
+      setSelectedBill(updatedBill);
+    } catch (error) {
+      setData((current) => ({
+        ...current,
+        bills: current.bills.map((item) => item.BillId === bill.BillId ? bill : item),
+      }));
+      setSelectedBill(bill);
+      setErrors((current) => ({ ...current, bills: getApiErrorMessage(error, 'Unable to process this bill.') }));
+    } finally {
+      setProcessingBillId(null);
+    }
+  };
+
+  const closeBillPreview = () => {
+    setSelectedBill(null);
+    window.requestAnimationFrame(() => {
+      document.getElementById('billing')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   return (
@@ -415,7 +459,7 @@ export default function ReceptionistDashboard() {
         <div className="receptionist-card-header">
           <div>
             <h2>Billing</h2>
-            <p>Existing receptionist bill records. Invoice preview is read-only and does not record payment.</p>
+            <p>Review lab and other billing records, then process pending bills.</p>
           </div>
         </div>
         {errors.bills ? (
@@ -474,10 +518,21 @@ export default function ReceptionistDashboard() {
                 type="button"
                 className="receptionist-button secondary"
                 style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
-                onClick={() => setSelectedBill(null)}
+                onClick={closeBillPreview}
               >
                 Close preview
               </button>
+              {selectedBill.BillStatus === 'Pending' && (
+                <button
+                  type="button"
+                  className="receptionist-button"
+                  style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                  onClick={() => handleProcessBill(selectedBill)}
+                  disabled={processingBillId === selectedBill.BillId}
+                >
+                  {processingBillId === selectedBill.BillId ? 'Paying…' : 'Pay bill'}
+                </button>
+              )}
             </div>
 
             <div className="receptionist-invoice-grid">
@@ -524,9 +579,6 @@ export default function ReceptionistDashboard() {
               </div>
             </div>
 
-            <p className="receptionist-notice">
-              Payment processing, pharmacy settlement, and balance collection are unavailable because the backend does not provide a safe settlement workflow.
-            </p>
           </div>
         )}
       </section>

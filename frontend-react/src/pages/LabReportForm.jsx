@@ -26,6 +26,13 @@ function restoreValues(id, data) {
   return values;
 }
 
+function getDefaultNormalValue(test, schema) {
+  const backendValue = String(test?.normalValue || '').trim();
+  const testName = String(test?.testName || '').trim();
+  if (backendValue && backendValue.toLowerCase() !== testName.toLowerCase()) return backendValue;
+  return schema?.params.map((parameter) => parameter.ref).join('; ') || backendValue;
+}
+
 export default function LabReportForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,13 +47,14 @@ export default function LabReportForm() {
     location.state?.orderId,
     data,
   ));
-  const [normalValue, setNormalValue] = useState(() => existingReport?.normalValue || test?.normalValue || '');
+  const [normalValue, setNormalValue] = useState(() => existingReport?.normalValue || getDefaultNormalValue(test, schema));
   const [actualReading, setActualReading] = useState(() => existingReport?.actualReading || '');
   const [remarks, setRemarks] = useState(() => existingReport?.remarks || '');
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     fetchLabDataFromApi()
       .then((apiData) => {
         if (!active) return;
@@ -59,7 +67,7 @@ export default function LabReportForm() {
           const report = mergedData.reports.find((item) => String(item.testId) === String(selectedOrder.id));
           const selectedTest = getLabTest(selectedOrder.testId, mergedData.testMaster);
           setValues(restoreValues(selectedOrder.id, mergedData));
-          setNormalValue(report?.normalValue || selectedTest.normalValue || '');
+          setNormalValue(report?.normalValue || getDefaultNormalValue(selectedTest, selectedTest ? getLabSchema(selectedTest.testName) : null));
           setActualReading(report?.actualReading || '');
           setRemarks(report?.remarks || '');
         }
@@ -80,7 +88,7 @@ export default function LabReportForm() {
     const nextReport = data.reports.find((item) => String(item.testId) === String(nextId));
     setOrderId(nextId);
     setValues(restoreValues(nextId, data));
-    setNormalValue(nextReport?.normalValue || nextTest?.normalValue || '');
+    setNormalValue(nextReport?.normalValue || getDefaultNormalValue(nextTest, nextTest ? getLabSchema(nextTest.testName) : null));
     setActualReading(nextReport?.actualReading || '');
     setRemarks(nextReport?.remarks || '');
     setError('');

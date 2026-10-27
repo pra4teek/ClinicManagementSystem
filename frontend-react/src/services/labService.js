@@ -18,7 +18,7 @@ const DEFAULT_TESTS = [
 ];
 
 const META = [
-  { match: /cbc|complete blood count|blood count/, sampleType: 'Whole Blood (EDTA)', normalValue: 'WBC: 4.5-11.0 ×10³/µL, RBC: 4.5-5.5 ×10⁶/µL, Platelets: 150-450 ×10³/µL', charge: 300 },
+  { match: /cbc|complete blood count|blood count|blood test/, sampleType: 'Whole Blood (EDTA)', normalValue: 'WBC: 4.5-11.0 ×10³/µL, RBC: 4.5-5.5 ×10⁶/µL, Platelets: 150-450 ×10³/µL', charge: 300 },
   { match: /fbs|fasting blood sugar|fasting glucose|glucose/, sampleType: 'Fluoride Plasma', normalValue: '70 - 99 mg/dL (Normal Fasting)', charge: 150 },
   { match: /ppbs|post prandial/, sampleType: 'Fluoride Plasma', normalValue: '< 140 mg/dL', charge: 150 },
   { match: /hba1c|glycated/, sampleType: 'Whole Blood (EDTA)', normalValue: '< 5.7% (Normal), 5.7-6.4% (Prediabetic)', charge: 450 },
@@ -28,7 +28,7 @@ const META = [
   { match: /lft|liver/, sampleType: 'Serum', normalValue: 'Total Bilirubin: 0.2-1.2 mg/dL, SGOT/AST: 8-40 U/L, SGPT/ALT: 7-56 U/L', charge: 450 },
   { match: /kft|kidney|renal|creatinine/, sampleType: 'Serum', normalValue: 'Serum Creatinine: 0.6-1.2 mg/dL, Blood Urea: 15-40 mg/dL', charge: 400 },
   { match: /x-ray|chest|radiology/, sampleType: 'Radiology / Imaging', normalValue: 'Clear lung fields, normal cardiothoracic ratio (<0.5), no active lesion', charge: 350 },
-  { match: /hemoglobin|hb/, sampleType: 'Whole Blood (EDTA)', normalValue: 'Male: 13.5-17.5 g/dL, Female: 12.0-15.5 g/dL', charge: 180 },
+  { match: /ha?emoglobin|hb/, sampleType: 'Whole Blood (EDTA)', normalValue: 'Male: 13.5-17.5 g/dL, Female: 12.0-15.5 g/dL', charge: 180 },
 ];
 
 const SCHEMAS = [
@@ -50,7 +50,7 @@ const SCHEMAS = [
     ],
   },
   {
-    match: /cbc|complete blood count|blood count/,
+    match: /cbc|complete blood count|blood count|blood test/,
     params: [
       { id: 'hb', name: 'Hemoglobin (Hb)', unit: 'g/dL', ref: '12.0 - 16.0 g/dL', normalVal: 14.2, highVal: 8.5, min: 2.5, max: 25 },
       { id: 'wbc', name: 'Total WBC Count', unit: '×10³/µL', ref: '4.5 - 11.0 ×10³/µL', normalVal: 7.2, highVal: 15.8, min: 0.5, max: 100 },
@@ -84,7 +84,7 @@ const SCHEMAS = [
     { id: 'creatinine', name: 'Serum Creatinine', unit: 'mg/dL', ref: '0.6 - 1.2 mg/dL', normalVal: 0.9, highVal: 2.8, min: 0.2, max: 30 },
     { id: 'urea', name: 'Blood Urea', unit: 'mg/dL', ref: '15 - 40 mg/dL', normalVal: 26, highVal: 85, min: 2, max: 400 },
   ] },
-  { match: /hemoglobin|hb/, params: [{ id: 'hb_single', name: 'Hemoglobin', unit: 'g/dL', ref: '12.0 - 16.0 g/dL', normalVal: 14, highVal: 8.2, min: 2.5, max: 25 }] },
+  { match: /ha?emoglobin|hb/, params: [{ id: 'hb_single', name: 'Hemoglobin', unit: 'g/dL', ref: '12.0 - 16.0 g/dL', normalVal: 14, highVal: 8.2, min: 2.5, max: 25 }] },
 ];
 
 function getStored(key, fallback) {
@@ -181,20 +181,66 @@ function mapApiReport(report, orders) {
   };
 }
 
+function mapApiBill(bill, orders, testMaster) {
+  const patientId = bill.PatientId ? `PAT-${String(bill.PatientId).padStart(4, '0')}` : '';
+  const matchingOrder = orders
+    .filter((order) => String(order.patientDbId) === String(bill.PatientId))
+    .filter((order) => {
+      const test = getLabTest(order.testId, testMaster);
+      return Number(test.charge) === Number(bill.Amount);
+    })
+    .sort((first, second) => {
+      const firstCompleted = first.status === 'Completed' ? 1 : 0;
+      const secondCompleted = second.status === 'Completed' ? 1 : 0;
+      return secondCompleted - firstCompleted;
+    })[0];
+  const matchingTest = matchingOrder ? getLabTest(matchingOrder.testId, testMaster) : null;
+  return {
+    id: String(bill.BillId),
+    billId: bill.BillId,
+    backendBillId: bill.BillId,
+    patientId,
+    patientDbId: bill.PatientId,
+    amount: Number(bill.Amount || 0),
+    status: bill.BillStatus || 'Pending',
+    date: bill.BillDate || '',
+    source: 'Lab',
+    billType: bill.BillType || 'Laboratory Test',
+    testId: matchingOrder?.id || '',
+    testName: matchingTest?.testName || '',
+    BillId: bill.BillId,
+    BillStatus: bill.BillStatus,
+  };
+}
+
+function mergeLabBills(localBills, apiBills) {
+  const apiById = new Map(apiBills.map((bill) => [String(bill.BillId), bill]));
+  const merged = localBills.map((localBill) => {
+    const backendId = localBill.backendBillId || localBill.BillId || localBill.billId;
+    const apiBill = apiById.get(String(backendId));
+    if (!apiBill) return localBill;
+    apiById.delete(String(backendId));
+    return { ...localBill, ...apiBill };
+  });
+  return [...merged, ...apiById.values()];
+}
+
 export function mergeLabData(localData, apiData) {
   return {
     ...localData,
     testMaster: apiData.testMaster,
     orders: apiData.orders,
     reports: apiData.reports,
+    bills: mergeLabBills(localData.bills || [], apiData.bills || []),
   };
 }
 
 export async function fetchLabDataFromApi() {
-  const [testsResponse, ordersResponse, reportsResponse] = await Promise.all([
+  const [testsResponse, ordersResponse, reportsResponse, billsResponse] = await Promise.all([
     api.get('/lab/lab-tests/'),
     api.get('/lab/lab-prescriptions/'),
     api.get('/lab/lab-reports/'),
+    api.get('/receptionist/bills/'),
   ]);
   const testMaster = testsResponse.data.filter((test) => test.isActive).map(mapApiTest);
   const orders = ordersResponse.data.map(mapApiOrder);
@@ -202,6 +248,9 @@ export async function fetchLabDataFromApi() {
     testMaster,
     orders,
     reports: reportsResponse.data.map((report) => mapApiReport(report, orders)),
+    bills: billsResponse.data
+      .filter((bill) => String(bill.BillType || '').toLowerCase().includes('lab'))
+      .map((bill) => mapApiBill(bill, orders, testMaster)),
   };
 }
 
@@ -213,6 +262,11 @@ export async function updateApiLabPrescriptionStatus(id, status) {
 export async function submitApiLabReport(id, report) {
   const response = await api.post(`/lab/lab-prescriptions/${id}/submit-report/`, report);
   return mapApiReport(response.data.report, [mapApiOrder(response.data.prescription)]);
+}
+
+export async function createApiLabBill(bill) {
+  const response = await api.post('/receptionist/bills/', bill);
+  return response.data;
 }
 
 export function loadLabData() {

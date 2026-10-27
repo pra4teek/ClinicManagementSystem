@@ -31,9 +31,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const request = error.config;
-    const isUnauthorized = error.response?.status === 401;
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail;
+    // ClinicJWTAuthentication returns None for expired/missing tokens, so
+    // DRF reports the resulting permission failure as 403 rather than 401.
+    const isAuthenticationFailure =
+      status === 401 ||
+      (status === 403 && detail === 'Authentication credentials were not provided.');
     const isLoginRequest = request?.url?.includes('/login/');
-    if (isUnauthorized && request && !request._retriedAfterRefresh && !request._skipAuthRefresh && !isLoginRequest) {
+    const isRefreshRequest = request?.url?.includes('/token/refresh/');
+    if (isAuthenticationFailure && request && !request._retriedAfterRefresh && !request._skipAuthRefresh && !isLoginRequest && !isRefreshRequest) {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         request._retriedAfterRefresh = true;

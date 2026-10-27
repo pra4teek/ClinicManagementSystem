@@ -71,6 +71,11 @@ const receptionistService = {
     const response = await api.get('/receptionist/bills/');
     return asList(response.data);
   },
+
+  async updateBill(id, payload) {
+    const response = await api.patch(`/receptionist/bills/${id}/`, payload);
+    return response.data;
+  },
 };
 
 export default receptionistService;
