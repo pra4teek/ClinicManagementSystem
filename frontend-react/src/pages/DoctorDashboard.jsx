@@ -305,6 +305,7 @@ export default function DoctorDashboard() {
   const [isLabRequestModalOpen, setIsLabRequestModalOpen] = useState(false);
   const [modalLabPatientId, setModalLabPatientId] = useState('');
   const [modalLabSelectedTests, setModalLabSelectedTests] = useState([]);
+  const [isSubmittingLabRequest, setIsSubmittingLabRequest] = useState(false);
   const [modalLabRemarks, setModalLabRemarks] = useState('');
   const [viewLabReportData, setViewLabReportData] = useState(null);
 
@@ -2441,6 +2442,7 @@ export default function DoctorDashboard() {
                     return;
                   }
 
+                  setIsSubmittingLabRequest(true);
                   try {
                     const createdOrders = await doctorService.requestLabTest(modalLabPatientId, tests);
                     const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
@@ -2463,6 +2465,8 @@ export default function DoctorDashboard() {
                     showToast(`Lab request #${newOrder.labOrderId} dispatched to Laboratory queue!`, 'success');
                   } catch (error) {
                     showToast(error.message || 'Lab order could not be saved.', 'error');
+                  } finally {
+                    setIsSubmittingLabRequest(false);
                   }
                 }}
               >
@@ -2517,8 +2521,8 @@ export default function DoctorDashboard() {
                   <button type="button" className="btn btn-outline" onClick={() => setIsLabRequestModalOpen(false)}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
-                    Send Request to Lab Technician
+                  <button type="submit" className="btn btn-primary" disabled={isSubmittingLabRequest}>
+                    {isSubmittingLabRequest ? 'Sending Request…' : 'Send Request to Lab Technician'}
                   </button>
                 </div>
               </form>

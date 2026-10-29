@@ -98,6 +98,14 @@
 .lab-message { display: flex; justify-content: space-between; gap: 1rem; }
 .lab-message button { border: 0; background: none; cursor: pointer; font-size: 1.1rem; }
 .lab-validation { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+.lab-bill-success { display: flex; flex-direction: column; gap: .2rem; margin-top: 1rem; padding: .8rem 1rem; border: 1px solid #86efac; border-radius: var(--radius-sm); background: #f0fdf4; color: #166534; font-size: .82rem; }
+.lab-header-actions { display: flex; align-items: center; gap: .75rem; }
+.billing-history-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(10rem, 1fr); gap: .8rem; align-items: end; }
+@media (max-width: 640px) { .billing-history-filters { grid-template-columns: 1fr; } }
+.bill-submit-button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-width: 10rem; transition: opacity .2s ease, transform .2s ease; }
+.bill-submit-button:disabled { cursor: wait; opacity: .75; transform: none; }
+.bill-submit-spinner { width: .9rem; height: .9rem; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; border-radius: 50%; animation: bill-submit-spin .7s linear infinite; }
+@keyframes bill-submit-spin { to { transform: rotate(360deg); } }
 .lab-param-card { margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: #f8fafc; }
 .lab-param-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .6rem; color: var(--text-main); font-size: .85rem; }
 .lab-preset-actions { display: flex; flex-wrap: wrap; gap: .35rem; }

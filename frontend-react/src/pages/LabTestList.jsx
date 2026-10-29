@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import NotificationBell from '../components/NotificationBell';
 import {
   fetchLabDataFromApi,
   getLabTest,
@@ -55,10 +56,13 @@ export default function LabTestList() {
   const [reportSearch, setReportSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
+  const [billingSearch, setBillingSearch] = useState('');
+  const [billingStatus, setBillingStatus] = useState('All');
   const [selectedBill, setSelectedBill] = useState(() => location.state?.selectedTestId || '');
   const [selectedReportId, setSelectedReportId] = useState('');
   const [message, setMessage] = useState('');
   const [creatingBill, setCreatingBill] = useState(false);
+  const [createdBill, setCreatedBill] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -173,33 +177,33 @@ export default function LabTestList() {
 
     setCreatingBill(true);
     try {
-      if (order.backendId) {
-        const patientId = Number(order.patientDbId || String(order.patientId).replace(/\D/g, ''));
-        if (!Number.isInteger(patientId)) {
-          throw new Error('The lab order is not linked to a database patient.');
-        }
-        const savedBill = await createApiLabBill({
-          PatientId: patientId,
-          BillDate: bill.date,
-          Amount: test.charge,
-          BillStatus: 'Pending',
-          BillType: 'Laboratory Test',
-        });
-        bill = {
-          ...bill,
-          ...savedBill,
-          id: String(savedBill.BillId),
-          billId: savedBill.BillId,
-          testId: order.id,
-          patientId: order.patientId,
-          patientName: order.patient,
-          testName: test.testName,
-          source: 'Lab',
-          amount: test.charge,
-          status: savedBill.BillStatus || 'Pending',
-          date: savedBill.BillDate || bill.date,
-        };
+      // Always create the record through Django so the receptionist can see it.
+      // Local-only storage is not enough when the two roles use different sessions.
+      const patientId = Number(order.patientDbId || String(order.patientId).replace(/\D/g, ''));
+      if (!Number.isInteger(patientId) || patientId <= 0) {
+        throw new Error('The completed test is not linked to a database patient.');
       }
+      const savedBill = await createApiLabBill({
+        PatientId: patientId,
+        BillDate: bill.date,
+        Amount: test.charge,
+        BillStatus: 'Pending',
+        BillType: 'Laboratory Test',
+      });
+      bill = {
+        ...bill,
+        ...savedBill,
+        id: String(savedBill.BillId),
+        billId: savedBill.BillId,
+        testId: order.id,
+        patientId: order.patientId,
+        patientName: order.patient,
+        testName: test.testName,
+        source: 'Lab',
+        amount: test.charge,
+        status: savedBill.BillStatus || 'Pending',
+        date: savedBill.BillDate || bill.date,
+      };
     } catch (error) {
       setMessage(`Unable to send the lab bill to reception: ${error.response?.data?.detail || error.message}`);
       setCreatingBill(false);
@@ -209,8 +213,13 @@ export default function LabTestList() {
     saveLabData(next);
     setData(next);
     setSelectedBill('');
+    setCreatedBill(bill);
     setCreatingBill(false);
     setMessage('Bill created successfully and sent to receptionist.');
+    window.dispatchEvent(new Event('cms_billing_updated'));
+    window.setTimeout(() => {
+      document.getElementById('billing-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   };
 
   const filteredReports = [...data.reports]
@@ -243,6 +252,17 @@ export default function LabTestList() {
     });
     return [...uniqueBills.values()];
   }, [data.bills]);
+  const filteredBillingHistory = useMemo(() => {
+    const term = billingSearch.trim().toLowerCase();
+    return billingHistory.filter((bill) => {
+      const matchesSearch = !term
+        || String(bill.patientId || '').toLowerCase().includes(term)
+        || String(bill.patientName || '').toLowerCase().includes(term);
+      const matchesStatus = billingStatus === 'All'
+        || String(bill.status || '').toLowerCase() === billingStatus.toLowerCase();
+      return matchesSearch && matchesStatus;
+    });
+  }, [billingHistory, billingSearch, billingStatus]);
   const billableCompletedOrders = data.orders.filter((order) => order.status === 'Completed' && !billForOrder(order));
 
   const filteredOrders = data.orders.filter((order) => {
@@ -305,7 +325,7 @@ export default function LabTestList() {
       <main className="lab-main">
         <header className="page-header lab-page-header">
           <div><h1 className="page-title">Lab Technician Dashboard</h1><p className="page-subtitle">Manage lab tests, patient reports and billing</p></div>
-          <button className="btn btn-primary" onClick={() => openSection('orders')}>View Lab Tests</button>
+          <div className="lab-header-actions"><NotificationBell role="Lab Technician" /><button className="btn btn-primary" onClick={() => openSection('orders')}>View Lab Tests</button></div>
         </header>
 
         {message && <div className="lab-message" role="status">{message}<button onClick={() => setMessage('')} aria-label="Dismiss">×</button></div>}
@@ -399,7 +419,10 @@ export default function LabTestList() {
             <div className="card-body">
               <div className="form-group">
                 <label className="form-label" htmlFor="billing-test">Select Completed Test</label>
-                <select className="form-control" id="billing-test" value={selectedBill} onChange={(event) => setSelectedBill(event.target.value)}>
+                <select className="form-control" id="billing-test" value={selectedBill} onChange={(event) => {
+                  setSelectedBill(event.target.value);
+                  setCreatedBill(null);
+                }}>
                   <option value="">Select Completed Test</option>
                   {billableCompletedOrders
                     .map((order) => <option key={order.id} value={order.id}>{order.id} - {getLabTest(order.testId, data.testMaster).testName} - {order.patient}</option>)}
@@ -411,19 +434,42 @@ export default function LabTestList() {
                 <ReadOnlyField label="Test Charge" value={selectedOrder ? `₹${getLabTest(selectedOrder.testId, data.testMaster).charge}` : ''} />
                 <ReadOnlyField label="Payment Status" value={selectedOrderBill?.status || 'Pending'} />
               </div>
-              <button className="btn btn-primary" onClick={createBill} disabled={creatingBill}>
-                {creatingBill ? 'Sending Bill…' : 'Create Bill'}
+              <button type="button" className="btn btn-primary bill-submit-button" onClick={createBill} disabled={creatingBill} aria-busy={creatingBill}>
+                {creatingBill && <span className="bill-submit-spinner" aria-hidden="true" />}
+                {creatingBill ? 'Sending to Reception…' : 'Create Bill'}
               </button>
+              {createdBill && (
+                <div className="lab-bill-success" role="status" aria-live="polite">
+                  <strong>Bill created successfully</strong>
+                  <span>Bill #{createdBill.billId || createdBill.id} for {createdBill.patientName || 'the selected patient'} is ready in Billing History.</span>
+                </div>
+              )}
             </div>
           </section>
-          <section className="card lab-card">
+          <section className="card lab-card" id="billing-history">
             <div className="card-header"><h2 className="card-title">Billing History</h2></div>
+            <div className="card-body">
+              <div className="billing-history-filters">
+                <div>
+                  <label className="form-label" htmlFor="billing-history-search">Search by Patient ID or Name</label>
+                  <input id="billing-history-search" type="search" className="form-control" placeholder="e.g. PAT-0001 or patient name" value={billingSearch} onChange={(event) => setBillingSearch(event.target.value)} />
+                </div>
+                <div>
+                  <label className="form-label" htmlFor="billing-status-filter">Payment Status</label>
+                  <select id="billing-status-filter" className="form-control" value={billingStatus} onChange={(event) => setBillingStatus(event.target.value)}>
+                    <option value="All">All Bills</option>
+                    <option value="Pending">Not Paid / Pending</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             <div className="card-body table-responsive">
               <table className="table">
-                <thead><tr><th>Bill ID</th><th>Patient ID</th><th>Test Name</th><th>Amount</th><th>Payment Status</th></tr></thead>
+                <thead><tr><th>Bill ID</th><th>Patient ID</th><th>Patient Name</th><th>Test Name</th><th>Amount</th><th>Payment Status</th></tr></thead>
                 <tbody>
-                  {!billingHistory.length && <tr><td colSpan="5" className="lab-empty">No bills available.</td></tr>}
-                  {billingHistory.map((bill) => <tr key={bill.id || bill.billId}><td>{bill.billId || bill.id}</td><td>{bill.patientId || '--'}</td><td>{bill.testName || '--'}</td><td>₹{bill.amount}</td><td><StatusBadge status={bill.status} /></td></tr>)}
+                  {!filteredBillingHistory.length && <tr><td colSpan="6" className="lab-empty">No bills match your search or status filter.</td></tr>}
+                  {filteredBillingHistory.map((bill) => <tr key={bill.id || bill.billId}><td>{bill.billId || bill.id}</td><td>{bill.patientId || '--'}</td><td>{bill.patientName || '--'}</td><td>{bill.testName || '--'}</td><td>₹{bill.amount}</td><td><StatusBadge status={bill.status} /></td></tr>)}
                 </tbody>
               </table>
             </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import receptionistService, { getApiErrorMessage } from '../services/receptionistService';
+import NotificationBell from '../components/NotificationBell';
 
 const emptyPatient = { Name: '', Gender: '', DOB: '', PhoneNumber: '', Address: '', BloodGroup: '' };
 
@@ -281,7 +282,7 @@ export default function ReceptionistDashboard() {
     <div className="receptionist-content">
       <header className="receptionist-heading" id="overview">
         <div><p className="receptionist-eyebrow">Reception</p><h1>Patient &amp; appointment management</h1><p>Register patients, view today&apos;s queue, and review available billing records.</p></div>
-        <button type="button" className="receptionist-button secondary" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh data'}</button>
+        <div className="receptionist-heading-actions"><NotificationBell role="Receptionist" /><button type="button" className="receptionist-button secondary" onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh data'}</button></div>
       </header>
 
       <section className="receptionist-stats" aria-label="Reception summary">

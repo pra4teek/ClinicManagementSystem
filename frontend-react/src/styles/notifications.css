@@ -240,6 +240,11 @@
   color: #c2410c;
 }
 
+.notif-type-LAB_BILL_PAID {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .notif-type-PRESCRIPTION_DISPENSED {
   background: #dcfce7;
   color: #15803d;

@@ -201,6 +201,7 @@ function mapApiBill(bill, orders, testMaster) {
     backendBillId: bill.BillId,
     patientId,
     patientDbId: bill.PatientId,
+    patientName: matchingOrder?.patient || 'Patient',
     amount: Number(bill.Amount || 0),
     status: bill.BillStatus || 'Pending',
     date: bill.BillDate || '',
