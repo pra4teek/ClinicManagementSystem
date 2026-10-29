@@ -84,6 +84,8 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
         symptoms = str(request.data.get('Symptoms') or '').strip()
         if len(diagnosis) < 3 or len(symptoms) < 3:
             raise ValidationError({'detail': 'Symptoms and diagnosis must each contain at least 3 characters.'})
+        if any(char.isdigit() for char in diagnosis):
+            raise ValidationError({'Diagnosis': 'Alphanumeric characters / numbers are not allowed in Primary Diagnosis.'})
         consultation = Consultation.objects.select_for_update().filter(AppointmentId=appointment).first()
         consultation_created = consultation is None
         if consultation_created:
@@ -161,15 +163,24 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
                         quantity = 0
                     if quantity < 1:
                         raise ValidationError({'prescription_items': f'Item {index + 1} needs a valid quantity.'})
-                    PrescriptionItem.objects.create(
+
+                    existing_pi = PrescriptionItem.objects.filter(
                         PrescriptionId=prescription,
-                        MedicineId=medicine,
-                        DosageId=dosage,
-                        Duration=str(item.get('duration') or '').strip()[:30],
-                        Frequency=str(item.get('frequency') or '').strip()[:30],
-                        Instructions=str(item.get('instructions') or '').strip()[:255],
-                        Quantity=quantity,
-                    )
+                        MedicineId=medicine
+                    ).first()
+                    if existing_pi:
+                        existing_pi.Quantity += quantity
+                        existing_pi.save(update_fields=['Quantity'])
+                    else:
+                        PrescriptionItem.objects.create(
+                            PrescriptionId=prescription,
+                            MedicineId=medicine,
+                            DosageId=dosage,
+                            Duration=str(item.get('duration') or '').strip()[:30],
+                            Frequency=str(item.get('frequency') or '').strip()[:30],
+                            Instructions=str(item.get('instructions') or '').strip()[:255],
+                            Quantity=quantity,
+                        )
 
         lab_orders = request.data.get('lab_orders') or []
         if not isinstance(lab_orders, list):
@@ -186,7 +197,7 @@ class ConsultationViewSet(viewsets.ReadOnlyModelViewSet):
             if lab_test is None:
                 raise ValidationError({'lab_orders': f'Lab test "{test_name}" is not in the active test catalog.'})
             if lab_test.LabTestId in seen_test_ids:
-                continue
+                raise ValidationError({'lab_orders': f'Duplicate lab test request for "{lab_test.TestName}" is not allowed.'})
             seen_test_ids.add(lab_test.LabTestId)
 
             existing_lab_order = LabPrescription.objects.filter(

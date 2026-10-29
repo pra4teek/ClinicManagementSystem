@@ -436,6 +436,15 @@ export default function DoctorDashboard() {
 
   // Select patient with Sequential Token Enforcement
   const handleSelectPatient = (appt) => {
+    // 1. Prevent selecting another patient while actively consulting someone
+    if (activeAppt && activeAppt.status !== 'Completed' && activeAppt.appointmentId !== appt.appointmentId) {
+      showToast(
+        `Consultation with ${activeAppt.patientName} (Token #${activeAppt.tokenNumber || '—'}) is currently in progress. Please complete or discard it before selecting another patient.`,
+        'warning'
+      );
+      return;
+    }
+
     if (appt.status !== 'Completed') {
       const drafts = getStorage(CMS_KEYS.DRAFTS, {});
       const draft = drafts[appt.appointmentId];
@@ -446,8 +455,18 @@ export default function DoctorDashboard() {
         labReports.some((r) => String(r.appointmentId) === String(appt.appointmentId));
 
       if (!draft && !hasLabActivity) {
+        const docId = Number(currentDoctor?.doctorId);
+        const cleanDoc = currentDoctor?.name ? currentDoctor.name.toLowerCase().replace(/dr\.?\s*/g, '').trim() : '';
         const scheduled = appointments
-          .filter((a) => a.status === 'Scheduled')
+          .filter((a) => {
+            if (docId && a.doctorId) return Number(a.doctorId) === docId;
+            if (cleanDoc && a.doctorName) {
+              const cleanAppt = a.doctorName.toLowerCase().replace(/dr\.?\s*/g, '').trim();
+              return cleanAppt.includes(cleanDoc) || cleanDoc.includes(cleanAppt);
+            }
+            return true;
+          })
+          .filter((a) => a.status !== 'Completed' && a.status !== 'Cancelled')
           .sort((a, b) => (a.tokenNumber || 0) - (b.tokenNumber || 0));
 
         if (scheduled.length > 0) {
@@ -464,6 +483,12 @@ export default function DoctorDashboard() {
     }
 
     setActiveAppt(appt);
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById('clinical-examination');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
 
     // If completed, load consultation and prescription
     if (appt.status === 'Completed') {
@@ -599,7 +624,7 @@ export default function DoctorDashboard() {
     const stockInfo = medicines.find((m) => (m.name || '').toLowerCase() === name.toLowerCase());
     const qty = stockInfo ? Number(stockInfo.quantity ?? stockInfo.stock ?? 0) : 50;
 
-    const newItem = {
+    /* old item creation:
       medicineName: name,
       dosage,
       frequency: freq,
@@ -617,7 +642,50 @@ export default function DoctorDashboard() {
     setRxQuantity('');
     setRxStockInfo(null);
     saveDraft({ rxItems: updated });
-    showToast(`${name} (${dosage}) added to prescription.`, 'success');
+    */
+    const existingIndex = rxItems.findIndex(
+      (item) => (item.medicineName || '').trim().toLowerCase() === name.toLowerCase()
+    );
+
+    let updated;
+    if (existingIndex >= 0) {
+      const existing = rxItems[existingIndex];
+      const newTotalQuantity = (existing.quantity || 0) + quantity;
+      const updatedItem = {
+        ...existing,
+        dosage: dosage || existing.dosage,
+        frequency: freq || existing.frequency,
+        duration: dur || existing.duration,
+        instructions: inst || existing.instructions,
+        quantity: newTotalQuantity,
+        inStock: qty > 0,
+        availableStock: qty
+      };
+      updated = [...rxItems];
+      updated[existingIndex] = updatedItem;
+      setRxItems(updated);
+      showToast(`Added ${quantity} units to existing prescription for ${name} (Total: ${newTotalQuantity}).`, 'success');
+    } else {
+      const newItem = {
+        medicineName: name,
+        dosage,
+        frequency: freq,
+        duration: dur,
+        instructions: inst,
+        quantity,
+        inStock: qty > 0,
+        availableStock: qty
+      };
+      updated = [...rxItems, newItem];
+      setRxItems(updated);
+      showToast(`${name} (${dosage}) added to prescription.`, 'success');
+    }
+
+    setRxMedName('');
+    setRxDosage('');
+    setRxQuantity('');
+    setRxStockInfo(null);
+    saveDraft({ rxItems: updated });
   };
 
   const handleRemoveRx = (index) => {
@@ -637,6 +705,39 @@ export default function DoctorDashboard() {
       return;
     }
 
+    // Prevent sending duplicate lab requests of the same name
+    const seenLocal = new Set();
+    for (const testName of selectedLabs) {
+      const lower = (testName || '').trim().toLowerCase();
+      if (seenLocal.has(lower)) {
+        showToast(
+          `Error: Duplicate lab test request for "${testName}" selected. Cannot send 2 lab requests of the same name.`,
+          'error'
+        );
+        return;
+      }
+      seenLocal.add(lower);
+    }
+
+    const patientPendingOrders = getStorage(CMS_KEYS.LAB_ORDERS, []).filter(
+      (o) =>
+        (String(o.patientId) === String(activeAppt.patientId) || String(o.appointmentId) === String(activeAppt.appointmentId)) &&
+        o.status !== 'Completed' && o.status !== 'Cancelled'
+    );
+    const existingTestNames = new Set([
+      ...sentLabs.map((t) => (t || '').trim().toLowerCase()),
+      ...patientPendingOrders.flatMap((o) => (o.tests || []).map((t) => (t || '').trim().toLowerCase()))
+    ]);
+
+    const duplicateTest = selectedLabs.find((t) => existingTestNames.has((t || '').trim().toLowerCase()));
+    if (duplicateTest) {
+      showToast(
+        `Error: Lab test request for "${duplicateTest}" has already been sent for this patient. Cannot send 2 lab requests of the same name.`,
+        'error'
+      );
+      return;
+    }
+
     let createdOrders;
     try {
       createdOrders = await doctorService.requestLabTest(
@@ -647,7 +748,7 @@ export default function DoctorDashboard() {
       showToast(error.message || 'Lab order could not be saved.', 'error');
       return;
     }
-    const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
+    const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
     const firstId = createdOrders?.[0]?.LabPrescriptionId;
     const newOrder = {
       labOrderId: firstId ? `LAB-${firstId}` : `LAB-${Date.now()}`,
@@ -664,7 +765,7 @@ export default function DoctorDashboard() {
       status: 'Pending'
     };
 
-    const updatedList = [newOrder, ...labList];
+    const updatedList = [newOrder, ...allLabOrders];
     setStorage(CMS_KEYS.LAB_ORDERS, updatedList);
     setSentLabs((prev) => Array.from(new Set([...prev, ...selectedLabs])));
     saveDraft({ labTests: [] });
@@ -697,6 +798,14 @@ export default function DoctorDashboard() {
       showToast('Primary diagnosis must contain letters describing condition.', 'warning');
       return;
     }
+    if (/\d/.test(diagnosis)) {
+      showToast('Alphanumeric characters / numbers are not allowed in Primary Diagnosis. Please use alphabetic clinical terms only.', 'warning');
+      return;
+    }
+    if (!/^[a-zA-Z\s.,'\-\/]+$/.test(diagnosis.trim())) {
+      showToast('Alphanumeric characters are not allowed in Primary Diagnosis. Please use alphabetic clinical terms only.', 'warning');
+      return;
+    }
 
     let currentRxItems = [...rxItems];
     if (rxMedName.trim()) {
@@ -712,7 +821,7 @@ export default function DoctorDashboard() {
       const stockInfo = medicines.find((m) => (m.name || '').toLowerCase() === name.toLowerCase());
       const qty = stockInfo ? Number(stockInfo.quantity ?? stockInfo.stock ?? 0) : 50;
 
-      const autoAddedItem = {
+      /* old auto-add:
         medicineName: name,
         dosage,
         frequency: freq,
@@ -722,7 +831,35 @@ export default function DoctorDashboard() {
         inStock: qty > 0,
         availableStock: qty
       };
-      currentRxItems.push(autoAddedItem);
+      */
+      const existingIdx = currentRxItems.findIndex(
+        (item) => (item.medicineName || '').trim().toLowerCase() === name.toLowerCase()
+      );
+      if (existingIdx >= 0) {
+        const existing = currentRxItems[existingIdx];
+        currentRxItems[existingIdx] = {
+          ...existing,
+          dosage: dosage || existing.dosage,
+          frequency: freq || existing.frequency,
+          duration: dur || existing.duration,
+          instructions: inst || existing.instructions,
+          quantity: (existing.quantity || 0) + quantity,
+          inStock: qty > 0,
+          availableStock: qty
+        };
+      } else {
+        const autoAddedItem = {
+          medicineName: name,
+          dosage,
+          frequency: freq,
+          duration: dur,
+          instructions: inst,
+          quantity,
+          inStock: qty > 0,
+          availableStock: qty
+        };
+        currentRxItems.push(autoAddedItem);
+      }
       setRxItems(currentRxItems);
       setRxMedName('');
       setRxDosage('');
@@ -758,6 +895,25 @@ export default function DoctorDashboard() {
       status: 'Completed'
     };
     const unsentLabs = selectedLabs.filter((t) => !sentLabs.includes(t));
+    if (unsentLabs.length > 0) {
+      const patientPendingOrders = getStorage(CMS_KEYS.LAB_ORDERS, []).filter(
+        (o) =>
+          (String(o.patientId) === String(activeAppt.patientId) || String(o.appointmentId) === String(activeAppt.appointmentId)) &&
+          o.status !== 'Completed' && o.status !== 'Cancelled'
+      );
+      const existingPendingTests = new Set(
+        patientPendingOrders.flatMap((o) => (o.tests || []).map((t) => (t || '').trim().toLowerCase()))
+      );
+      for (const t of unsentLabs) {
+        if (existingPendingTests.has((t || '').trim().toLowerCase())) {
+          showToast(
+            `Error: Lab test request for "${t}" has already been sent for this patient. Cannot send 2 lab requests of the same name.`,
+            'error'
+          );
+          return;
+        }
+      }
+    }
 
     setSavingConsultation(true);
     let savedConsultation;
@@ -811,11 +967,11 @@ export default function DoctorDashboard() {
 
     // 3. Save Lab Orders if tests selected and not already sent
     if (unsentLabs.length > 0) {
-      const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
-      const alreadyExists = labList.some((o) => o.appointmentId === activeAppt.appointmentId);
+     const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
+      const alreadyExists = allLabOrders.some((o) => o.appointmentId === activeAppt.appointmentId);
       if (!alreadyExists) {
         const firstLabOrder = savedConsultation?.lab_prescription_details?.[0];
-        labList.unshift({
+        allLabOrders.unshift({
           labOrderId: firstLabOrder ? `LAB-${firstLabOrder.LabPrescriptionId}` : `LAB-${uid}`,
           rawId: firstLabOrder?.LabPrescriptionId,
           consultationId,
@@ -830,7 +986,7 @@ export default function DoctorDashboard() {
           remarks: labRemarks.trim(),
           status: 'Pending'
         });
-        setStorage(CMS_KEYS.LAB_ORDERS, labList);
+        setStorage(CMS_KEYS.LAB_ORDERS, allLabOrders);
       }
     }
     setSelectedLabs([]);
@@ -1185,11 +1341,14 @@ export default function DoctorDashboard() {
                       filteredQueue.map((appt) => {
                         const isSelected = activeAppt && activeAppt.appointmentId === appt.appointmentId;
                         const isNext = appt.status === 'Scheduled' && appt.tokenNumber === nextTokenNum;
+                        const isConsultingOther = activeAppt && activeAppt.status !== 'Completed' && activeAppt.appointmentId !== appt.appointmentId;
 
                         return (
                           <div
                             key={appt.appointmentId}
                             className={`doctor-queue-card ${isSelected ? 'active' : ''}`}
+                            style={isConsultingOther ? { opacity: 0.72, cursor: 'not-allowed' } : {}}
+                            title={isConsultingOther ? `Consultation with ${activeAppt.patientName} is in progress. Complete or discard it first.` : ''}
                             onClick={() => handleSelectPatient(appt)}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
@@ -1229,7 +1388,7 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Clinical Examination Column */}
-                <div className="card" style={{ padding: '1.5rem', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div id="clinical-examination" className="card" style={{ padding: '1.5rem', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <EcgPulseIcon size={20} color="#64748b" />
@@ -1428,8 +1587,20 @@ export default function DoctorDashboard() {
                             disabled={activeAppt.status === 'Completed'}
                             required
                             onChange={(e) => {
-                              setDiagnosis(e.target.value);
-                              saveDraft({ diagnosis: e.target.value });
+                              const rawVal = e.target.value;
+                              if (/\d/.test(rawVal)) {
+                                showToast('Alphanumeric characters / numbers are not allowed in Primary Diagnosis.', 'warning');
+                                const cleaned = rawVal.replace(/[0-9]/g, '');
+                                setDiagnosis(cleaned);
+                                saveDraft({ diagnosis: cleaned });
+                                return;
+                              }
+                              const cleaned = rawVal.replace(/[^a-zA-Z\s.,'\-\/]/g, '');
+                              if (cleaned !== rawVal) {
+                                showToast('Only alphabetic clinical terms are allowed in Primary Diagnosis.', 'warning');
+                              }
+                              setDiagnosis(cleaned);
+                              saveDraft({ diagnosis: cleaned });
                             }}
                           />
                         </div>
@@ -1677,6 +1848,23 @@ export default function DoctorDashboard() {
                                   disabled={activeAppt.status === 'Completed'}
                                   checked={selectedLabs.includes(testName)}
                                   onChange={(e) => {
+                                    if (e.target.checked) {
+                                     const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
+                                      const patientPendingOrders = allLabOrders.filter(
+                                        (o) =>
+                                          (String(o.patientId) === String(activeAppt?.patientId) || String(o.appointmentId) === String(activeAppt?.appointmentId)) &&
+                                          o.status !== 'Completed' && o.status !== 'Cancelled'
+                                      );
+                                      const alreadyOrdered = sentLabs.includes(testName) ||
+                                        patientPendingOrders.some((o) => (o.tests || []).some((t) => (t || '').trim().toLowerCase() === testName.trim().toLowerCase()));
+                                      if (alreadyOrdered) {
+                                        showToast(
+                                          `Error: A lab test request for "${testName}" has already been sent for this patient. Cannot send 2 lab requests of the same name.`,
+                                          'error'
+                                        );
+                                        return;
+                                      }
+                                    }
                                     const next = e.target.checked
                                       ? [...selectedLabs, testName]
                                       : selectedLabs.filter((t) => t !== testName);
@@ -1765,7 +1953,7 @@ export default function DoctorDashboard() {
               {(() => {
                 const consList = getStorage(CMS_KEYS.CONSULTATIONS, []);
                 const rxList = getStorage(CMS_KEYS.PRESCRIPTIONS, []);
-                const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
+               const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
                 const q = historySearch.toLowerCase().trim();
 
                 const filtered = consList.filter((c) => {
@@ -2442,10 +2630,28 @@ export default function DoctorDashboard() {
                     return;
                   }
 
+                  const patientPendingOrders = getStorage(CMS_KEYS.LAB_ORDERS, []).filter(
+                    (o) =>
+                      String(o.patientId) === String(modalLabPatientId) &&
+                      o.status !== 'Completed' && o.status !== 'Cancelled'
+                  );
+                  const existingTestNames = new Set(
+                    patientPendingOrders.flatMap((o) => (o.tests || []).map((t) => (t || '').trim().toLowerCase()))
+                  );
+
+                  const duplicateTest = tests.find((t) => existingTestNames.has((t || '').trim().toLowerCase()));
+                  if (duplicateTest) {
+                    showToast(
+                      `Error: A lab test request for "${duplicateTest}" has already been sent for this patient. Cannot send 2 lab requests of the same name.`,
+                      'error'
+                    );
+                    return;
+                  }
+
                   setIsSubmittingLabRequest(true);
                   try {
                     const createdOrders = await doctorService.requestLabTest(modalLabPatientId, tests);
-                    const labList = getStorage(CMS_KEYS.LAB_ORDERS, []);
+                   const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
                     const firstId = createdOrders?.[0]?.LabPrescriptionId;
                     const newOrder = {
                       labOrderId: firstId ? `LAB-${firstId}` : `LAB-${Date.now()}`,
@@ -2459,7 +2665,7 @@ export default function DoctorDashboard() {
                       remarks: modalLabRemarks.trim(),
                       status: 'Pending'
                     };
-                    setStorage(CMS_KEYS.LAB_ORDERS, [newOrder, ...labList]);
+                    setStorage(CMS_KEYS.LAB_ORDERS, [newOrder, ...allLabOrders]);
                     window.dispatchEvent(new Event('cms_rx_updated'));
                     setIsLabRequestModalOpen(false);
                     showToast(`Lab request #${newOrder.labOrderId} dispatched to Laboratory queue!`, 'success');
@@ -2496,7 +2702,27 @@ export default function DoctorDashboard() {
                           type="checkbox"
                           checked={modalLabSelectedTests.includes(testName)}
                           onChange={(e) => {
-                            if (e.target.checked) setModalLabSelectedTests([...modalLabSelectedTests, testName]);
+                            if (e.target.checked) {
+                              if (modalLabPatientId) {
+                               const allLabOrders = getStorage(CMS_KEYS.LAB_ORDERS, []);
+                                const patientPendingOrders = allLabOrders.filter(
+                                  (o) =>
+                                    String(o.patientId) === String(modalLabPatientId) &&
+                                    o.status !== 'Completed' && o.status !== 'Cancelled'
+                                );
+                                const alreadyOrdered = patientPendingOrders.some((o) =>
+                                  (o.tests || []).some((t) => (t || '').trim().toLowerCase() === testName.trim().toLowerCase())
+                                );
+                                if (alreadyOrdered) {
+                                  showToast(
+                                    `Error: A lab test request for "${testName}" has already been sent for this patient. Cannot send 2 lab requests of the same name.`,
+                                    'error'
+                                  );
+                                  return;
+                                }
+                              }
+                              setModalLabSelectedTests([...modalLabSelectedTests, testName]);
+                            }
                             else setModalLabSelectedTests(modalLabSelectedTests.filter((t) => t !== testName));
                           }}
                         />

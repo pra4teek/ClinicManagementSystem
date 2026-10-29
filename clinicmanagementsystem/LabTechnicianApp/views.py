@@ -93,7 +93,14 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
             raise ValidationError({'tests': 'Choose at least one test.'})
 
         orders = []
+        seen_test_names = set()
         for name in tests:
+            clean_name = str(name).strip().lower()
+            if clean_name in seen_test_names:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'tests': f'Duplicate lab test request for "{name}" is not allowed.'})
+            seen_test_names.add(clean_name)
+
             lab_test = LabTest.objects.filter(TestName__iexact=str(name).strip(), isActive=True).first()
             if lab_test is None:
                 from rest_framework.exceptions import ValidationError
@@ -105,8 +112,8 @@ class LabPrescriptionViewSet(viewsets.ModelViewSet):
                 Status__in=('Pending', 'Sample collected', 'In Progress'),
             ).first()
             if existing_order is not None:
-                orders.append(existing_order)
-                continue
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'tests': f'A lab test request for "{lab_test.TestName}" has already been sent for this patient. Cannot send 2 lab requests of the same name.'})
             orders.append(LabPrescription.objects.create(
                 LabTestId=lab_test,
                 PatientId=patient,
