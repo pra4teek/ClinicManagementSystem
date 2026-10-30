@@ -300,6 +300,13 @@ class PharmacyBillItem(models.Model):
 class Bill(models.Model):
     BillId = models.AutoField(primary_key=True)
     PatientId = models.ForeignKey(Patient,on_delete=models.CASCADE)
+    LabPrescriptionId = models.ForeignKey(
+        LabPrescription,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bills',
+    )
     BillDate = models.DateField()
     Amount = models.DecimalField(max_digits=10,decimal_places=2)
     BillStatus = models.CharField(max_length=50)

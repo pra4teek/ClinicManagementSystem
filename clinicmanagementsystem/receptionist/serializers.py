@@ -174,6 +174,7 @@ class BillSerializer(serializers.ModelSerializer):
         fields = [
             "BillId",
             "PatientId",
+            "LabPrescriptionId",
             "BillDate",
             "Amount",
             "BillStatus",
@@ -185,6 +186,18 @@ class BillSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Bill amount must be greater than 0.")
         return value
+
+    def validate(self, data):
+        patient = data.get("PatientId", getattr(self.instance, "PatientId", None))
+        lab_prescription = data.get(
+            "LabPrescriptionId",
+            getattr(self.instance, "LabPrescriptionId", None),
+        )
+        if lab_prescription and patient and lab_prescription.PatientId_id != patient.PatientId:
+            raise serializers.ValidationError({
+                "LabPrescriptionId": "The lab order must belong to the billed patient."
+            })
+        return data
 
 
 class PaymentSerializer(serializers.ModelSerializer):

@@ -185,6 +185,7 @@ export default function LabTestList() {
       }
       const savedBill = await createApiLabBill({
         PatientId: patientId,
+        LabPrescriptionId: order.backendId,
         BillDate: bill.date,
         Amount: test.charge,
         BillStatus: 'Pending',
@@ -236,21 +237,16 @@ export default function LabTestList() {
   const selectedOrder = data.orders.find((order) => String(order.id) === String(selectedBill));
   const billForOrder = (order) => {
     if (!order) return null;
-    const testName = getLabTest(order.testId, data.testMaster).testName.trim().toLowerCase();
-    return data.bills.find((bill) => String(bill.patientId) === String(order.patientId)
-      && String(bill.testName || '').trim().toLowerCase() === testName);
+    return data.bills.find((bill) => (
+      String(bill.labPrescriptionId || '') === String(order.backendId || '')
+      || String(bill.testId || '') === String(order.id)
+    ));
   };
   const selectedOrderBill = billForOrder(selectedOrder);
   const billingHistory = useMemo(() => {
-    const uniqueBills = new Map();
-    data.bills.forEach((bill) => {
-      const key = `${String(bill.patientId || '').toLowerCase()}::${String(bill.testName || '').trim().toLowerCase()}`;
-      const existing = uniqueBills.get(key);
-      if (!existing || bill.status === 'Paid' || existing.status !== 'Paid') {
-        uniqueBills.set(key, bill);
-      }
-    });
-    return [...uniqueBills.values()];
+    return [...data.bills].sort((first, second) => (
+      (Number(second.billId || second.id) || 0) - (Number(first.billId || first.id) || 0)
+    ));
   }, [data.bills]);
   const filteredBillingHistory = useMemo(() => {
     const term = billingSearch.trim().toLowerCase();

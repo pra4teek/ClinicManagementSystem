@@ -183,17 +183,9 @@ function mapApiReport(report, orders) {
 
 function mapApiBill(bill, orders, testMaster) {
   const patientId = bill.PatientId ? `PAT-${String(bill.PatientId).padStart(4, '0')}` : '';
-  const matchingOrder = orders
-    .filter((order) => String(order.patientDbId) === String(bill.PatientId))
-    .filter((order) => {
-      const test = getLabTest(order.testId, testMaster);
-      return Number(test.charge) === Number(bill.Amount);
-    })
-    .sort((first, second) => {
-      const firstCompleted = first.status === 'Completed' ? 1 : 0;
-      const secondCompleted = second.status === 'Completed' ? 1 : 0;
-      return secondCompleted - firstCompleted;
-    })[0];
+  const matchingOrder = orders.find((order) => (
+    String(order.backendId || '') === String(bill.LabPrescriptionId || '')
+  ));
   const matchingTest = matchingOrder ? getLabTest(matchingOrder.testId, testMaster) : null;
   return {
     id: String(bill.BillId),
@@ -207,6 +199,7 @@ function mapApiBill(bill, orders, testMaster) {
     date: bill.BillDate || '',
     source: 'Lab',
     billType: bill.BillType || 'Laboratory Test',
+    labPrescriptionId: bill.LabPrescriptionId || '',
     testId: matchingOrder?.id || '',
     testName: matchingTest?.testName || '',
     BillId: bill.BillId,
